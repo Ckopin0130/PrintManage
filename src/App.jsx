@@ -746,6 +746,7 @@ const RecordForm = ({ initialData, onSubmit, onCancel, historyList, onHistoryFil
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [currentView, setCurrentView] = useState('dashboard');
+  const [returnPath, setReturnPath] = useState('roster');
   const [user, setUser] = useState(null);
   const [viewingImage, setViewingImage] = useState(null);
   
@@ -825,7 +826,7 @@ export default function App() {
   const [showAddressAlert, setShowAddressAlert] = useState(false);
   const defaultRecordForm = { 
       id: null, serviceSource: 'customer_call', symptom: '', action: '', status: 'completed', errorCode: '',
-      date: new Date().toISOString().split('T')[0], parts: [], types: []
+      date: new Date().toLocaleDateString('en-CA'),
   };
   const [editingRecordData, setEditingRecordData] = useState(defaultRecordForm); 
 
@@ -1018,33 +1019,49 @@ export default function App() {
   
   const handleDeleteCustomer = (e) => {
       if (e) { e.preventDefault(); e.stopPropagation(); }
+      
       if (!selectedCustomer || !selectedCustomer.customerID) return;
+      
       const targetId = selectedCustomer.customerID;
       const targetName = selectedCustomer.name;
+
       setConfirmDialog({
           isOpen: true,
           title: '刪除客戶資料',
           message: `確定要刪除客戶「${targetName}」嗎？此動作無法復原。`,
           onConfirm: async () => {
               setIsProcessing(true);
+
+              // --- 修正重點開始 ---
+              // 原本的邏輯會嘗試回到上一層 (L2)，但如果是搜尋進來的，L2 會沒資料導致空白
+              // 改為：刪除後一律強制回到「最上層客戶名冊 (L1)」，確保畫面有內容
               const goBack = () => {
-                 if (rosterLevel === 'l3') { setRosterLevel('l2'); setCurrentView('roster'); } 
-                 else { setRosterLevel('l1'); setCurrentView('roster'); }
+                 setRosterLevel('l1'); 
+                 setCurrentView('roster');
                  setSelectedCustomer(null); 
               };
+              // --- 修正重點結束 ---
+
               if (dbStatus === 'demo' || !user) {
+                  // 離線/Demo 模式刪除邏輯
                   setCustomers(prev => prev.filter(c => String(c.customerID) !== String(targetId)));
                   showToast('客戶已刪除');
                   goBack();
+                  setIsProcessing(false);
+                  setConfirmDialog(prev => ({ ...prev, isOpen: false }));
               } else {
+                  // 線上 Firebase 刪除邏輯
                   try {
                       await deleteDoc(doc(db, COLLECTION_CUSTOMERS, targetId));
                       showToast('客戶已刪除');
                       goBack();
-                  } catch (err) { console.error(err); showToast('刪除失敗', 'error'); }
+                  } catch (err) { 
+                      console.error(err); 
+                      showToast('刪除失敗', 'error'); 
+                  }
+                  setIsProcessing(false);
+                  setConfirmDialog(prev => ({ ...prev, isOpen: false }));
               }
-              setIsProcessing(false);
-              setConfirmDialog(prev => ({ ...prev, isOpen: false }));
           }
       });
   };
@@ -1560,7 +1577,7 @@ export default function App() {
 
       {(currentView === 'inventory' || activeTab === 'inventory') && <InventoryView inventory={inventory} onUpdateInventory={updateInventory} onAddInventory={addInventoryItem} onDeleteInventory={deleteInventoryItem} onRenameGroup={renameModelGroup} onBack={() => setCurrentView('dashboard')} />}
       {(currentView === 'records' || activeTab === 'records') && renderRecords()}
-      {currentView === 'search' && <SearchView customers={customers} records={records} onSelectCustomer={(c) => {setSelectedCustomer(c); setCurrentView('detail');}} onBack={() => setCurrentView('dashboard')} />}
+      {currentView === 'search' && <SearchView customers={customers} records={records} onSelectCustomer={(c) => {setSelectedCustomer(c); setReturnPath('search'); setCurrentView('detail');}} onBack={() => setCurrentView('dashboard')} />}
       {currentView === 'tracking' && renderTracking()}
       {currentView === 'worklog' && renderWorkLog()}
       {currentView === 'settings' && renderSettings()}
