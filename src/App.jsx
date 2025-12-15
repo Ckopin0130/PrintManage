@@ -1234,7 +1234,7 @@ export default function App() {
       <div className="bg-white pt-12 pb-6 px-6 shadow-sm mb-6 rounded-b-[2rem]">
          <div className="flex justify-between items-start mb-6">
            <div><div className="text-gray-400 text-xs font-bold uppercase tracking-wider mb-1">{today}</div><h1 className="text-3xl font-bold text-gray-800 tracking-tight">早安，工程師</h1></div>
-           <div className="relative"><button className="bg-gray-100 p-2.5 rounded-full text-gray-600 hover:bg-gray-200 transition-colors shadow-sm"><Bell size={24} /></button>{pendingTasks > 0 && <span className="absolute top-0 right-0 bg-red-500 w-3.5 h-3.5 rounded-full border-2 border-white"></span>}</div>
+           <div className="relative"><button onClick={() => setCurrentView('tracking')} className="bg-gray-100 p-2.5 rounded-full text-gray-600 hover:bg-gray-200 transition-colors shadow-sm"><Bell size={24} /></button>{pendingTasks > 0 && <span className="absolute top-0 right-0 bg-red-500 w-3.5 h-3.5 rounded-full border-2 border-white"></span>}</div>
          </div>
          <div className="grid grid-cols-3 gap-3 mb-6">
             <div onClick={() => setCurrentView('tracking')} className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl p-3 text-white shadow-lg shadow-blue-200 transform transition-transform hover:scale-105 active:scale-95 cursor-pointer flex flex-col justify-between h-28">
