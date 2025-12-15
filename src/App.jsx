@@ -4,7 +4,10 @@ import {
   ArrowLeft, Info, AlertTriangle, ChevronRight, Printer, Plus, Trash2, X, 
   Save, Edit, Building2, School, Tent, Users, Home, Bell, CheckCircle,
   Calendar, Clock, AlertCircle, Navigation, PhoneCall, Loader2, Database,
-  Cloud, RefreshCcw, Download, ShieldAlert, Upload, RefreshCw, Zap, Camera, Briefcase, PhoneIncoming, Layers, ChevronUp, ChevronDown, RotateCcw, Box, Package
+  Cloud, CloudOff, RefreshCcw, Download, ShieldAlert, Upload, FileJson,
+  Wrench, Droplet, FileCheck, RefreshCw, CheckSquare, Square, Map as MapIcon,
+  CornerDownRight, MoreVertical, ChevronDown, History, Filter, Tag, Zap, Camera, Briefcase, PhoneIncoming, ArrowRight, Image as ImageIcon,
+  Maximize2, Package, Box, AlertOctagon, RotateCcw, Layers, ChevronUp, MoreHorizontal, PenSquare, Edit3
 } from 'lucide-react';
 
 // --- 引入 Firebase ---
