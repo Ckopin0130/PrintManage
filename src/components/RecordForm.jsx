@@ -4,7 +4,6 @@ import {
   CheckCircle, Clock, AlertCircle, ClipboardList, PhoneIncoming, Briefcase, Package
 } from 'lucide-react';
 import { ref, uploadString, getDownloadURL } from 'firebase/storage';
-// 注意這裡的路徑：往上一層找 firebaseConfig
 import { storage } from '../firebaseConfig'; 
 
 // --- 常數定義 ---
@@ -77,7 +76,7 @@ const RecordForm = ({ initialData, onSubmit, onCancel, historyList, onHistoryFil
 
     const handleQuickSymptom = (e) => { const val = e.target.value; if (val) setForm(prev => ({ ...prev, symptom: val })); };
     
-    // ★ 核心修改：新增零件時檢查庫存
+    // 新增零件檢查庫存邏輯
     const addPart = () => { 
         if (!currentPart.name.trim()) return; 
         
@@ -139,7 +138,8 @@ const RecordForm = ({ initialData, onSubmit, onCancel, historyList, onHistoryFil
                     <History size={14} /> 歷史履歷快搜
                 </div>
                 <div className="relative">
-                    <input className="w-full bg-gray-50 border border-gray-200 rounded-md py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="輸入零件 (如: 定影, 鼓)..." value={filterText} onChange={e => onHistoryFilterChange(e.target.value)} />
+                    {/* 修正：text-sm 改為 text-base (防止手機縮放) */}
+                    <input className="w-full bg-gray-50 border border-gray-200 rounded-md py-2 px-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="輸入零件 (如: 定影, 鼓)..." value={filterText} onChange={e => onHistoryFilterChange(e.target.value)} />
                     {filterText && <button onClick={() => onHistoryFilterChange('')} className="absolute right-3 top-2.5 text-gray-400"><X size={14}/></button>}
                 </div>
                 {historyList.length > 0 && (
@@ -171,7 +171,8 @@ const RecordForm = ({ initialData, onSubmit, onCancel, historyList, onHistoryFil
             <section className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
                 <div className="bg-gray-50 px-5 py-3 border-b border-gray-200 flex items-center justify-between">
                     <div className="flex items-center gap-2"><div className="bg-blue-100 p-1 rounded text-blue-700"><FileText className="w-3.5 h-3.5" /></div><h2 className="font-bold text-gray-700 text-sm">維修紀錄表</h2></div>
-                    <input type="date" className="bg-transparent text-xs font-mono text-gray-500 outline-none text-right" value={form.date} onChange={e => setForm({...form, date: e.target.value})} />
+                    {/* 修正：text-xs 改為 text-base (日期選擇器也可能觸發縮放) */}
+                    <input type="date" className="bg-transparent text-base font-mono text-gray-500 outline-none text-right" value={form.date} onChange={e => setForm({...form, date: e.target.value})} />
                 </div>
                 <div className="p-5 space-y-8 relative">
                     <div className="absolute left-[34px] top-[60px] bottom-[60px] w-0.5 bg-blue-100/50"></div>
@@ -180,22 +181,28 @@ const RecordForm = ({ initialData, onSubmit, onCancel, historyList, onHistoryFil
                         <div className="flex justify-between items-center mb-2">
                              <label className="text-sm font-bold text-gray-700">故障描述</label>
                             <div className="relative">
-                                <select className="absolute opacity-0 inset-0 w-full cursor-pointer z-10" onChange={handleQuickSymptom} value=""><option value="" disabled>選擇...</option>
+                                {/* 修正：opacity-0 的 select 雖然看不到，但為了保險起見也可以加 text-base */}
+                                <select className="absolute opacity-0 inset-0 w-full cursor-pointer z-10 text-base" onChange={handleQuickSymptom} value=""><option value="" disabled>選擇...</option>
                                       {Object.entries(SYMPTOM_CATEGORIES).map(([category, items]) => (<optgroup key={category} label={category}>{items.map(item => <option key={item} value={item}>{item}</option>)}</optgroup>))}
                                 </select>
                                 <button type="button" className="flex items-center gap-1 text-[11px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded hover:bg-blue-100 transition"><Zap className="w-3 h-3 fill-current" />快速帶入</button>
                             </div>
                         </div>
                         <div className="space-y-3">
-                            <input type="text" className="w-full text-sm text-gray-800 bg-gray-50 border border-gray-300 rounded-md py-2.5 px-3 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none" placeholder="請輸入故障情形..." value={form.symptom} onChange={(e) => setForm({...form, symptom: e.target.value})} />
-                            <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded px-2 py-1 shadow-sm w-fit"><span className="text-[10px] font-bold text-gray-500 uppercase">SC Code</span><input type="text" placeholder="---" className="w-16 bg-transparent text-sm uppercase focus:outline-none font-mono text-gray-700 font-bold" value={form.errorCode} onChange={(e) => setForm({...form, errorCode: e.target.value.toUpperCase()})} /></div>
+                            {/* 修正：text-sm 改為 text-base */}
+                            <input type="text" className="w-full text-base text-gray-800 bg-gray-50 border border-gray-300 rounded-md py-2.5 px-3 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none" placeholder="請輸入故障情形..." value={form.symptom} onChange={(e) => setForm({...form, symptom: e.target.value})} />
+                            <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded px-2 py-1 shadow-sm w-fit"><span className="text-[10px] font-bold text-gray-500 uppercase">SC Code</span>
+                                {/* 修正：text-sm 改為 text-base */}
+                                <input type="text" placeholder="---" className="w-16 bg-transparent text-base uppercase focus:outline-none font-mono text-gray-700 font-bold" value={form.errorCode} onChange={(e) => setForm({...form, errorCode: e.target.value.toUpperCase()})} />
+                            </div>
                         </div>
                     </div>
                     
                     <div className="relative pl-10">
                         <div className="absolute left-1 top-0.5 w-7 h-7 bg-white border-2 border-blue-600 rounded text-blue-700 flex items-center justify-center text-xs font-bold z-10 shadow-sm">2</div>
                         <label className="block text-sm font-bold text-gray-700 mb-2">處置對策</label>
-                        <textarea rows="3" className="w-full text-sm text-gray-800 bg-gray-50 border border-gray-300 rounded-md p-3 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none resize-none" placeholder="請詳述處理過程..." value={form.action} onChange={(e) => setForm({...form, action: e.target.value})} ></textarea>
+                        {/* 修正：text-sm 改為 text-base */}
+                        <textarea rows="3" className="w-full text-base text-gray-800 bg-gray-50 border border-gray-300 rounded-md p-3 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none resize-none" placeholder="請詳述處理過程..." value={form.action} onChange={(e) => setForm({...form, action: e.target.value})} ></textarea>
                     </div>
                     <div className="relative pl-10">
                         <div className="absolute left-1 top-0.5 w-7 h-7 bg-white border-2 border-gray-400 rounded text-gray-500 flex items-center justify-center text-xs font-bold z-10 shadow-sm">3</div>
@@ -203,15 +210,17 @@ const RecordForm = ({ initialData, onSubmit, onCancel, historyList, onHistoryFil
                         
                         {/* 零件輸入區塊 */}
                         <div className="flex gap-2 mb-1">
-                            <input list="part-suggestions" type="text" placeholder="料號 / 品名" className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" value={currentPart.name} onChange={(e) => setCurrentPart({...currentPart, name: e.target.value})} />
+                            {/* 修正：text-sm 改為 text-base */}
+                            <input list="part-suggestions" type="text" placeholder="料號 / 品名" className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-base focus:ring-2 focus:ring-blue-500 outline-none" value={currentPart.name} onChange={(e) => setCurrentPart({...currentPart, name: e.target.value})} />
                             <datalist id="part-suggestions">
                                 {inventory.map(item => (<option key={item.id} value={item.name}>[{item.model}] {item.name} - 庫存:{item.qty}</option>))}
                             </datalist>
-                            <input type="number" className="w-14 border border-gray-300 rounded-md px-2 py-2 text-center text-sm outline-none" value={currentPart.qty} min="1" onChange={(e) => setCurrentPart({...currentPart, qty: Number(e.target.value)})} />
+                            {/* 修正：text-sm 改為 text-base */}
+                            <input type="number" className="w-14 border border-gray-300 rounded-md px-2 py-2 text-center text-base outline-none" value={currentPart.qty} min="1" onChange={(e) => setCurrentPart({...currentPart, qty: Number(e.target.value)})} />
                             <button type="button" onClick={addPart} className="bg-gray-800 text-white w-9 h-9 rounded-md flex items-center justify-center hover:bg-black transition shadow-sm"><Plus className="w-5 h-5" /></button>
                         </div>
 
-                        {/* ★ 新增：即時顯示庫存狀態 */}
+                        {/* 即時顯示庫存狀態 */}
                         <div className="min-h-[20px] mb-3">
                             {currentStockItem ? (
                                 <div className={`text-xs font-bold flex items-center ${currentStockItem.qty > 0 ? 'text-blue-600' : 'text-red-600'}`}>
