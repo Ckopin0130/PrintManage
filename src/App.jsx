@@ -33,7 +33,7 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [customers, setCustomers] = useState([]);
   const [records, setRecords] = useState([]);
-  const [inventory, setInventory] = useState(INITIAL_INVENTORY);
+  const [inventory, setInventory] = useState(INITIAL_INVENTORY); // 預設值僅供備用
   const [dbStatus, setDbStatus] = useState('offline');
   const [isLoading, setIsLoading] = useState(true);
 
@@ -77,17 +77,18 @@ export default function App() {
     ).sort((a,b) => new Date(b.date) - new Date(a.date));
   }, [historyFilter, selectedCustomer, records]);
 
-  // --- 3. Firebase 連線邏輯 (修正：加入庫存同步) ---
+  // --- 3. Firebase 連線邏輯 (修正重點：加入庫存同步) ---
   useEffect(() => {
     setDbStatus('connecting');
     const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
+        // 設定資料庫路徑
         const custRef = collection(db, 'customers');
         const recRef = collection(db, 'records');
-        const invRef = collection(db, 'inventory'); // 新增：庫存連線
+        const invRef = collection(db, 'inventory'); // [修正] 加入庫存資料表
         
-        // 1. 監聽客戶
+        // 1. 監聽客戶資料
         const unsubCust = onSnapshot(custRef, (snapshot) => {
             if (!snapshot.empty) {
               const data = snapshot.docs.map(d => ({ ...d.data(), customerID: d.id }));
@@ -99,7 +100,7 @@ export default function App() {
           (err) => { 
             console.error("連線錯誤", err); 
             setDbStatus('error');
-            // 離線備案
+            // 連線失敗時載入預設資料
             setCustomers(FULL_IMPORT_DATA);
             setRecords(MOCK_RECORDS);
             setInventory(INITIAL_INVENTORY);
@@ -116,19 +117,22 @@ export default function App() {
             } else { setRecords(MOCK_RECORDS); }
         });
 
-        // 3. 監聽庫存 (新增)
+        // 3. [修正] 監聽庫存資料 (這一段原本少了，所以重開會不見)
         const unsubInv = onSnapshot(invRef, (snapshot) => {
           if (!snapshot.empty) {
               const data = snapshot.docs.map(d => ({ ...d.data(), id: d.id }));
               setInventory(data);
           } else { 
-              // 如果資料庫是空的，載入預設值
+              // 如果雲端是空的，載入預設值
               setInventory(INITIAL_INVENTORY); 
           }
         });
 
+        // 組件卸載時取消所有監聽
         return () => { unsubCust(); unsubRec(); unsubInv(); };
+
       } else { 
+        // 匿名登入 (保持離線資料顯示)
         signInAnonymously(auth).catch((error) => {
              console.error("登入失敗", error);
              setDbStatus('offline');
@@ -166,24 +170,29 @@ export default function App() {
 
   // --- 5. 資料庫操作 (CRUD) Handlers ---
   
-  // --- 庫存操作 (修正：寫入 Firebase) ---
+  // --- [修正重點] 庫存操作現在會寫入 Firebase ---
+  
+  // 更新單一零件 (數量、名稱)
   const updateInventory = async (item) => {
-    // 本地先更新，使用者體驗較快
+    // 為了畫面順暢，先改本地
     setInventory(prev => prev.map(i => i.id === item.id ? item : i));
     
     if (dbStatus === 'demo' || !user) {
-       showToast('庫存資料已更新 (離線)');
+       showToast('庫存已更新 (離線)');
        return;
     }
     try {
+       // 寫入雲端
        await setDoc(doc(db, 'inventory', item.id), item);
        showToast('庫存資料已更新');
     } catch (e) { console.error(e); showToast('更新失敗', 'error'); }
   };
 
+  // 新增零件
   const addInventoryItem = async (newItem) => {
-    const newId = `p-${Date.now()}`;
+    const newId = `p-${Date.now()}`; // 產生唯一 ID
     const itemWithId = { ...newItem, id: newId };
+    
     setInventory(prev => [...prev, itemWithId]);
 
     if (dbStatus === 'demo' || !user) {
@@ -191,11 +200,13 @@ export default function App() {
        return;
     }
     try {
+       // 寫入雲端
        await setDoc(doc(db, 'inventory', newId), itemWithId);
        showToast('新零件已加入');
     } catch (e) { console.error(e); showToast('新增失敗', 'error'); }
   };
 
+  // 刪除零件
   const deleteInventoryItem = async (id) => {
     setInventory(prev => prev.filter(i => i.id !== id));
 
@@ -204,48 +215,51 @@ export default function App() {
        return;
     }
     try {
+       // 從雲端移除
        await deleteDoc(doc(db, 'inventory', id));
        showToast('零件已刪除');
     } catch (e) { console.error(e); showToast('刪除失敗', 'error'); }
   };
 
-  // 修正：批次更新分類名稱
+  // [修正] 修改分類名稱 (需同時修改該分類下所有零件)
   const renameModelGroup = async (oldModel, newModel) => {
-    // 1. 本地更新
+    // 1. 本地更新 (讓使用者覺得很快)
     setInventory(prev => prev.map(item => item.model === oldModel ? { ...item, model: newModel } : item));
 
     if (dbStatus === 'demo' || !user) {
-      showToast(`機型分類已更新：${newModel} (離線)`);
+      showToast(`分類已更新：${newModel} (離線)`);
       return;
     }
 
-    // 2. 資料庫批次更新
+    // 2. 雲端批次更新 (Batch Write)
     try {
       const batch = writeBatch(db);
-      // 找出所有屬於該分類的零件
+      // 找出所有屬於舊分類名稱的零件
       const itemsToUpdate = inventory.filter(i => i.model === oldModel);
       
       if (itemsToUpdate.length === 0) return;
 
+      // 逐一加入批次指令
       itemsToUpdate.forEach(item => {
         const ref = doc(db, 'inventory', item.id);
         batch.update(ref, { model: newModel });
       });
       
+      // 一次送出所有修改
       await batch.commit();
-      showToast(`機型分類已更新：${newModel}`);
+      showToast(`分類已更新：${newModel}`);
     } catch (e) {
       console.error(e);
       showToast('更新失敗', 'error');
     }
   };
 
-  // --- 客戶與紀錄相關 ---
+  // --- 客戶與紀錄相關 (保持原本邏輯) ---
   const handleResetData = async () => {
     setConfirmDialog({
         isOpen: true,
         title: '⚠️ 危險操作',
-        message: '此操作將「清空」目前所有資料，並匯入完整的預設資料表。確定要執行嗎？',
+        message: '此操作將「清空」資料庫，並匯入預設資料。確定要執行嗎？',
         onConfirm: async () => {
             setIsProcessing(true);
             if (dbStatus === 'demo' || !db) {
@@ -256,13 +270,13 @@ export default function App() {
             } else {
                 try {
                     const batch = writeBatch(db);
-                    // 清除舊資料 (注意：這裡只示範清除 customers，實際應用可能要清除 inventory/records)
+                    // 清除舊資料
                     customers.forEach(c => batch.delete(doc(db, 'customers', c.customerID)));
-                    inventory.forEach(i => batch.delete(doc(db, 'inventory', i.id))); // 清除庫存
+                    inventory.forEach(i => batch.delete(doc(db, 'inventory', i.id))); // 也清除庫存
                     
                     // 匯入預設資料
                     FULL_IMPORT_DATA.forEach(c => batch.set(doc(db, 'customers', c.customerID), c));
-                    INITIAL_INVENTORY.forEach(i => batch.set(doc(db, 'inventory', i.id), i)); // 匯入預設庫存
+                    INITIAL_INVENTORY.forEach(i => batch.set(doc(db, 'inventory', i.id), i)); // 也匯入庫存
 
                     await batch.commit();
                     showToast('系統已重置');
@@ -286,20 +300,21 @@ export default function App() {
         isTracking: formData.status === 'pending'
     };
     
-    // 扣庫存邏輯 (修正：同步寫入 DB)
+    // [修正] 填維修單時扣庫存，也要同步到 Firebase
     if (formData.parts && formData.parts.length > 0) {
-      const batch = writeBatch(db); // 使用 batch 確保一致性
+      const batch = writeBatch(db); // 使用 Batch 確保資料一致
       let hasUpdates = false;
 
-      // 為了安全起見，我們遍歷 inventory 狀態來找 ID
-      // (在更嚴謹的系統中，應該用 Transaction，但這裡用 Batch 已經足夠)
       formData.parts.forEach(part => {
+        // 在現有庫存中找到該零件
         const item = inventory.find(i => i.name === part.name);
         if (item) {
            const newQty = Math.max(0, item.qty - part.qty);
-           // 本地更新 (為了畫面即時)
+           
+           // 更新本地
            updateInventory({...item, qty: newQty}); 
-           // DB 更新準備
+           
+           // 準備更新雲端
            if (dbStatus !== 'demo' && user) {
              const ref = doc(db, 'inventory', item.id);
              batch.update(ref, { qty: newQty });
@@ -308,18 +323,20 @@ export default function App() {
         }
       });
       
+      // 送出庫存扣除指令
       if (hasUpdates && dbStatus !== 'demo' && user) {
         await batch.commit();
       }
     }
 
+    // 儲存維修單
     if (dbStatus === 'demo' || !user) {
         setRecords(prev => {
             const exists = prev.find(r => r.id === recId);
             if (exists) return prev.map(r => r.id === recId ? newRecord : r);
             return [newRecord, ...prev];
         });
-        showToast(formData.id ? '紀錄已更新' : '紀錄已新增 (庫存已扣除)');
+        showToast(formData.id ? '紀錄已更新' : '紀錄已新增');
     } else {
         try {
             await setDoc(doc(db, 'records', recId), newRecord);
@@ -468,21 +485,17 @@ export default function App() {
   return (
     <div className="max-w-md mx-auto bg-gray-100 min-h-screen font-sans text-gray-900 shadow-2xl relative overflow-hidden">
       <GlobalStyles />
-      {/* 載入中畫面 */}
       {isLoading && <div className="absolute inset-0 bg-white z-[60] flex flex-col items-center justify-center"><Loader2 size={48} className="text-blue-600 animate-spin mb-4" /><p className="text-gray-500 font-bold">資料同步中...</p></div>}
       
-      {/* 全域 UI 元件 */}
       <ImageViewer src={viewingImage} onClose={() => setViewingImage(null)} />
       <ConfirmDialog {...confirmDialog} onCancel={() => setConfirmDialog({...confirmDialog, isOpen: false})} isProcessing={isProcessing} />
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       
-      {/* 資料庫狀態指示燈 */}
       <div className="fixed top-4 right-4 z-[55] pointer-events-none">
         <div className={`transition-all duration-500 transform ${dbStatus === 'online' ? 'translate-y-0 opacity-100' : '-translate-y-2 opacity-0'}`}><div className="w-3 h-3 bg-green-500 rounded-full shadow-lg shadow-green-200 ring-2 ring-white"></div></div>
         <div className={`transition-all duration-500 transform absolute top-0 right-0 ${dbStatus !== 'online' ? 'translate-y-0 opacity-100' : '-translate-y-2 opacity-0'}`}><div className={`w-3 h-3 rounded-full shadow-lg ring-2 ring-white ${dbStatus === 'connecting' ? 'bg-yellow-400 animate-pulse' : (dbStatus === 'demo' ? 'bg-blue-500' : 'bg-red-500')}`}></div></div>
       </div>
 
-      {/* 主要內容區 */}
       {currentView === 'dashboard' && (
         <Dashboard 
           today={today} dbStatus={dbStatus} pendingTasks={pendingTasks} 
@@ -566,10 +579,8 @@ export default function App() {
         />
       )}
 
-      {/* 底部導覽列 */}
       <BottomNavigation activeTab={activeTab} onTabChange={handleTabChange} />
 
-      {/* 底部彈窗 (Action Sheets) */}
       {showPhoneSheet && <PhoneActionSheet phones={targetCustomer?.phones} onClose={() => setShowPhoneSheet(false)} />}
       {showAddressAlert && <AddressAlertDialog customer={targetCustomer} onClose={() => setShowAddressAlert(false)} />}
     </div>
