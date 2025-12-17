@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { 
   ArrowLeft, History, X, FileText, Zap, Plus, Trash2, Camera, Loader2, Save,
-  CheckCircle, Clock, AlertCircle, ClipboardList, PhoneIncoming, Briefcase
+  CheckCircle, Clock, AlertCircle, ClipboardList, PhoneIncoming, Briefcase, Package
 } from 'lucide-react';
 import { ref, uploadString, getDownloadURL } from 'firebase/storage';
 // 注意這裡的路徑：往上一層找 firebaseConfig
@@ -72,8 +72,31 @@ const RecordForm = ({ initialData, onSubmit, onCancel, historyList, onHistoryFil
     const [previews, setPreviews] = useState({ before: initialData.photoBefore || null, after: initialData.photoAfter || null });
     const [isSubmitting, setIsSubmitting] = useState(false);
 
+    // 取得目前輸入的零件在資料庫中的庫存狀態
+    const currentStockItem = inventory.find(i => i.name === currentPart.name);
+
     const handleQuickSymptom = (e) => { const val = e.target.value; if (val) setForm(prev => ({ ...prev, symptom: val })); };
-    const addPart = () => { if (!currentPart.name.trim()) return; setForm(prev => ({ ...prev, parts: [...(prev.parts || []), { ...currentPart, id: Date.now() }] })); setCurrentPart({ name: "", qty: 1 }); };
+    
+    // ★ 核心修改：新增零件時檢查庫存
+    const addPart = () => { 
+        if (!currentPart.name.trim()) return; 
+        
+        // 檢查：如果庫存表裡面有這個零件，就要檢查數量
+        if (currentStockItem) {
+            if (currentStockItem.qty <= 0) {
+                alert(`「${currentStockItem.name}」目前已無庫存 (0 ${currentStockItem.unit})！無法領用。`);
+                return;
+            }
+            if (currentPart.qty > currentStockItem.qty) {
+                alert(`庫存不足！\n目前庫存：${currentStockItem.qty} ${currentStockItem.unit}\n您欲領用：${currentPart.qty} ${currentStockItem.unit}`);
+                return;
+            }
+        }
+
+        setForm(prev => ({ ...prev, parts: [...(prev.parts || []), { ...currentPart, id: Date.now() }] })); 
+        setCurrentPart({ name: "", qty: 1 }); 
+    };
+
     const removePart = (id) => { setForm(prev => ({ ...prev, parts: prev.parts.filter(p => p.id !== id) })); };
 
     const handleFileChange = async (e, type) => {
@@ -176,8 +199,10 @@ const RecordForm = ({ initialData, onSubmit, onCancel, historyList, onHistoryFil
                     </div>
                     <div className="relative pl-10">
                         <div className="absolute left-1 top-0.5 w-7 h-7 bg-white border-2 border-gray-400 rounded text-gray-500 flex items-center justify-center text-xs font-bold z-10 shadow-sm">3</div>
-                        <label className="text-sm font-bold text-gray-700 mb-3 block">零件更換</label>
-                        <div className="flex gap-2 mb-3">
+                        <label className="text-sm font-bold text-gray-700 mb-2 block">零件更換</label>
+                        
+                        {/* 零件輸入區塊 */}
+                        <div className="flex gap-2 mb-1">
                             <input list="part-suggestions" type="text" placeholder="料號 / 品名" className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" value={currentPart.name} onChange={(e) => setCurrentPart({...currentPart, name: e.target.value})} />
                             <datalist id="part-suggestions">
                                 {inventory.map(item => (<option key={item.id} value={item.name}>[{item.model}] {item.name} - 庫存:{item.qty}</option>))}
@@ -185,6 +210,20 @@ const RecordForm = ({ initialData, onSubmit, onCancel, historyList, onHistoryFil
                             <input type="number" className="w-14 border border-gray-300 rounded-md px-2 py-2 text-center text-sm outline-none" value={currentPart.qty} min="1" onChange={(e) => setCurrentPart({...currentPart, qty: Number(e.target.value)})} />
                             <button type="button" onClick={addPart} className="bg-gray-800 text-white w-9 h-9 rounded-md flex items-center justify-center hover:bg-black transition shadow-sm"><Plus className="w-5 h-5" /></button>
                         </div>
+
+                        {/* ★ 新增：即時顯示庫存狀態 */}
+                        <div className="min-h-[20px] mb-3">
+                            {currentStockItem ? (
+                                <div className={`text-xs font-bold flex items-center ${currentStockItem.qty > 0 ? 'text-blue-600' : 'text-red-600'}`}>
+                                    <Package size={12} className="mr-1"/>
+                                    目前庫存: {currentStockItem.qty} {currentStockItem.unit}
+                                    {currentStockItem.qty <= 0 && <span className="ml-2 bg-red-100 text-red-600 px-1 rounded">缺貨中</span>}
+                                </div>
+                            ) : (
+                                currentPart.name && <div className="text-xs text-gray-400">此零件不在庫存清單中</div>
+                            )}
+                        </div>
+
                         {(form.parts && form.parts.length > 0) ? (
                             <div className="border border-gray-200 rounded-md overflow-hidden shadow-sm">
                                 <table className="w-full text-sm text-left">
