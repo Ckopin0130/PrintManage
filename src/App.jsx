@@ -33,7 +33,7 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [customers, setCustomers] = useState([]);
   const [records, setRecords] = useState([]);
-  const [inventory, setInventory] = useState(INITIAL_INVENTORY); // 預設值僅供備用
+  const [inventory, setInventory] = useState(INITIAL_INVENTORY);
   const [dbStatus, setDbStatus] = useState('offline');
   const [isLoading, setIsLoading] = useState(true);
 
@@ -77,18 +77,17 @@ export default function App() {
     ).sort((a,b) => new Date(b.date) - new Date(a.date));
   }, [historyFilter, selectedCustomer, records]);
 
-  // --- 3. Firebase 連線邏輯 (修正重點：加入庫存同步) ---
+  // --- 3. Firebase 連線邏輯 (已修正：加入庫存同步) ---
   useEffect(() => {
     setDbStatus('connecting');
     const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
-        // 設定資料庫路徑
         const custRef = collection(db, 'customers');
         const recRef = collection(db, 'records');
         const invRef = collection(db, 'inventory'); // [修正] 加入庫存資料表
-        
-        // 1. 監聽客戶資料
+
+        // 1. 客戶資料監聽
         const unsubCust = onSnapshot(custRef, (snapshot) => {
             if (!snapshot.empty) {
               const data = snapshot.docs.map(d => ({ ...d.data(), customerID: d.id }));
@@ -100,7 +99,6 @@ export default function App() {
           (err) => { 
             console.error("連線錯誤", err); 
             setDbStatus('error');
-            // 連線失敗時載入預設資料
             setCustomers(FULL_IMPORT_DATA);
             setRecords(MOCK_RECORDS);
             setInventory(INITIAL_INVENTORY);
@@ -108,7 +106,7 @@ export default function App() {
           }
         );
 
-        // 2. 監聽維修紀錄
+        // 2. 維修紀錄監聽
         const recentRecordsQuery = query(recRef, orderBy('date', 'desc'), limit(300));
         const unsubRec = onSnapshot(recentRecordsQuery, (snapshot) => {
             if (!snapshot.empty) {
@@ -117,22 +115,30 @@ export default function App() {
             } else { setRecords(MOCK_RECORDS); }
         });
 
-        // 3. [修正] 監聽庫存資料 (這一段原本少了，所以重開會不見)
+        // 3. [修正] 庫存資料監聽 (這一段原本你漏掉了！)
         const unsubInv = onSnapshot(invRef, (snapshot) => {
           if (!snapshot.empty) {
+              // 資料庫有資料，正常載入
               const data = snapshot.docs.map(d => ({ ...d.data(), id: d.id }));
               setInventory(data);
           } else { 
-              // 如果雲端是空的，載入預設值
+              // 資料庫是空的！自動執行初始化：把預設資料寫入資料庫
+              if (currentUser) {
+                  const batch = writeBatch(db);
+                  INITIAL_INVENTORY.forEach(item => {
+                      const itemId = item.id || `init-${Math.random().toString(36).substr(2, 9)}`;
+                      const itemRef = doc(db, 'inventory', itemId);
+                      batch.set(itemRef, { ...item, id: itemId });
+                  });
+                  batch.commit().catch(err => console.error("庫存初始化失敗", err));
+              }
               setInventory(INITIAL_INVENTORY); 
           }
         });
 
-        // 組件卸載時取消所有監聽
         return () => { unsubCust(); unsubRec(); unsubInv(); };
 
       } else { 
-        // 匿名登入 (保持離線資料顯示)
         signInAnonymously(auth).catch((error) => {
              console.error("登入失敗", error);
              setDbStatus('offline');
@@ -170,96 +176,61 @@ export default function App() {
 
   // --- 5. 資料庫操作 (CRUD) Handlers ---
   
-  // --- [修正重點] 庫存操作現在會寫入 Firebase ---
-  
-  // 更新單一零件 (數量、名稱)
+  // [修正] 更新庫存 - 加入 setDoc 寫入資料庫
   const updateInventory = async (item) => {
-    // 為了畫面順暢，先改本地
-    setInventory(prev => prev.map(i => i.id === item.id ? item : i));
-    
-    if (dbStatus === 'demo' || !user) {
-       showToast('庫存已更新 (離線)');
-       return;
-    }
+    setInventory(prev => prev.map(i => i.id === item.id ? item : i)); // 本地先更新
+    if (dbStatus === 'demo' || !user) { showToast('庫存已更新 (離線)'); return; }
     try {
-       // 寫入雲端
        await setDoc(doc(db, 'inventory', item.id), item);
        showToast('庫存資料已更新');
     } catch (e) { console.error(e); showToast('更新失敗', 'error'); }
   };
 
-  // 新增零件
+  // [修正] 新增庫存 - 加入 setDoc 寫入資料庫
   const addInventoryItem = async (newItem) => {
-    const newId = `p-${Date.now()}`; // 產生唯一 ID
+    const newId = `p-${Date.now()}`;
     const itemWithId = { ...newItem, id: newId };
-    
-    setInventory(prev => [...prev, itemWithId]);
-
-    if (dbStatus === 'demo' || !user) {
-       showToast('新零件已加入 (離線)');
-       return;
-    }
+    setInventory(prev => [...prev, itemWithId]); // 本地先更新
+    if (dbStatus === 'demo' || !user) { showToast('新零件已加入 (離線)'); return; }
     try {
-       // 寫入雲端
        await setDoc(doc(db, 'inventory', newId), itemWithId);
        showToast('新零件已加入');
     } catch (e) { console.error(e); showToast('新增失敗', 'error'); }
   };
 
-  // 刪除零件
+  // [修正] 刪除庫存 - 加入 deleteDoc 從資料庫移除
   const deleteInventoryItem = async (id) => {
-    setInventory(prev => prev.filter(i => i.id !== id));
-
-    if (dbStatus === 'demo' || !user) {
-       showToast('零件已刪除 (離線)');
-       return;
-    }
+    setInventory(prev => prev.filter(i => i.id !== id)); // 本地先更新
+    if (dbStatus === 'demo' || !user) { showToast('零件已刪除 (離線)'); return; }
     try {
-       // 從雲端移除
        await deleteDoc(doc(db, 'inventory', id));
        showToast('零件已刪除');
     } catch (e) { console.error(e); showToast('刪除失敗', 'error'); }
   };
 
-  // [修正] 修改分類名稱 (需同時修改該分類下所有零件)
+  // [修正] 批次修改分類名稱 - 加入 writeBatch
   const renameModelGroup = async (oldModel, newModel) => {
-    // 1. 本地更新 (讓使用者覺得很快)
     setInventory(prev => prev.map(item => item.model === oldModel ? { ...item, model: newModel } : item));
-
-    if (dbStatus === 'demo' || !user) {
-      showToast(`分類已更新：${newModel} (離線)`);
-      return;
-    }
-
-    // 2. 雲端批次更新 (Batch Write)
+    if (dbStatus === 'demo' || !user) { showToast(`分類已更新：${newModel} (離線)`); return; }
     try {
       const batch = writeBatch(db);
-      // 找出所有屬於舊分類名稱的零件
       const itemsToUpdate = inventory.filter(i => i.model === oldModel);
-      
       if (itemsToUpdate.length === 0) return;
-
-      // 逐一加入批次指令
       itemsToUpdate.forEach(item => {
         const ref = doc(db, 'inventory', item.id);
         batch.update(ref, { model: newModel });
       });
-      
-      // 一次送出所有修改
       await batch.commit();
       showToast(`分類已更新：${newModel}`);
-    } catch (e) {
-      console.error(e);
-      showToast('更新失敗', 'error');
-    }
+    } catch (e) { console.error(e); showToast('更新失敗', 'error'); }
   };
 
-  // --- 客戶與紀錄相關 (保持原本邏輯) ---
+  // --- 客戶與紀錄相關操作 (保持不變) ---
   const handleResetData = async () => {
     setConfirmDialog({
         isOpen: true,
         title: '⚠️ 危險操作',
-        message: '此操作將「清空」資料庫，並匯入預設資料。確定要執行嗎？',
+        message: '此操作將「清空」並重置所有資料。確定要執行嗎？',
         onConfirm: async () => {
             setIsProcessing(true);
             if (dbStatus === 'demo' || !db) {
@@ -270,14 +241,13 @@ export default function App() {
             } else {
                 try {
                     const batch = writeBatch(db);
-                    // 清除舊資料
+                    // 清除客戶與庫存資料
                     customers.forEach(c => batch.delete(doc(db, 'customers', c.customerID)));
-                    inventory.forEach(i => batch.delete(doc(db, 'inventory', i.id))); // 也清除庫存
-                    
-                    // 匯入預設資料
+                    inventory.forEach(i => batch.delete(doc(db, 'inventory', i.id)));
+                    // 重新寫入預設值
                     FULL_IMPORT_DATA.forEach(c => batch.set(doc(db, 'customers', c.customerID), c));
-                    INITIAL_INVENTORY.forEach(i => batch.set(doc(db, 'inventory', i.id), i)); // 也匯入庫存
-
+                    INITIAL_INVENTORY.forEach(i => batch.set(doc(db, 'inventory', i.id), i));
+                    
                     await batch.commit();
                     showToast('系統已重置');
                 } catch(e) { console.error(e); }
@@ -302,19 +272,13 @@ export default function App() {
     
     // [修正] 填維修單時扣庫存，也要同步到 Firebase
     if (formData.parts && formData.parts.length > 0) {
-      const batch = writeBatch(db); // 使用 Batch 確保資料一致
+      const batch = writeBatch(db); 
       let hasUpdates = false;
-
       formData.parts.forEach(part => {
-        // 在現有庫存中找到該零件
         const item = inventory.find(i => i.name === part.name);
         if (item) {
            const newQty = Math.max(0, item.qty - part.qty);
-           
-           // 更新本地
-           updateInventory({...item, qty: newQty}); 
-           
-           // 準備更新雲端
+           updateInventory({...item, qty: newQty}); // 更新本地
            if (dbStatus !== 'demo' && user) {
              const ref = doc(db, 'inventory', item.id);
              batch.update(ref, { qty: newQty });
@@ -322,14 +286,9 @@ export default function App() {
            }
         }
       });
-      
-      // 送出庫存扣除指令
-      if (hasUpdates && dbStatus !== 'demo' && user) {
-        await batch.commit();
-      }
+      if (hasUpdates && dbStatus !== 'demo' && user) await batch.commit();
     }
 
-    // 儲存維修單
     if (dbStatus === 'demo' || !user) {
         setRecords(prev => {
             const exists = prev.find(r => r.id === recId);
@@ -407,7 +366,6 @@ export default function App() {
       address: formData.address, addressNote: formData.addressNote || '', notes: formData.notes || '',
       phones: updatedPhones, assets: updatedAssets
     };
-
     if (dbStatus === 'demo' || !user) {
         setCustomers(prev => prev.map(c => c.customerID === selectedCustomer.customerID ? updatedEntry : c));
         setSelectedCustomer(updatedEntry); setCurrentView('detail'); showToast('資料已更新');
@@ -451,7 +409,6 @@ export default function App() {
       setCurrentView('edit_record');
   };
 
-  // 資料匯出入
   const handleExportData = () => {
     const dataStr = JSON.stringify({ customers, inventory, records }, null, 2);
     const blob = new Blob([dataStr], { type: "application/json" });
@@ -481,7 +438,6 @@ export default function App() {
     event.target.value = '';
   };
 
-  // --- 6. 渲染畫面 ---
   return (
     <div className="max-w-md mx-auto bg-gray-100 min-h-screen font-sans text-gray-900 shadow-2xl relative overflow-hidden">
       <GlobalStyles />
