@@ -118,7 +118,6 @@ export default function App() {
         // 3. 庫存資料 (★這裡是你原本缺少的關鍵：自動初始化)
         const unsubInv = onSnapshot(invRef, (snapshot) => {
           if (!snapshot.empty) {
-              // 如果資料庫有東西，就正常載入
               const data = snapshot.docs.map(d => ({ ...d.data(), id: d.id }));
               setInventory(data);
           } else { 
@@ -126,24 +125,23 @@ export default function App() {
               if (currentUser) {
                   console.log("偵測到空資料庫，正在初始化庫存...");
                   const batch = writeBatch(db);
-                  let opCount = 0;
                   
                   INITIAL_INVENTORY.forEach(item => {
-                      // 確保每個項目都有 ID
                       const itemId = item.id || `init-${Math.random().toString(36).substr(2, 9)}`;
                       const itemRef = doc(db, 'inventory', itemId);
-                      // 注意：這裡使用 set 來寫入
                       batch.set(itemRef, { ...item, id: itemId });
-                      opCount++;
                   });
 
-                  if(opCount > 0) {
-                      batch.commit()
-                        .then(() => console.log("庫存初始化完成"))
-                        .catch(err => console.error("庫存初始化失敗", err));
-                  }
+                  batch.commit()
+                    .then(() => {
+                        console.log("庫存初始化完成");
+                        showToast('系統自動初始化庫存資料庫完成');
+                    })
+                    .catch(err => {
+                        console.error("庫存初始化失敗", err);
+                        showToast('初始化失敗: 請檢查 Firebase Rules 權限', 'error');
+                    });
               }
-              // 先顯示預設值，讓畫面不要空白
               setInventory(INITIAL_INVENTORY); 
           }
         });
@@ -244,7 +242,7 @@ export default function App() {
     } catch (e) { console.error(e); showToast('更新失敗', 'error'); }
   };
 
-  // --- 客戶與紀錄相關操作 ---
+  // --- 客戶與紀錄相關操作 (保持不變) ---
   const handleResetData = async () => {
     setConfirmDialog({
         isOpen: true,
@@ -459,6 +457,11 @@ export default function App() {
   return (
     <div className="max-w-md mx-auto bg-gray-100 min-h-screen font-sans text-gray-900 shadow-2xl relative overflow-hidden">
       <GlobalStyles />
+      {/* ⚠️ 這是一個版本檢查標記，請確認你的網頁右下角有沒有這個紅框 */}
+      <div className="fixed bottom-12 right-0 bg-red-600 text-white text-[10px] p-1 z-[100] font-bold">
+        v2.0 (庫存修復版)
+      </div>
+
       {isLoading && <div className="absolute inset-0 bg-white z-[60] flex flex-col items-center justify-center"><Loader2 size={48} className="text-blue-600 animate-spin mb-4" /><p className="text-gray-500 font-bold">資料同步中...</p></div>}
       
       <ImageViewer src={viewingImage} onClose={() => setViewingImage(null)} />
