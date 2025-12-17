@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { 
   Home, Search, Plus, ChevronRight, ArrowLeft, MapPin, Building2, School, Tent, 
   Users, AlertTriangle, Navigation, Phone 
@@ -15,21 +15,31 @@ const getL1Icon = (group) => {
 };
 
 const CustomerRoster = ({ 
-  customers, rosterLevel, setRosterLevel, 
+  customers = [], 
+  rosterLevel = 'l1', 
+  setRosterLevel, 
   selectedL1, setSelectedL1, 
   selectedL2, setSelectedL2, 
   setCurrentView, setActiveTab, 
-  setSelectedCustomer, setHistoryFilter, 
+  setSelectedCustomer, 
   setTargetCustomer, setShowAddressAlert, setShowPhoneSheet, showToast 
 }) => {
   
-  // 第一層：選擇大區域
-  if (rosterLevel === 'l1') {
-    const l1Groups = ['屏東區', '高雄區', '學校單位', '軍事單位', ...new Set(customers.map(c => c.L1_group || '未分類'))].filter((v, i, a) => a.indexOf(v) === i && v);
-    const getCountByL1 = (group) => customers.filter(c => c.L1_group === group).length;
+  // 防呆機制：如果 rosterLevel 是空的，或是奇怪的值，自動設回 'l1'
+  useEffect(() => {
+    if (!rosterLevel || !['l1', 'l2', 'l3'].includes(rosterLevel)) {
+      if (setRosterLevel) setRosterLevel('l1');
+    }
+  }, [rosterLevel, setRosterLevel]);
+
+  // 第一層：選擇大區域 (預設顯示)
+  if (rosterLevel === 'l1' || (rosterLevel !== 'l2' && rosterLevel !== 'l3')) {
+    const validCustomers = Array.isArray(customers) ? customers : [];
+    const l1Groups = ['屏東區', '高雄區', '學校單位', '軍事單位', ...new Set(validCustomers.map(c => c.L1_group || '未分類'))].filter((v, i, a) => a.indexOf(v) === i && v);
+    const getCountByL1 = (group) => validCustomers.filter(c => c.L1_group === group).length;
 
     return (
-      <div className="bg-gray-50 min-h-screen pb-24 animate-in">
+      <div className="bg-gray-50 min-h-screen pb-24">
         <div className="bg-white px-4 py-4 flex items-center shadow-sm sticky top-0 z-10 border-b border-gray-100">
            <button onClick={() => { setActiveTab('dashboard'); setCurrentView('dashboard'); }} className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-full"><Home size={20}/></button>
            <h2 className="text-lg font-bold flex-1 text-center pr-6">客戶名冊</h2>
@@ -50,9 +60,10 @@ const CustomerRoster = ({
 
   // 第二層：選擇鄉鎮市區
   if (rosterLevel === 'l2') {
-    const l2List = [...new Set(customers.filter(c => c.L1_group === selectedL1).map(c => c.L2_district || '未分區'))].map(d => ({ name: d, count: customers.filter(c => c.L1_group === selectedL1 && (c.L2_district || '未分區') === d).length })).sort((a, b) => b.count - a.count);
+    const validCustomers = Array.isArray(customers) ? customers : [];
+    const l2List = [...new Set(validCustomers.filter(c => c.L1_group === selectedL1).map(c => c.L2_district || '未分區'))].map(d => ({ name: d, count: validCustomers.filter(c => c.L1_group === selectedL1 && (c.L2_district || '未分區') === d).length })).sort((a, b) => b.count - a.count);
     return (
-      <div className="bg-gray-50 min-h-screen pb-24 animate-in">
+      <div className="bg-gray-50 min-h-screen pb-24">
          <div className="bg-white px-4 py-4 flex items-center shadow-sm sticky top-0 z-10 border-b border-gray-100">
            <button onClick={() => setRosterLevel('l1')} className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-full"><ArrowLeft /></button>
            <h2 className="text-lg font-bold flex-1 text-center pr-8">{selectedL1}</h2>
@@ -71,9 +82,10 @@ const CustomerRoster = ({
 
   // 第三層：客戶列表
   if (rosterLevel === 'l3') {
-    const filteredCustomers = customers.filter(c => c.L1_group === selectedL1 && (c.L2_district || '未分區') === selectedL2);
+    const validCustomers = Array.isArray(customers) ? customers : [];
+    const filteredCustomers = validCustomers.filter(c => c.L1_group === selectedL1 && (c.L2_district || '未分區') === selectedL2);
     return (
-      <div className="bg-gray-50 min-h-screen pb-24 animate-in">
+      <div className="bg-gray-50 min-h-screen pb-24">
         <div className="bg-white px-4 py-4 flex items-center shadow-sm sticky top-0 z-10 border-b border-gray-100">
           <button onClick={() => setRosterLevel('l2')} className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-full"><ArrowLeft /></button>
           <h2 className="text-lg font-bold flex-1 text-center pr-8">{selectedL2}</h2>
@@ -82,7 +94,7 @@ const CustomerRoster = ({
         <div className="p-4 space-y-3">
            {filteredCustomers.map(customer => (
               <div key={customer.customerID} className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm hover:shadow-md transition-shadow flex flex-col">
-                 <div className="flex items-start mb-3 cursor-pointer" onClick={() => { setSelectedCustomer(customer); setHistoryFilter(''); setCurrentView('detail'); }}>
+                 <div className="flex items-start mb-3 cursor-pointer" onClick={() => { setSelectedCustomer(customer); setCurrentView('detail'); }}>
                     <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-sm mr-3 flex-shrink-0">{customer.name?.substring(0, 1)}</div>
                     <div className="flex-1 min-w-0"><div className="flex justify-between items-start"><h3 className="font-bold text-gray-800 text-base truncate">{customer.name}</h3><span className="bg-slate-100 text-slate-600 text-[10px] px-2 py-1 rounded-full font-bold ml-2 flex-shrink-0">{customer.assets?.[0]?.model || '無機型'}</span></div><div className="flex items-center text-xs text-gray-500 mt-1">{customer.addressNote && <AlertTriangle size={12} className="text-red-500 mr-1 flex-shrink-0" />}<span className={`truncate ${customer.addressNote ? 'text-red-500 font-bold' : ''}`}>{customer.address}</span></div></div>
                  </div>

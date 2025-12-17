@@ -41,7 +41,7 @@ export default function App() {
   const [viewingImage, setViewingImage] = useState(null);
   const [toast, setToast] = useState(null);
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', message: '', onConfirm: null });
-  // ★ isProcessing 用來當作「防連點鎖」，防止重複送出
+  // ★ isProcessing 用來當作「防連點鎖」
   const [isProcessing, setIsProcessing] = useState(false);
   const [showPhoneSheet, setShowPhoneSheet] = useState(false);
   const [showAddressAlert, setShowAddressAlert] = useState(false);
@@ -110,7 +110,6 @@ export default function App() {
               setInventory(data);
           } else { 
               if (currentUser) {
-                  console.log("初始化庫存...");
                   const batch = writeBatch(db);
                   INITIAL_INVENTORY.forEach(item => {
                       const itemId = item.id || `init-${Math.random().toString(36).substr(2, 9)}`;
@@ -208,7 +207,7 @@ export default function App() {
   
   const handleResetData = async () => {
     setConfirmDialog({
-        isOpen: true, title: '⚠️ 危險操作', message: '清空並重置所有資料？(這會清除重複的異常資料)',
+        isOpen: true, title: '⚠️ 危險操作', message: '清空並重置所有資料？',
         onConfirm: async () => {
             setIsProcessing(true);
             if (dbStatus === 'demo' || !db) {
@@ -221,8 +220,7 @@ export default function App() {
                     inventory.forEach(i => batch.delete(doc(db, 'inventory', i.id)));
                     FULL_IMPORT_DATA.forEach(c => batch.set(doc(db, 'customers', c.customerID), c));
                     INITIAL_INVENTORY.forEach(i => batch.set(doc(db, 'inventory', i.id), i));
-                    await batch.commit(); 
-                    showToast('系統已重置，重複資料已清除');
+                    await batch.commit(); showToast('系統已重置');
                 } catch(e) { console.error(e); }
                 setIsProcessing(false); setConfirmDialog({...confirmDialog, isOpen: false});
             }
@@ -231,7 +229,7 @@ export default function App() {
   };
 
   const handleSaveRecord = async (formData) => {
-    if (isProcessing) return; // 防連點鎖
+    if (isProcessing) return;
     setIsProcessing(true);
 
     const recId = formData.id || `rec-${Date.now()}`;
@@ -326,7 +324,7 @@ export default function App() {
 
   const handleEditSubmit = async (formData) => {
     if (!selectedCustomer) return;
-    if (isProcessing) return; // 防連點鎖
+    if (isProcessing) return;
     setIsProcessing(true);
 
     const existingPhones = selectedCustomer.phones || [];
@@ -348,7 +346,6 @@ export default function App() {
             setSelectedCustomer(updatedEntry); setCurrentView('detail'); showToast('資料已更新 (離線)');
         } else {
             await setDoc(doc(db, 'customers', selectedCustomer.customerID), updatedEntry);
-            // 線上模式：不呼叫 setCustomers，由 onSnapshot 自動更新
             setSelectedCustomer(updatedEntry); setCurrentView('detail'); showToast('資料已更新');
         }
     } catch (err) { 
@@ -359,7 +356,7 @@ export default function App() {
   };
 
   const handleAddSubmit = async (formData) => {
-    if (isProcessing) return; // 防連點鎖
+    if (isProcessing) return;
     setIsProcessing(true);
 
     const newId = `cust-${Date.now()}`;
@@ -378,7 +375,6 @@ export default function App() {
         } else {
             await setDoc(doc(db, 'customers', newId), newEntry);
             showToast('新增成功');
-            // 線上模式：不呼叫 setCustomers，由 onSnapshot 自動更新
             setSelectedCustomer(newEntry); setCurrentView('detail'); setSelectedL1(formData.L1_group); setSelectedL2(formData.L2_district); setRosterLevel('l3');
         }
     } catch (err) { 
@@ -454,7 +450,7 @@ export default function App() {
           customers={customers} rosterLevel={rosterLevel} setRosterLevel={setRosterLevel}
           selectedL1={selectedL1} setSelectedL1={setSelectedL1} selectedL2={selectedL2} setSelectedL2={setSelectedL2}
           setCurrentView={setCurrentView} setActiveTab={setActiveTab} setSelectedCustomer={setSelectedCustomer}
-          setHistoryFilter={setHistoryFilter} setTargetCustomer={setTargetCustomer}
+          setTargetCustomer={setTargetCustomer}
           setShowAddressAlert={setShowAddressAlert} setShowPhoneSheet={setShowPhoneSheet} showToast={showToast}
         />
       )}
