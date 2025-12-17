@@ -41,7 +41,7 @@ export default function App() {
   const [viewingImage, setViewingImage] = useState(null);
   const [toast, setToast] = useState(null);
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', message: '', onConfirm: null });
-  // ★ isProcessing 是關鍵：用來防止重複送出
+  // ★ isProcessing 用來當作「防連點鎖」，防止重複送出
   const [isProcessing, setIsProcessing] = useState(false);
   const [showPhoneSheet, setShowPhoneSheet] = useState(false);
   const [showAddressAlert, setShowAddressAlert] = useState(false);
@@ -116,21 +116,21 @@ export default function App() {
             } else { setRecords(MOCK_RECORDS); }
         });
 
-        // 3. 庫存資料 (自動初始化邏輯)
+        // 3. 庫存資料
         const unsubInv = onSnapshot(invRef, (snapshot) => {
           if (!snapshot.empty) {
               const data = snapshot.docs.map(d => ({ ...d.data(), id: d.id }));
               setInventory(data);
           } else { 
               if (currentUser) {
-                  console.log("偵測到空資料庫，正在初始化庫存...");
+                  console.log("初始化庫存...");
                   const batch = writeBatch(db);
                   INITIAL_INVENTORY.forEach(item => {
                       const itemId = item.id || `init-${Math.random().toString(36).substr(2, 9)}`;
                       const itemRef = doc(db, 'inventory', itemId);
                       batch.set(itemRef, { ...item, id: itemId });
                   });
-                  batch.commit().catch(err => console.error("庫存初始化失敗", err));
+                  batch.commit().catch(err => console.error("Init failed", err));
               }
               setInventory(INITIAL_INVENTORY); 
           }
@@ -232,10 +232,8 @@ export default function App() {
                     const batch = writeBatch(db);
                     customers.forEach(c => batch.delete(doc(db, 'customers', c.customerID)));
                     inventory.forEach(i => batch.delete(doc(db, 'inventory', i.id)));
-                    // 重新寫入乾淨的預設值
                     FULL_IMPORT_DATA.forEach(c => batch.set(doc(db, 'customers', c.customerID), c));
                     INITIAL_INVENTORY.forEach(i => batch.set(doc(db, 'inventory', i.id), i));
-                    
                     await batch.commit(); 
                     showToast('系統已重置，重複資料已清除');
                 } catch(e) { console.error(e); }
@@ -246,8 +244,7 @@ export default function App() {
   };
 
   const handleSaveRecord = async (formData) => {
-    // ★ 防連點鎖：如果正在處理中，直接略過
-    if (isProcessing) return;
+    if (isProcessing) return; // 防連點鎖
     setIsProcessing(true);
 
     const recId = formData.id || `rec-${Date.now()}`;
@@ -257,7 +254,6 @@ export default function App() {
     };
     
     try {
-        // 扣庫存
         if (formData.parts && formData.parts.length > 0) {
           const batch = writeBatch(db); let hasUpdates = false;
           formData.parts.forEach(part => {
@@ -271,7 +267,6 @@ export default function App() {
           if (hasUpdates && dbStatus !== 'demo' && user) await batch.commit();
         }
 
-        // 儲存紀錄
         if (dbStatus === 'demo' || !user) {
             setRecords(prev => { const exists = prev.find(r => r.id === recId); if (exists) return prev.map(r => r.id === recId ? newRecord : r); return [newRecord, ...prev]; });
             showToast(formData.id ? '紀錄已更新' : '紀錄已新增');
@@ -285,7 +280,6 @@ export default function App() {
         console.error(err); 
         showToast('儲存失敗', 'error'); 
     } finally {
-        // ★ 務必解鎖
         setIsProcessing(false);
     }
   };
@@ -345,8 +339,7 @@ export default function App() {
 
   const handleEditSubmit = async (formData) => {
     if (!selectedCustomer) return;
-    // ★ 防連點鎖
-    if (isProcessing) return;
+    if (isProcessing) return; // 防連點鎖
     setIsProcessing(true);
 
     const existingPhones = selectedCustomer.phones || [];
@@ -368,7 +361,7 @@ export default function App() {
             setSelectedCustomer(updatedEntry); setCurrentView('detail'); showToast('資料已更新 (離線)');
         } else {
             await setDoc(doc(db, 'customers', selectedCustomer.customerID), updatedEntry);
-            // ★ 線上模式：這裡絕對不呼叫 setCustomers，由 onSnapshot 自動更新
+            // 線上模式：不呼叫 setCustomers，由 onSnapshot 自動更新
             setSelectedCustomer(updatedEntry); setCurrentView('detail'); showToast('資料已更新');
         }
     } catch (err) { 
@@ -379,8 +372,7 @@ export default function App() {
   };
 
   const handleAddSubmit = async (formData) => {
-    // ★ 防連點鎖：如果已經在處理中，直接 return，不讓它跑下面的程式碼
-    if (isProcessing) return;
+    if (isProcessing) return; // 防連點鎖
     setIsProcessing(true);
 
     const newId = `cust-${Date.now()}`;
@@ -397,16 +389,14 @@ export default function App() {
             showToast('新增成功 (離線)');
             setSelectedCustomer(newEntry); setCurrentView('detail'); setSelectedL1(formData.L1_group); setSelectedL2(formData.L2_district); setRosterLevel('l3');
         } else {
-            // ★ 寫入資料庫
             await setDoc(doc(db, 'customers', newId), newEntry);
             showToast('新增成功');
-            // ★ 線上模式：這裡絕對不呼叫 setCustomers，讓 onSnapshot 自動更新畫面
+            // 線上模式：不呼叫 setCustomers，由 onSnapshot 自動更新
             setSelectedCustomer(newEntry); setCurrentView('detail'); setSelectedL1(formData.L1_group); setSelectedL2(formData.L2_district); setRosterLevel('l3');
         }
     } catch (err) { 
         showToast('新增失敗', 'error'); 
     } finally {
-        // ★ 只有等到全部做完，才解開鎖，允許下一次點擊
         setIsProcessing(false);
     }
   };
@@ -454,11 +444,6 @@ export default function App() {
   return (
     <div className="max-w-md mx-auto bg-gray-100 min-h-screen font-sans text-gray-900 shadow-2xl relative overflow-hidden">
       <GlobalStyles />
-      {/* 這個版本標記可以讓你確認程式碼已更新 */}
-      <div className="fixed bottom-12 right-0 bg-red-600 text-white text-[10px] p-1 z-[100] font-bold">
-        v3.1 (防止重複送出)
-      </div>
-
       {isLoading && <div className="absolute inset-0 bg-white z-[60] flex flex-col items-center justify-center"><Loader2 size={48} className="text-blue-600 animate-spin mb-4" /><p className="text-gray-500 font-bold">資料同步中...</p></div>}
       
       <ImageViewer src={viewingImage} onClose={() => setViewingImage(null)} />
