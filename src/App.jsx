@@ -9,7 +9,7 @@ import { Loader2 } from 'lucide-react';
 import { auth, db } from './firebaseConfig';
 import { FULL_IMPORT_DATA, MOCK_RECORDS, INITIAL_INVENTORY } from './initialData';
 
-// --- 引入剛剛拆分好的元件 ---
+// --- 引入元件 ---
 import { 
   ConfirmDialog, Toast, PhoneActionSheet, AddressAlertDialog, ImageViewer, GlobalStyles 
 } from './components/SharedUI';
@@ -47,7 +47,7 @@ export default function App() {
   
   // 資料篩選與暫存狀態
   const [selectedCustomer, setSelectedCustomer] = useState(null);
-  const [targetCustomer, setTargetCustomer] = useState(null); // 用於導航/打電話的暫存
+  const [targetCustomer, setTargetCustomer] = useState(null);
   const [rosterLevel, setRosterLevel] = useState('l1');
   const [selectedL1, setSelectedL1] = useState(null);
   const [selectedL2, setSelectedL2] = useState(null);
@@ -77,7 +77,7 @@ export default function App() {
     ).sort((a,b) => new Date(b.date) - new Date(a.date));
   }, [historyFilter, selectedCustomer, records]);
 
-  // --- 3. Firebase 連線邏輯 ---
+  // --- 3. Firebase 連線邏輯 (修正：加入庫存同步) ---
   useEffect(() => {
     setDbStatus('connecting');
     const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
@@ -85,7 +85,9 @@ export default function App() {
       if (currentUser) {
         const custRef = collection(db, 'customers');
         const recRef = collection(db, 'records');
+        const invRef = collection(db, 'inventory'); // 新增：庫存連線
         
+        // 1. 監聽客戶
         const unsubCust = onSnapshot(custRef, (snapshot) => {
             if (!snapshot.empty) {
               const data = snapshot.docs.map(d => ({ ...d.data(), customerID: d.id }));
@@ -97,12 +99,15 @@ export default function App() {
           (err) => { 
             console.error("連線錯誤", err); 
             setDbStatus('error');
+            // 離線備案
             setCustomers(FULL_IMPORT_DATA);
             setRecords(MOCK_RECORDS);
+            setInventory(INITIAL_INVENTORY);
             setIsLoading(false);
           }
         );
 
+        // 2. 監聽維修紀錄
         const recentRecordsQuery = query(recRef, orderBy('date', 'desc'), limit(300));
         const unsubRec = onSnapshot(recentRecordsQuery, (snapshot) => {
             if (!snapshot.empty) {
@@ -110,13 +115,26 @@ export default function App() {
                 setRecords(data);
             } else { setRecords(MOCK_RECORDS); }
         });
-        return () => { unsubCust(); unsubRec(); };
+
+        // 3. 監聽庫存 (新增)
+        const unsubInv = onSnapshot(invRef, (snapshot) => {
+          if (!snapshot.empty) {
+              const data = snapshot.docs.map(d => ({ ...d.data(), id: d.id }));
+              setInventory(data);
+          } else { 
+              // 如果資料庫是空的，載入預設值
+              setInventory(INITIAL_INVENTORY); 
+          }
+        });
+
+        return () => { unsubCust(); unsubRec(); unsubInv(); };
       } else { 
         signInAnonymously(auth).catch((error) => {
              console.error("登入失敗", error);
              setDbStatus('offline');
              setCustomers(FULL_IMPORT_DATA);
              setRecords(MOCK_RECORDS);
+             setInventory(INITIAL_INVENTORY);
              setIsLoading(false);
         });
       }
@@ -148,25 +166,81 @@ export default function App() {
 
   // --- 5. 資料庫操作 (CRUD) Handlers ---
   
-  // 庫存相關
-  const updateInventory = (item) => {
+  // --- 庫存操作 (修正：寫入 Firebase) ---
+  const updateInventory = async (item) => {
+    // 本地先更新，使用者體驗較快
     setInventory(prev => prev.map(i => i.id === item.id ? item : i));
-    showToast('庫存資料已更新');
-  };
-  const addInventoryItem = (newItem) => {
-    setInventory(prev => [...prev, { ...newItem, id: `p-${Date.now()}` }]);
-    showToast('新零件已加入');
-  };
-  const deleteInventoryItem = (id) => {
-    setInventory(prev => prev.filter(i => i.id !== id));
-    showToast('零件已刪除');
-  };
-  const renameModelGroup = (oldModel, newModel) => {
-    setInventory(prev => prev.map(item => item.model === oldModel ? { ...item, model: newModel } : item));
-    showToast(`機型分類已更新：${newModel}`);
+    
+    if (dbStatus === 'demo' || !user) {
+       showToast('庫存資料已更新 (離線)');
+       return;
+    }
+    try {
+       await setDoc(doc(db, 'inventory', item.id), item);
+       showToast('庫存資料已更新');
+    } catch (e) { console.error(e); showToast('更新失敗', 'error'); }
   };
 
-  // 客戶與紀錄相關
+  const addInventoryItem = async (newItem) => {
+    const newId = `p-${Date.now()}`;
+    const itemWithId = { ...newItem, id: newId };
+    setInventory(prev => [...prev, itemWithId]);
+
+    if (dbStatus === 'demo' || !user) {
+       showToast('新零件已加入 (離線)');
+       return;
+    }
+    try {
+       await setDoc(doc(db, 'inventory', newId), itemWithId);
+       showToast('新零件已加入');
+    } catch (e) { console.error(e); showToast('新增失敗', 'error'); }
+  };
+
+  const deleteInventoryItem = async (id) => {
+    setInventory(prev => prev.filter(i => i.id !== id));
+
+    if (dbStatus === 'demo' || !user) {
+       showToast('零件已刪除 (離線)');
+       return;
+    }
+    try {
+       await deleteDoc(doc(db, 'inventory', id));
+       showToast('零件已刪除');
+    } catch (e) { console.error(e); showToast('刪除失敗', 'error'); }
+  };
+
+  // 修正：批次更新分類名稱
+  const renameModelGroup = async (oldModel, newModel) => {
+    // 1. 本地更新
+    setInventory(prev => prev.map(item => item.model === oldModel ? { ...item, model: newModel } : item));
+
+    if (dbStatus === 'demo' || !user) {
+      showToast(`機型分類已更新：${newModel} (離線)`);
+      return;
+    }
+
+    // 2. 資料庫批次更新
+    try {
+      const batch = writeBatch(db);
+      // 找出所有屬於該分類的零件
+      const itemsToUpdate = inventory.filter(i => i.model === oldModel);
+      
+      if (itemsToUpdate.length === 0) return;
+
+      itemsToUpdate.forEach(item => {
+        const ref = doc(db, 'inventory', item.id);
+        batch.update(ref, { model: newModel });
+      });
+      
+      await batch.commit();
+      showToast(`機型分類已更新：${newModel}`);
+    } catch (e) {
+      console.error(e);
+      showToast('更新失敗', 'error');
+    }
+  };
+
+  // --- 客戶與紀錄相關 ---
   const handleResetData = async () => {
     setConfirmDialog({
         isOpen: true,
@@ -182,8 +256,14 @@ export default function App() {
             } else {
                 try {
                     const batch = writeBatch(db);
+                    // 清除舊資料 (注意：這裡只示範清除 customers，實際應用可能要清除 inventory/records)
                     customers.forEach(c => batch.delete(doc(db, 'customers', c.customerID)));
+                    inventory.forEach(i => batch.delete(doc(db, 'inventory', i.id))); // 清除庫存
+                    
+                    // 匯入預設資料
                     FULL_IMPORT_DATA.forEach(c => batch.set(doc(db, 'customers', c.customerID), c));
+                    INITIAL_INVENTORY.forEach(i => batch.set(doc(db, 'inventory', i.id), i)); // 匯入預設庫存
+
                     await batch.commit();
                     showToast('系統已重置');
                 } catch(e) { console.error(e); }
@@ -206,18 +286,31 @@ export default function App() {
         isTracking: formData.status === 'pending'
     };
     
-    // 扣庫存邏輯
-    let inventoryUpdated = false;
+    // 扣庫存邏輯 (修正：同步寫入 DB)
     if (formData.parts && formData.parts.length > 0) {
-      const newInventory = [...inventory];
+      const batch = writeBatch(db); // 使用 batch 確保一致性
+      let hasUpdates = false;
+
+      // 為了安全起見，我們遍歷 inventory 狀態來找 ID
+      // (在更嚴謹的系統中，應該用 Transaction，但這裡用 Batch 已經足夠)
       formData.parts.forEach(part => {
-        const itemIndex = newInventory.findIndex(i => i.name === part.name);
-        if (itemIndex > -1) {
-          newInventory[itemIndex].qty = Math.max(0, newInventory[itemIndex].qty - part.qty);
-          inventoryUpdated = true;
+        const item = inventory.find(i => i.name === part.name);
+        if (item) {
+           const newQty = Math.max(0, item.qty - part.qty);
+           // 本地更新 (為了畫面即時)
+           updateInventory({...item, qty: newQty}); 
+           // DB 更新準備
+           if (dbStatus !== 'demo' && user) {
+             const ref = doc(db, 'inventory', item.id);
+             batch.update(ref, { qty: newQty });
+             hasUpdates = true;
+           }
         }
       });
-      if (inventoryUpdated) setInventory(newInventory);
+      
+      if (hasUpdates && dbStatus !== 'demo' && user) {
+        await batch.commit();
+      }
     }
 
     if (dbStatus === 'demo' || !user) {
