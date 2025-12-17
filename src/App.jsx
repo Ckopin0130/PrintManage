@@ -115,29 +115,33 @@ export default function App() {
             } else { setRecords(MOCK_RECORDS); }
         });
 
-        // 3. 庫存資料 (★核心修正：自動初始化)
+        // 3. 庫存資料 (★這裡是你原本缺少的關鍵：自動初始化)
         const unsubInv = onSnapshot(invRef, (snapshot) => {
           if (!snapshot.empty) {
               // 如果資料庫有東西，就正常載入
               const data = snapshot.docs.map(d => ({ ...d.data(), id: d.id }));
               setInventory(data);
           } else { 
-              // 如果資料庫是空的 (第一次執行)，自動把預設資料寫進去！
+              // ★ 關鍵修正：如果資料庫是空的，自動寫入預設資料！
               if (currentUser) {
                   console.log("偵測到空資料庫，正在初始化庫存...");
                   const batch = writeBatch(db);
+                  let opCount = 0;
                   
                   INITIAL_INVENTORY.forEach(item => {
-                      // 確保每個項目都有 ID，如果沒有就產生一個
+                      // 確保每個項目都有 ID
                       const itemId = item.id || `init-${Math.random().toString(36).substr(2, 9)}`;
                       const itemRef = doc(db, 'inventory', itemId);
+                      // 注意：這裡使用 set 來寫入
                       batch.set(itemRef, { ...item, id: itemId });
+                      opCount++;
                   });
 
-                  // 一次性寫入所有預設資料
-                  batch.commit()
-                    .then(() => console.log("庫存初始化完成"))
-                    .catch(err => console.error("庫存初始化失敗", err));
+                  if(opCount > 0) {
+                      batch.commit()
+                        .then(() => console.log("庫存初始化完成"))
+                        .catch(err => console.error("庫存初始化失敗", err));
+                  }
               }
               // 先顯示預設值，讓畫面不要空白
               setInventory(INITIAL_INVENTORY); 
