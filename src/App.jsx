@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   collection, onSnapshot, deleteDoc, doc, setDoc, writeBatch, query, orderBy, limit 
 } from 'firebase/firestore';
@@ -52,7 +52,6 @@ export default function App() {
   const [rosterLevel, setRosterLevel] = useState('l1');
   const [selectedL1, setSelectedL1] = useState(null);
   const [selectedL2, setSelectedL2] = useState(null);
-  const [historyFilter, setHistoryFilter] = useState('');
   
   // 表單初始值
   const defaultRecordForm = { 
@@ -66,18 +65,6 @@ export default function App() {
   const today = new Date().toLocaleDateString('zh-TW', { month: 'long', day: 'numeric', weekday: 'long' });
   const pendingTasks = records.filter(r => r.status === 'pending').length;
   
-  // 歷史紀錄篩選邏輯
-  const historyList = useMemo(() => {
-    if (!historyFilter || !selectedCustomer) return [];
-    const term = historyFilter.toLowerCase();
-    const custRecords = records.filter(r => r.customerID === selectedCustomer.customerID);
-    return custRecords.filter(r => 
-        (r.fault || r.symptom || '').toLowerCase().includes(term) || 
-        (r.solution || r.action || '').toLowerCase().includes(term) ||
-        (r.parts && r.parts.some(p => p.name.toLowerCase().includes(term)))
-    ).sort((a,b) => new Date(b.date) - new Date(a.date));
-  }, [historyFilter, selectedCustomer, records]);
-
   // --- 3. Firebase 連線邏輯 ---
   useEffect(() => {
     setDbStatus('connecting');
@@ -402,13 +389,12 @@ export default function App() {
   };
 
   const startEdit = () => { if (!selectedCustomer) return; setCurrentView('edit'); };
-  const startAddRecord = () => { setEditingRecordData(defaultRecordForm); setHistoryFilter(''); setCurrentView('add_record'); };
+  const startAddRecord = () => { setEditingRecordData(defaultRecordForm); setCurrentView('add_record'); };
   const startEditRecord = (e, r) => {
       if(e) e.stopPropagation();
       const recordCustomer = customers.find(c => c.customerID === r.customerID);
       if (recordCustomer && !selectedCustomer) setSelectedCustomer(recordCustomer);
       setEditingRecordData({ ...defaultRecordForm, ...r, parts: r.parts || [] }); 
-      setHistoryFilter('');
       setCurrentView('edit_record');
   };
 
@@ -501,8 +487,7 @@ export default function App() {
 
       {(currentView === 'add_record' || currentView === 'edit_record') && (
         <RecordForm 
-           initialData={editingRecordData} historyList={historyList} filterText={historyFilter}
-           onHistoryFilterChange={setHistoryFilter} onSubmit={handleSaveRecord} inventory={inventory}
+           initialData={editingRecordData} onSubmit={handleSaveRecord} inventory={inventory}
            onCancel={() => setCurrentView(activeTab === 'records' ? 'records' : 'detail')}
         />
       )}

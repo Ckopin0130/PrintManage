@@ -1,8 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { 
-  ArrowLeft, History, X, FileText, Zap, Trash2, Camera, Loader2, Save,
+  ArrowLeft, FileText, Zap, Trash2, Camera, Loader2, Save,
   CheckCircle, Clock, AlertCircle, ClipboardList, PhoneIncoming, Briefcase, 
-  Package, Search, Filter, Wrench, AlertTriangle, Image as ImageIcon
+  Package, Search, Wrench, AlertTriangle, Image as ImageIcon
 } from 'lucide-react';
 import { ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { storage } from '../firebaseConfig'; 
@@ -66,10 +66,13 @@ const uploadImageToStorage = async (base64String, path) => {
 };
 
 // --- 元件本體 ---
-const RecordForm = ({ initialData, onSubmit, onCancel, historyList, onHistoryFilterChange, filterText, inventory }) => {
+const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
     const [form, setForm] = useState(initialData);
     const [previews, setPreviews] = useState({ before: initialData.photoBefore || null, after: initialData.photoAfter || null });
     const [isSubmitting, setIsSubmitting] = useState(false);
+    
+    // 判斷是新增還是編輯 (依據是否有 id)
+    const pageTitle = form.id ? '編輯維修紀錄' : '新增維修紀錄';
     
     // 零件選擇器狀態
     const [selectedModel, setSelectedModel] = useState('ALL');
@@ -159,34 +162,12 @@ const RecordForm = ({ initialData, onSubmit, onCancel, historyList, onHistoryFil
         {/* 頂部導覽列 */}
         <div className="bg-white px-4 py-4 flex items-center shadow-sm sticky top-0 z-10 border-b border-gray-100">
             <button onClick={onCancel} className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-full"><ArrowLeft /></button>
-            <h2 className="text-lg font-bold flex-1 text-center pr-8">維修紀錄表</h2>
+            <h2 className="text-lg font-bold flex-1 text-center pr-8">{pageTitle}</h2>
         </div>
 
         <main className="max-w-md mx-auto p-4 space-y-5">
             
-            {/* 1. 歷史快搜卡片 */}
-            <section className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
-                <div className="flex items-center gap-2 mb-3 text-gray-400 text-xs font-bold uppercase tracking-wider">
-                    <History size={14} /> 歷史履歷參考
-                </div>
-                <div className="relative">
-                    <input className="w-full bg-gray-50 border border-gray-200 rounded-xl py-2.5 px-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-100 transition-shadow placeholder-gray-400" placeholder="輸入關鍵字查詢..." value={filterText} onChange={e => onHistoryFilterChange(e.target.value)} />
-                    {filterText && <button onClick={() => onHistoryFilterChange('')} className="absolute right-3 top-3 text-gray-400"><X size={16}/></button>}
-                </div>
-                {historyList.length > 0 && (
-                  <div className="mt-3 space-y-2 border-t border-dashed border-gray-100 pt-3">
-                        {historyList.map(h => (
-                            <div key={h.id} className="text-xs p-3 bg-blue-50/50 rounded-lg border border-blue-100">
-                                <div className="flex justify-between font-bold text-blue-800 mb-1"><span>{h.date}</span><span>{h.fault || h.symptom}</span></div>
-                                <div className="text-gray-600 leading-relaxed">{h.solution || h.action}</div>
-                                {h.parts && h.parts.length > 0 && <div className="mt-1.5 text-gray-500 bg-white/60 px-2 py-1 rounded w-fit border border-blue-50">更換: {h.parts.map(p=>p.name).join(', ')}</div>}
-                            </div>
-                        ))}
-                  </div>
-                )}
-            </section>
-
-            {/* 2. 基本資訊卡片 (服務類型 + 日期) */}
+            {/* 1. 基本資訊卡片 (服務類型 + 日期) */}
             <section className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
                 <div className="flex justify-between items-center mb-3">
                     <h3 className="text-sm font-bold text-gray-700 flex items-center"><ClipboardList size={18} className="mr-2 text-blue-500"/> 基本資訊</h3>
@@ -205,7 +186,7 @@ const RecordForm = ({ initialData, onSubmit, onCancel, historyList, onHistoryFil
                 </div>
             </section>
 
-            {/* 3. 故障與處理 (合併卡片) */}
+            {/* 2. 故障與處理 (合併卡片) */}
             <section className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-5">
                 
                 {/* 故障描述 */}
@@ -237,7 +218,7 @@ const RecordForm = ({ initialData, onSubmit, onCancel, historyList, onHistoryFil
                 </div>
             </section>
 
-            {/* 4. 零件更換 (新版清單設計) */}
+            {/* 3. 零件更換 (新版清單設計) */}
             <section className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
                 <label className="text-sm font-bold text-gray-700 mb-3 flex items-center justify-between">
                     <div className="flex items-center"><Package size={18} className="mr-2 text-blue-600"/> 零件更換</div>
@@ -311,7 +292,7 @@ const RecordForm = ({ initialData, onSubmit, onCancel, historyList, onHistoryFil
                 </div>
             </section>
 
-            {/* 5. 照片與結案狀態 */}
+            {/* 4. 照片與結案狀態 */}
             <section className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
                 <div className="flex items-center mb-4 text-sm font-bold text-gray-700"><ImageIcon size={18} className="mr-2 text-pink-500"/> 照片紀錄</div>
                 <div className="grid grid-cols-2 gap-4 mb-6">

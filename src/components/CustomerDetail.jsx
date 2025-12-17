@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   ArrowLeft, Edit, Trash2, MapPin, ShieldAlert, Navigation, Info, User, Phone, 
-  Printer, History, Plus, FileText 
+  Printer, History, Plus, FileText, Search, X 
 } from 'lucide-react';
 
 const CustomerDetail = ({ 
@@ -9,10 +9,23 @@ const CustomerDetail = ({
   handleDeleteCustomer, handleNavClick, startAddRecord, 
   startEditRecord, handleDeleteRecord, setViewingImage 
 }) => {
+  const [searchTerm, setSearchTerm] = useState('');
+
   if (!selectedCustomer) return null;
-  const custRecords = records.filter(r => r.customerID === selectedCustomer.customerID).sort((a,b) => new Date(b.date) - new Date(a.date));
+  
+  // 篩選邏輯：只顯示符合該客戶 ID 且符合搜尋關鍵字的紀錄
+  const custRecords = records.filter(r => {
+      const matchId = r.customerID === selectedCustomer.customerID;
+      const term = searchTerm.toLowerCase();
+      const matchSearch = searchTerm === '' || 
+                          (r.fault || '').toLowerCase().includes(term) || 
+                          (r.solution || '').toLowerCase().includes(term) ||
+                          (r.parts && r.parts.some(p => p.name.toLowerCase().includes(term)));
+      return matchId && matchSearch;
+  }).sort((a,b) => new Date(b.date) - new Date(a.date));
+
   const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedCustomer.address)}`;
-  const serviceCount = custRecords.length;
+  const serviceCount = records.filter(r => r.customerID === selectedCustomer.customerID).length; // 總次數不隨搜尋改變
 
   return (
     <div className="bg-gray-50 min-h-screen pb-24 animate-in">
@@ -63,16 +76,31 @@ const CustomerDetail = ({
          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
             <div className="bg-slate-50 px-5 py-4 border-b border-gray-200 flex justify-between items-center">
                <h3 className="font-bold text-gray-700 flex items-center"><History size={18} className="mr-2 text-blue-500"/> 維修履歷</h3>
-               <button onClick={startAddRecord} className="flex items-center text-blue-600 text-sm font-bold bg-white px-3 py-1.5 rounded-lg border border-blue-100 shadow-sm active:scale-95 transition-transform hover:bg-blue-50"><Plus size={16} className="mr-1"/> 新增紀錄</button>
+               <button onClick={startAddRecord} className="flex items-center text-blue-600 text-sm font-bold bg-white px-3 py-1.5 rounded-lg border border-blue-100 shadow-sm active:scale-95 transition-transform hover:bg-blue-50"><Plus size={16} className="mr-1"/> 新增</button>
             </div>
+            {/* 新增：搜尋列 */}
+            <div className="px-5 py-3 border-b border-gray-100 bg-white">
+                <div className="relative">
+                    <Search size={14} className="absolute left-3 top-2.5 text-gray-400"/>
+                    <input 
+                        type="text" 
+                        className="w-full bg-gray-50 border border-gray-200 rounded-lg py-2 pl-9 pr-8 text-sm outline-none focus:ring-2 focus:ring-blue-100"
+                        placeholder="搜尋歷史紀錄 (故障、處理、零件)..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                    {searchTerm && <button onClick={() => setSearchTerm('')} className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"><X size={14}/></button>}
+                </div>
+            </div>
+
             <div className="p-5">
-               {custRecords.length === 0 ? <div className="text-center py-6 text-gray-400 flex flex-col items-center"><FileText size={32} className="mb-2 opacity-20"/>尚無紀錄</div> : (
+               {custRecords.length === 0 ? <div className="text-center py-6 text-gray-400 flex flex-col items-center"><FileText size={32} className="mb-2 opacity-20"/>{searchTerm ? '查無符合紀錄' : '尚無紀錄'}</div> : (
                  <div className="relative border-l-2 border-slate-100 pl-6 space-y-6">
                     {custRecords.map(record => {
                        let statusColor = "text-emerald-600 bg-emerald-50";
                        if(record.status === 'pending') statusColor = "text-amber-600 bg-amber-50";
                        return (
-                       <div key={record.id} className="relative group">
+                       <div key={record.id} className="relative group animate-in fade-in slide-in-from-bottom">
                           <div className={`absolute -left-[31px] top-0 w-4 h-4 rounded-full border-4 border-white shadow-sm ring-1 ring-gray-100 bg-gray-200`}></div>
                           <div className="text-xs font-bold text-slate-400 mb-1 flex justify-between items-center">
                               <div className="flex items-center"><span>{record.date}</span><span className={`ml-2 px-1.5 py-0.5 rounded text-[10px] ${statusColor}`}>{record.status === 'pending' ? '待料' : '結案'}</span></div>
