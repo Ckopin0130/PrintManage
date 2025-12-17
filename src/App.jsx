@@ -41,6 +41,7 @@ export default function App() {
   const [viewingImage, setViewingImage] = useState(null);
   const [toast, setToast] = useState(null);
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', message: '', onConfirm: null });
+  // ★ isProcessing 是關鍵：用來防止重複送出
   const [isProcessing, setIsProcessing] = useState(false);
   const [showPhoneSheet, setShowPhoneSheet] = useState(false);
   const [showAddressAlert, setShowAddressAlert] = useState(false);
@@ -121,7 +122,6 @@ export default function App() {
               const data = snapshot.docs.map(d => ({ ...d.data(), id: d.id }));
               setInventory(data);
           } else { 
-              // ★ 自動寫入預設資料
               if (currentUser) {
                   console.log("偵測到空資料庫，正在初始化庫存...");
                   const batch = writeBatch(db);
@@ -177,7 +177,6 @@ export default function App() {
   // --- 5. 資料庫操作 (CRUD) ---
   
   const updateInventory = async (item) => {
-    // 庫存比較特殊，為了即時性，我們先在本地更新，但也寫入雲端
     setInventory(prev => prev.map(i => i.id === item.id ? item : i));
     if (dbStatus === 'demo' || !user) { showToast('庫存已更新 (離線)'); return; }
     try {
@@ -222,7 +221,7 @@ export default function App() {
   
   const handleResetData = async () => {
     setConfirmDialog({
-        isOpen: true, title: '⚠️ 危險操作', message: '清空並重置所有資料？',
+        isOpen: true, title: '⚠️ 危險操作', message: '清空並重置所有資料？(這會清除重複的異常資料)',
         onConfirm: async () => {
             setIsProcessing(true);
             if (dbStatus === 'demo' || !db) {
@@ -233,9 +232,12 @@ export default function App() {
                     const batch = writeBatch(db);
                     customers.forEach(c => batch.delete(doc(db, 'customers', c.customerID)));
                     inventory.forEach(i => batch.delete(doc(db, 'inventory', i.id)));
+                    // 重新寫入乾淨的預設值
                     FULL_IMPORT_DATA.forEach(c => batch.set(doc(db, 'customers', c.customerID), c));
                     INITIAL_INVENTORY.forEach(i => batch.set(doc(db, 'inventory', i.id), i));
-                    await batch.commit(); showToast('系統已重置');
+                    
+                    await batch.commit(); 
+                    showToast('系統已重置，重複資料已清除');
                 } catch(e) { console.error(e); }
                 setIsProcessing(false); setConfirmDialog({...confirmDialog, isOpen: false});
             }
@@ -244,33 +246,48 @@ export default function App() {
   };
 
   const handleSaveRecord = async (formData) => {
+    // ★ 防連點鎖：如果正在處理中，直接略過
+    if (isProcessing) return;
+    setIsProcessing(true);
+
     const recId = formData.id || `rec-${Date.now()}`;
     const newRecord = {
         id: recId, customerID: selectedCustomer ? selectedCustomer.customerID : (formData.customerID || 'unknown'),
         ...formData, fault: formData.symptom, solution: formData.action, type: 'repair', isTracking: formData.status === 'pending'
     };
-    // 扣庫存
-    if (formData.parts && formData.parts.length > 0) {
-      const batch = writeBatch(db); let hasUpdates = false;
-      formData.parts.forEach(part => {
-        const item = inventory.find(i => i.name === part.name);
-        if (item) {
-           const newQty = Math.max(0, item.qty - part.qty);
-           updateInventory({...item, qty: newQty}); 
-           if (dbStatus !== 'demo' && user) { const ref = doc(db, 'inventory', item.id); batch.update(ref, { qty: newQty }); hasUpdates = true; }
+    
+    try {
+        // 扣庫存
+        if (formData.parts && formData.parts.length > 0) {
+          const batch = writeBatch(db); let hasUpdates = false;
+          formData.parts.forEach(part => {
+            const item = inventory.find(i => i.name === part.name);
+            if (item) {
+               const newQty = Math.max(0, item.qty - part.qty);
+               updateInventory({...item, qty: newQty}); 
+               if (dbStatus !== 'demo' && user) { const ref = doc(db, 'inventory', item.id); batch.update(ref, { qty: newQty }); hasUpdates = true; }
+            }
+          });
+          if (hasUpdates && dbStatus !== 'demo' && user) await batch.commit();
         }
-      });
-      if (hasUpdates && dbStatus !== 'demo' && user) await batch.commit();
+
+        // 儲存紀錄
+        if (dbStatus === 'demo' || !user) {
+            setRecords(prev => { const exists = prev.find(r => r.id === recId); if (exists) return prev.map(r => r.id === recId ? newRecord : r); return [newRecord, ...prev]; });
+            showToast(formData.id ? '紀錄已更新' : '紀錄已新增');
+        } else {
+            await setDoc(doc(db, 'records', recId), newRecord); 
+            showToast(formData.id ? '紀錄已更新' : '紀錄已新增');
+        }
+        if (activeTab === 'records') setCurrentView('records'); else setCurrentView('detail');
+
+    } catch (err) { 
+        console.error(err); 
+        showToast('儲存失敗', 'error'); 
+    } finally {
+        // ★ 務必解鎖
+        setIsProcessing(false);
     }
-    // 儲存紀錄
-    if (dbStatus === 'demo' || !user) {
-        setRecords(prev => { const exists = prev.find(r => r.id === recId); if (exists) return prev.map(r => r.id === recId ? newRecord : r); return [newRecord, ...prev]; });
-        showToast(formData.id ? '紀錄已更新' : '紀錄已新增');
-    } else {
-        try { await setDoc(doc(db, 'records', recId), newRecord); showToast(formData.id ? '紀錄已更新' : '紀錄已新增'); } 
-        catch (err) { console.error(err); showToast('儲存失敗', 'error'); }
-    }
-    if (activeTab === 'records') setCurrentView('records'); else setCurrentView('detail');
   };
 
   const handleDeleteRecord = (e, recordId) => {
@@ -278,14 +295,21 @@ export default function App() {
     setConfirmDialog({
         isOpen: true, title: '刪除維修紀錄', message: '確定要刪除這筆紀錄嗎？',
         onConfirm: async () => {
+            if (isProcessing) return;
             setIsProcessing(true);
-            if (dbStatus === 'demo' || !user) {
-                setRecords(prev => prev.filter(r => String(r.id) !== String(recordId)));
-                showToast('紀錄已刪除'); setIsProcessing(false); setConfirmDialog(prev => ({ ...prev, isOpen: false }));
-            } else {
-                try { await deleteDoc(doc(db, 'records', recordId)); showToast('紀錄已刪除'); } 
-                catch (err) { showToast('刪除失敗', 'error'); }
-                setIsProcessing(false); setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+            try {
+                if (dbStatus === 'demo' || !user) {
+                    setRecords(prev => prev.filter(r => String(r.id) !== String(recordId)));
+                    showToast('紀錄已刪除'); 
+                } else {
+                    await deleteDoc(doc(db, 'records', recordId)); 
+                    showToast('紀錄已刪除'); 
+                }
+                setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+            } catch (err) { 
+                showToast('刪除失敗', 'error'); 
+            } finally {
+                setIsProcessing(false);
             }
         }
     });
@@ -298,15 +322,22 @@ export default function App() {
     setConfirmDialog({
         isOpen: true, title: '刪除客戶資料', message: `確定要刪除客戶「${selectedCustomer.name}」嗎？`,
         onConfirm: async () => {
+            if (isProcessing) return;
             setIsProcessing(true);
             const goBack = () => { setRosterLevel('l1'); setCurrentView('roster'); setSelectedCustomer(null); };
-            if (dbStatus === 'demo' || !user) {
-                setCustomers(prev => prev.filter(c => String(c.customerID) !== String(targetId)));
-                showToast('客戶已刪除'); goBack(); setIsProcessing(false); setConfirmDialog(prev => ({ ...prev, isOpen: false }));
-            } else {
-                try { await deleteDoc(doc(db, 'customers', targetId)); showToast('客戶已刪除'); goBack(); } 
-                catch (err) { showToast('刪除失敗', 'error'); }
-                setIsProcessing(false); setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+            try {
+                if (dbStatus === 'demo' || !user) {
+                    setCustomers(prev => prev.filter(c => String(c.customerID) !== String(targetId)));
+                    showToast('客戶已刪除'); goBack(); 
+                } else {
+                    await deleteDoc(doc(db, 'customers', targetId)); 
+                    showToast('客戶已刪除'); goBack(); 
+                }
+                setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+            } catch (err) { 
+                showToast('刪除失敗', 'error'); 
+            } finally {
+                setIsProcessing(false);
             }
         }
     });
@@ -314,6 +345,10 @@ export default function App() {
 
   const handleEditSubmit = async (formData) => {
     if (!selectedCustomer) return;
+    // ★ 防連點鎖
+    if (isProcessing) return;
+    setIsProcessing(true);
+
     const existingPhones = selectedCustomer.phones || [];
     const newPhone = { label: formData.phoneLabel, number: formData.phoneNumber };
     const updatedPhones = existingPhones.length > 0 ? [newPhone, ...existingPhones.slice(1)] : [newPhone];
@@ -327,20 +362,27 @@ export default function App() {
       phones: updatedPhones, assets: updatedAssets
     };
     
-    // ★ 修正重點：如果有連線資料庫，只負責寫入，不要手動 setCustomers，讓 onSnapshot 自動更新
-    if (dbStatus === 'demo' || !user) {
-        setCustomers(prev => prev.map(c => c.customerID === selectedCustomer.customerID ? updatedEntry : c));
-        setSelectedCustomer(updatedEntry); setCurrentView('detail'); showToast('資料已更新 (離線)');
-    } else {
-      try {
-        await setDoc(doc(db, 'customers', selectedCustomer.customerID), updatedEntry);
-        setSelectedCustomer(updatedEntry); setCurrentView('detail'); showToast('資料已更新');
-        // 這裡不再手動呼叫 setCustomers
-      } catch (err) { showToast('更新失敗', 'error'); }
+    try {
+        if (dbStatus === 'demo' || !user) {
+            setCustomers(prev => prev.map(c => c.customerID === selectedCustomer.customerID ? updatedEntry : c));
+            setSelectedCustomer(updatedEntry); setCurrentView('detail'); showToast('資料已更新 (離線)');
+        } else {
+            await setDoc(doc(db, 'customers', selectedCustomer.customerID), updatedEntry);
+            // ★ 線上模式：這裡絕對不呼叫 setCustomers，由 onSnapshot 自動更新
+            setSelectedCustomer(updatedEntry); setCurrentView('detail'); showToast('資料已更新');
+        }
+    } catch (err) { 
+        showToast('更新失敗', 'error'); 
+    } finally {
+        setIsProcessing(false);
     }
   };
 
   const handleAddSubmit = async (formData) => {
+    // ★ 防連點鎖：如果已經在處理中，直接 return，不讓它跑下面的程式碼
+    if (isProcessing) return;
+    setIsProcessing(true);
+
     const newId = `cust-${Date.now()}`;
     const newEntry = {
       customerID: newId, name: formData.name, L1_group: formData.L1_group, L2_district: formData.L2_district,
@@ -349,18 +391,23 @@ export default function App() {
       assets: [{ model: formData.model || '未設定' }], notes: formData.notes || '', serviceCount: 0
     };
 
-    // ★ 修正重點：如果有連線資料庫，只負責寫入，不要手動 setCustomers，讓 onSnapshot 自動更新
-    if (dbStatus === 'demo' || !user) {
-        setCustomers(prev => [...prev, newEntry]);
-        showToast('新增成功 (離線)');
-        setSelectedCustomer(newEntry); setCurrentView('detail'); setSelectedL1(formData.L1_group); setSelectedL2(formData.L2_district); setRosterLevel('l3');
-    } else {
-        try {
+    try {
+        if (dbStatus === 'demo' || !user) {
+            setCustomers(prev => [...prev, newEntry]);
+            showToast('新增成功 (離線)');
+            setSelectedCustomer(newEntry); setCurrentView('detail'); setSelectedL1(formData.L1_group); setSelectedL2(formData.L2_district); setRosterLevel('l3');
+        } else {
+            // ★ 寫入資料庫
             await setDoc(doc(db, 'customers', newId), newEntry);
             showToast('新增成功');
-            // 這裡不再手動呼叫 setCustomers
+            // ★ 線上模式：這裡絕對不呼叫 setCustomers，讓 onSnapshot 自動更新畫面
             setSelectedCustomer(newEntry); setCurrentView('detail'); setSelectedL1(formData.L1_group); setSelectedL2(formData.L2_district); setRosterLevel('l3');
-        } catch (err) { showToast('新增失敗', 'error'); }
+        }
+    } catch (err) { 
+        showToast('新增失敗', 'error'); 
+    } finally {
+        // ★ 只有等到全部做完，才解開鎖，允許下一次點擊
+        setIsProcessing(false);
     }
   };
 
@@ -407,7 +454,11 @@ export default function App() {
   return (
     <div className="max-w-md mx-auto bg-gray-100 min-h-screen font-sans text-gray-900 shadow-2xl relative overflow-hidden">
       <GlobalStyles />
-      {/* 紅色標記移除，代表這是正式修復版 */}
+      {/* 這個版本標記可以讓你確認程式碼已更新 */}
+      <div className="fixed bottom-12 right-0 bg-red-600 text-white text-[10px] p-1 z-[100] font-bold">
+        v3.1 (防止重複送出)
+      </div>
+
       {isLoading && <div className="absolute inset-0 bg-white z-[60] flex flex-col items-center justify-center"><Loader2 size={48} className="text-blue-600 animate-spin mb-4" /><p className="text-gray-500 font-bold">資料同步中...</p></div>}
       
       <ImageViewer src={viewingImage} onClose={() => setViewingImage(null)} />
