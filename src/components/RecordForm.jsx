@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
-  ArrowLeft, History, X, FileText, Zap, Plus, Trash2, Camera, Loader2, Save,
-  CheckCircle, Clock, AlertCircle, ClipboardList, PhoneIncoming, Briefcase, Package
+  ArrowLeft, History, X, FileText, Zap, Trash2, Camera, Loader2, Save,
+  CheckCircle, Clock, AlertCircle, ClipboardList, PhoneIncoming, Briefcase, 
+  Package, Search, Filter
 } from 'lucide-react';
 import { ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { storage } from '../firebaseConfig'; 
@@ -67,36 +68,70 @@ const uploadImageToStorage = async (base64String, path) => {
 // --- 元件本體 ---
 const RecordForm = ({ initialData, onSubmit, onCancel, historyList, onHistoryFilterChange, filterText, inventory }) => {
     const [form, setForm] = useState(initialData);
-    const [currentPart, setCurrentPart] = useState({ name: "", qty: 1 });
     const [previews, setPreviews] = useState({ before: initialData.photoBefore || null, after: initialData.photoAfter || null });
     const [isSubmitting, setIsSubmitting] = useState(false);
-
-    // 取得目前輸入的零件在資料庫中的庫存狀態
-    const currentStockItem = inventory.find(i => i.name === currentPart.name);
+    
+    // 零件選擇器狀態
+    const [selectedModel, setSelectedModel] = useState('ALL');
+    const [partSearch, setPartSearch] = useState('');
 
     const handleQuickSymptom = (e) => { const val = e.target.value; if (val) setForm(prev => ({ ...prev, symptom: val })); };
     
-    // 新增零件檢查庫存邏輯
-    const addPart = () => { 
-        if (!currentPart.name.trim()) return; 
-        
-        // 檢查：如果庫存表裡面有這個零件，就要檢查數量
-        if (currentStockItem) {
-            if (currentStockItem.qty <= 0) {
-                alert(`「${currentStockItem.name}」目前已無庫存 (0 ${currentStockItem.unit})！無法領用。`);
-                return;
-            }
-            if (currentPart.qty > currentStockItem.qty) {
-                alert(`庫存不足！\n目前庫存：${currentStockItem.qty} ${currentStockItem.unit}\n您欲領用：${currentPart.qty} ${currentStockItem.unit}`);
-                return;
-            }
-        }
+    // --- 零件選擇邏輯 (新版) ---
+    // 1. 取得所有唯一的機型 (Model)
+    const uniqueModels = useMemo(() => {
+        const models = new Set(inventory.map(i => i.model).filter(Boolean));
+        return ['ALL', ...Array.from(models).sort()];
+    }, [inventory]);
 
-        setForm(prev => ({ ...prev, parts: [...(prev.parts || []), { ...currentPart, id: Date.now() }] })); 
-        setCurrentPart({ name: "", qty: 1 }); 
+    // 2. 根據選到的機型與搜尋字串過濾零件
+    const filteredInventory = useMemo(() => {
+        return inventory.filter(item => {
+            const matchModel = selectedModel === 'ALL' || item.model === selectedModel;
+            const matchSearch = partSearch === '' || 
+                                item.name.toLowerCase().includes(partSearch.toLowerCase()) || 
+                                item.model.toLowerCase().includes(partSearch.toLowerCase());
+            return matchModel && matchSearch;
+        });
+    }, [inventory, selectedModel, partSearch]);
+
+    // 3. 點擊零件卡片直接加入
+    const handleAddPart = (item) => {
+        if (item.qty <= 0) return; // 沒貨不能按
+
+        setForm(prev => {
+            const currentParts = prev.parts || [];
+            // 如果已經加過這個零件，數量 +1
+            const existingIndex = currentParts.findIndex(p => p.name === item.name);
+            if (existingIndex >= 0) {
+                const updatedParts = [...currentParts];
+                const newQty = updatedParts[existingIndex].qty + 1;
+                // 檢查是否超過庫存
+                if (newQty > item.qty) {
+                    alert(`庫存不足！\n目前庫存：${item.qty}\n您已選取：${updatedParts[existingIndex].qty}`);
+                    return prev;
+                }
+                updatedParts[existingIndex].qty = newQty;
+                return { ...prev, parts: updatedParts };
+            } else {
+                // 沒加過，新增一筆
+                return { ...prev, parts: [...currentParts, { id: Date.now(), name: item.name, qty: 1, model: item.model }] };
+            }
+        });
     };
 
-    const removePart = (id) => { setForm(prev => ({ ...prev, parts: prev.parts.filter(p => p.id !== id) })); };
+    // 4. 減少數量或移除
+    const handleRemovePart = (index) => {
+        setForm(prev => {
+            const updatedParts = [...prev.parts];
+            if (updatedParts[index].qty > 1) {
+                updatedParts[index].qty -= 1;
+            } else {
+                updatedParts.splice(index, 1);
+            }
+            return { ...prev, parts: updatedParts };
+        });
+    };
 
     const handleFileChange = async (e, type) => {
         const file = e.target.files[0];
@@ -138,7 +173,6 @@ const RecordForm = ({ initialData, onSubmit, onCancel, historyList, onHistoryFil
                     <History size={14} /> 歷史履歷快搜
                 </div>
                 <div className="relative">
-                    {/* 修正：text-sm 改為 text-base (防止手機縮放) */}
                     <input className="w-full bg-gray-50 border border-gray-200 rounded-md py-2 px-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="輸入零件 (如: 定影, 鼓)..." value={filterText} onChange={e => onHistoryFilterChange(e.target.value)} />
                     {filterText && <button onClick={() => onHistoryFilterChange('')} className="absolute right-3 top-2.5 text-gray-400"><X size={14}/></button>}
                 </div>
@@ -171,7 +205,6 @@ const RecordForm = ({ initialData, onSubmit, onCancel, historyList, onHistoryFil
             <section className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
                 <div className="bg-gray-50 px-5 py-3 border-b border-gray-200 flex items-center justify-between">
                     <div className="flex items-center gap-2"><div className="bg-blue-100 p-1 rounded text-blue-700"><FileText className="w-3.5 h-3.5" /></div><h2 className="font-bold text-gray-700 text-sm">維修紀錄表</h2></div>
-                    {/* 修正：text-xs 改為 text-base (日期選擇器也可能觸發縮放) */}
                     <input type="date" className="bg-transparent text-base font-mono text-gray-500 outline-none text-right" value={form.date} onChange={e => setForm({...form, date: e.target.value})} />
                 </div>
                 <div className="p-5 space-y-8 relative">
@@ -181,7 +214,6 @@ const RecordForm = ({ initialData, onSubmit, onCancel, historyList, onHistoryFil
                         <div className="flex justify-between items-center mb-2">
                              <label className="text-sm font-bold text-gray-700">故障描述</label>
                             <div className="relative">
-                                {/* 修正：opacity-0 的 select 雖然看不到，但為了保險起見也可以加 text-base */}
                                 <select className="absolute opacity-0 inset-0 w-full cursor-pointer z-10 text-base" onChange={handleQuickSymptom} value=""><option value="" disabled>選擇...</option>
                                       {Object.entries(SYMPTOM_CATEGORIES).map(([category, items]) => (<optgroup key={category} label={category}>{items.map(item => <option key={item} value={item}>{item}</option>)}</optgroup>))}
                                 </select>
@@ -189,58 +221,106 @@ const RecordForm = ({ initialData, onSubmit, onCancel, historyList, onHistoryFil
                             </div>
                         </div>
                         <div className="space-y-3">
-                            {/* 修正：text-sm 改為 text-base */}
                             <input type="text" className="w-full text-base text-gray-800 bg-gray-50 border border-gray-300 rounded-md py-2.5 px-3 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none" placeholder="請輸入故障情形..." value={form.symptom} onChange={(e) => setForm({...form, symptom: e.target.value})} />
-                            <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded px-2 py-1 shadow-sm w-fit"><span className="text-[10px] font-bold text-gray-500 uppercase">SC Code</span>
-                                {/* 修正：text-sm 改為 text-base */}
-                                <input type="text" placeholder="---" className="w-16 bg-transparent text-base uppercase focus:outline-none font-mono text-gray-700 font-bold" value={form.errorCode} onChange={(e) => setForm({...form, errorCode: e.target.value.toUpperCase()})} />
-                            </div>
+                            <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded px-2 py-1 shadow-sm w-fit"><span className="text-[10px] font-bold text-gray-500 uppercase">SC Code</span><input type="text" placeholder="---" className="w-16 bg-transparent text-base uppercase focus:outline-none font-mono text-gray-700 font-bold" value={form.errorCode} onChange={(e) => setForm({...form, errorCode: e.target.value.toUpperCase()})} /></div>
                         </div>
                     </div>
                     
                     <div className="relative pl-10">
                         <div className="absolute left-1 top-0.5 w-7 h-7 bg-white border-2 border-blue-600 rounded text-blue-700 flex items-center justify-center text-xs font-bold z-10 shadow-sm">2</div>
                         <label className="block text-sm font-bold text-gray-700 mb-2">處置對策</label>
-                        {/* 修正：text-sm 改為 text-base */}
                         <textarea rows="3" className="w-full text-base text-gray-800 bg-gray-50 border border-gray-300 rounded-md p-3 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none resize-none" placeholder="請詳述處理過程..." value={form.action} onChange={(e) => setForm({...form, action: e.target.value})} ></textarea>
                     </div>
+
                     <div className="relative pl-10">
                         <div className="absolute left-1 top-0.5 w-7 h-7 bg-white border-2 border-gray-400 rounded text-gray-500 flex items-center justify-center text-xs font-bold z-10 shadow-sm">3</div>
-                        <label className="text-sm font-bold text-gray-700 mb-2 block">零件更換</label>
+                        <label className="text-sm font-bold text-gray-700 mb-2 block">零件更換 (點擊加入)</label>
                         
-                        {/* 零件輸入區塊 */}
-                        <div className="flex gap-2 mb-1">
-                            {/* 修正：text-sm 改為 text-base */}
-                            <input list="part-suggestions" type="text" placeholder="料號 / 品名" className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-base focus:ring-2 focus:ring-blue-500 outline-none" value={currentPart.name} onChange={(e) => setCurrentPart({...currentPart, name: e.target.value})} />
-                            <datalist id="part-suggestions">
-                                {inventory.map(item => (<option key={item.id} value={item.name}>[{item.model}] {item.name} - 庫存:{item.qty}</option>))}
-                            </datalist>
-                            {/* 修正：text-sm 改為 text-base */}
-                            <input type="number" className="w-14 border border-gray-300 rounded-md px-2 py-2 text-center text-base outline-none" value={currentPart.qty} min="1" onChange={(e) => setCurrentPart({...currentPart, qty: Number(e.target.value)})} />
-                            <button type="button" onClick={addPart} className="bg-gray-800 text-white w-9 h-9 rounded-md flex items-center justify-center hover:bg-black transition shadow-sm"><Plus className="w-5 h-5" /></button>
-                        </div>
+                        {/* --- 已選零件列表 (置頂顯示) --- */}
+                        {form.parts && form.parts.length > 0 && (
+                             <div className="mb-4 space-y-2">
+                                {form.parts.map((part, index) => (
+                                    <div key={index} className="flex justify-between items-center bg-blue-50 border border-blue-200 rounded-lg p-2 animate-in fade-in slide-in-from-top-2">
+                                        <div className="flex flex-col">
+                                            <span className="text-sm font-bold text-blue-900">{part.name}</span>
+                                            <span className="text-[10px] text-blue-600">{part.model || '通用'}</span>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <span className="font-mono font-bold text-blue-800 text-lg">x{part.qty}</span>
+                                            <button onClick={() => handleRemovePart(index)} className="p-1.5 bg-white text-red-500 rounded border border-gray-200 shadow-sm active:bg-gray-100">
+                                                <Trash2 size={16}/>
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                             </div>
+                        )}
 
-                        {/* 即時顯示庫存狀態 */}
-                        <div className="min-h-[20px] mb-3">
-                            {currentStockItem ? (
-                                <div className={`text-xs font-bold flex items-center ${currentStockItem.qty > 0 ? 'text-blue-600' : 'text-red-600'}`}>
-                                    <Package size={12} className="mr-1"/>
-                                    目前庫存: {currentStockItem.qty} {currentStockItem.unit}
-                                    {currentStockItem.qty <= 0 && <span className="ml-2 bg-red-100 text-red-600 px-1 rounded">缺貨中</span>}
-                                </div>
-                            ) : (
-                                currentPart.name && <div className="text-xs text-gray-400">此零件不在庫存清單中</div>
-                            )}
-                        </div>
-
-                        {(form.parts && form.parts.length > 0) ? (
-                            <div className="border border-gray-200 rounded-md overflow-hidden shadow-sm">
-                                <table className="w-full text-sm text-left">
-                                    <thead className="bg-gray-50 text-gray-500 text-xs uppercase border-b border-gray-200"><tr><th className="px-3 py-2">項目</th><th className="px-3 py-2 text-right">數量</th><th className="px-3 py-2 w-8"></th></tr></thead>
-                                    <tbody className="divide-y divide-gray-100">{form.parts.map((part) => (<tr key={part.id} className="bg-white"><td className="px-3 py-2 text-gray-800">{part.name}</td><td className="px-3 py-2 text-right font-mono">{part.qty}</td><td className="px-3 py-2 text-right"><button type="button" onClick={() => removePart(part.id)} className="text-gray-300 hover:text-red-500"><Trash2 className="w-4 h-4" /></button></td></tr>))}</tbody>
-                                </table>
+                        {/* --- 零件選擇器 (新版圖鑑) --- */}
+                        <div className="bg-gray-50 rounded-xl border border-gray-200 p-3">
+                            {/* 1. 搜尋框 */}
+                            <div className="relative mb-3">
+                                <Search className="absolute left-3 top-2.5 text-gray-400 w-4 h-4" />
+                                <input 
+                                    type="text" 
+                                    className="w-full bg-white border border-gray-200 rounded-lg py-2 pl-9 pr-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none" 
+                                    placeholder="搜尋零件名稱..." 
+                                    value={partSearch}
+                                    onChange={(e) => setPartSearch(e.target.value)}
+                                />
                             </div>
-                        ) : <div className="text-gray-400 text-xs text-center py-4 border border-dashed border-gray-300 rounded-md bg-gray-50">無更換零件</div>}
+
+                            {/* 2. 機型分類按鈕 (橫向捲動) */}
+                            <div className="flex overflow-x-auto gap-2 pb-2 mb-2 scrollbar-hide">
+                                {uniqueModels.map(model => (
+                                    <button
+                                        key={model}
+                                        onClick={() => setSelectedModel(model)}
+                                        className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap border transition-all ${
+                                            selectedModel === model 
+                                            ? 'bg-gray-800 text-white border-gray-800 shadow-sm' 
+                                            : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-100'
+                                        }`}
+                                    >
+                                        {model === 'ALL' ? '全部型號' : model}
+                                    </button>
+                                ))}
+                            </div>
+
+                            {/* 3. 零件圖卡列表 */}
+                            <div className="grid grid-cols-2 gap-2 max-h-[240px] overflow-y-auto pr-1">
+                                {filteredInventory.map(item => {
+                                    const outOfStock = item.qty <= 0;
+                                    const lowStock = item.qty < 3 && !outOfStock;
+                                    return (
+                                        <button 
+                                            key={item.id}
+                                            onClick={() => handleAddPart(item)}
+                                            disabled={outOfStock}
+                                            className={`relative flex flex-col items-start p-2 rounded-lg border text-left transition-all ${
+                                                outOfStock 
+                                                ? 'bg-gray-100 border-gray-200 opacity-60 cursor-not-allowed' 
+                                                : 'bg-white border-gray-200 hover:border-blue-400 hover:shadow-sm active:scale-[0.98]'
+                                            }`}
+                                        >
+                                            <div className="flex justify-between w-full mb-1">
+                                                <span className="text-[10px] font-bold text-gray-400 bg-gray-100 px-1 rounded">{item.model}</span>
+                                                <span className={`text-[10px] font-bold px-1.5 rounded-full ${
+                                                    outOfStock ? 'bg-red-100 text-red-600' : (lowStock ? 'bg-orange-100 text-orange-600' : 'bg-green-100 text-green-600')
+                                                }`}>
+                                                    {outOfStock ? '缺貨' : `剩 ${item.qty}`}
+                                                </span>
+                                            </div>
+                                            <span className="text-sm font-bold text-gray-800 line-clamp-2 leading-tight">{item.name}</span>
+                                        </button>
+                                    );
+                                })}
+                                {filteredInventory.length === 0 && (
+                                    <div className="col-span-2 text-center py-8 text-gray-400 text-xs">找不到符合的零件...</div>
+                                )}
+                            </div>
+                        </div>
+
                     </div>
                   </div>
             </section>
