@@ -77,7 +77,7 @@ export default function App() {
     ).sort((a,b) => new Date(b.date) - new Date(a.date));
   }, [historyFilter, selectedCustomer, records]);
 
-  // --- 3. Firebase 連線邏輯 ---
+  // --- 3. Firebase 連線邏輯 (已修正：加入庫存同步) ---
   useEffect(() => {
     setDbStatus('connecting');
     const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
@@ -85,9 +85,9 @@ export default function App() {
       if (currentUser) {
         const custRef = collection(db, 'customers');
         const recRef = collection(db, 'records');
-        const invRef = collection(db, 'inventory'); 
+        const invRef = collection(db, 'inventory'); // [修正] 加入庫存資料表
 
-        // 1. 客戶資料
+        // 1. 客戶資料監聽
         const unsubCust = onSnapshot(custRef, (snapshot) => {
             if (!snapshot.empty) {
               const data = snapshot.docs.map(d => ({ ...d.data(), customerID: d.id }));
@@ -106,7 +106,7 @@ export default function App() {
           }
         );
 
-        // 2. 維修紀錄
+        // 2. 維修紀錄監聽
         const recentRecordsQuery = query(recRef, orderBy('date', 'desc'), limit(300));
         const unsubRec = onSnapshot(recentRecordsQuery, (snapshot) => {
             if (!snapshot.empty) {
@@ -115,31 +115,23 @@ export default function App() {
             } else { setRecords(MOCK_RECORDS); }
         });
 
-        // 3. 庫存資料 (★核心修正：自動初始化)
+        // 3. [修正] 庫存資料監聽 (這一段原本你漏掉了！)
         const unsubInv = onSnapshot(invRef, (snapshot) => {
           if (!snapshot.empty) {
-              // 如果資料庫有東西，就正常載入
+              // 資料庫有資料，正常載入
               const data = snapshot.docs.map(d => ({ ...d.data(), id: d.id }));
               setInventory(data);
           } else { 
-              // 如果資料庫是空的 (第一次執行)，自動把預設資料寫進去！
+              // 資料庫是空的！自動執行初始化：把預設資料寫入資料庫
               if (currentUser) {
-                  console.log("偵測到空資料庫，正在初始化庫存...");
                   const batch = writeBatch(db);
-                  
                   INITIAL_INVENTORY.forEach(item => {
-                      // 確保每個項目都有 ID，如果沒有就產生一個
                       const itemId = item.id || `init-${Math.random().toString(36).substr(2, 9)}`;
                       const itemRef = doc(db, 'inventory', itemId);
                       batch.set(itemRef, { ...item, id: itemId });
                   });
-
-                  // 一次性寫入所有預設資料
-                  batch.commit()
-                    .then(() => console.log("庫存初始化完成"))
-                    .catch(err => console.error("庫存初始化失敗", err));
+                  batch.commit().catch(err => console.error("庫存初始化失敗", err));
               }
-              // 先顯示預設值，讓畫面不要空白
               setInventory(INITIAL_INVENTORY); 
           }
         });
@@ -184,9 +176,9 @@ export default function App() {
 
   // --- 5. 資料庫操作 (CRUD) Handlers ---
   
-  // 更新庫存
+  // [修正] 更新庫存 - 加入 setDoc 寫入資料庫
   const updateInventory = async (item) => {
-    setInventory(prev => prev.map(i => i.id === item.id ? item : i));
+    setInventory(prev => prev.map(i => i.id === item.id ? item : i)); // 本地先更新
     if (dbStatus === 'demo' || !user) { showToast('庫存已更新 (離線)'); return; }
     try {
        await setDoc(doc(db, 'inventory', item.id), item);
@@ -194,12 +186,11 @@ export default function App() {
     } catch (e) { console.error(e); showToast('更新失敗', 'error'); }
   };
 
-  // 新增零件
+  // [修正] 新增庫存 - 加入 setDoc 寫入資料庫
   const addInventoryItem = async (newItem) => {
     const newId = `p-${Date.now()}`;
     const itemWithId = { ...newItem, id: newId };
-    setInventory(prev => [...prev, itemWithId]);
-
+    setInventory(prev => [...prev, itemWithId]); // 本地先更新
     if (dbStatus === 'demo' || !user) { showToast('新零件已加入 (離線)'); return; }
     try {
        await setDoc(doc(db, 'inventory', newId), itemWithId);
@@ -207,10 +198,9 @@ export default function App() {
     } catch (e) { console.error(e); showToast('新增失敗', 'error'); }
   };
 
-  // 刪除零件
+  // [修正] 刪除庫存 - 加入 deleteDoc 從資料庫移除
   const deleteInventoryItem = async (id) => {
-    setInventory(prev => prev.filter(i => i.id !== id));
-
+    setInventory(prev => prev.filter(i => i.id !== id)); // 本地先更新
     if (dbStatus === 'demo' || !user) { showToast('零件已刪除 (離線)'); return; }
     try {
        await deleteDoc(doc(db, 'inventory', id));
@@ -218,23 +208,18 @@ export default function App() {
     } catch (e) { console.error(e); showToast('刪除失敗', 'error'); }
   };
 
-  // 批次修改分類名稱
+  // [修正] 批次修改分類名稱 - 加入 writeBatch
   const renameModelGroup = async (oldModel, newModel) => {
     setInventory(prev => prev.map(item => item.model === oldModel ? { ...item, model: newModel } : item));
-
     if (dbStatus === 'demo' || !user) { showToast(`分類已更新：${newModel} (離線)`); return; }
-
     try {
       const batch = writeBatch(db);
       const itemsToUpdate = inventory.filter(i => i.model === oldModel);
-      
       if (itemsToUpdate.length === 0) return;
-
       itemsToUpdate.forEach(item => {
         const ref = doc(db, 'inventory', item.id);
         batch.update(ref, { model: newModel });
       });
-      
       await batch.commit();
       showToast(`分類已更新：${newModel}`);
     } catch (e) { console.error(e); showToast('更新失敗', 'error'); }
@@ -256,10 +241,12 @@ export default function App() {
             } else {
                 try {
                     const batch = writeBatch(db);
+                    // 清除客戶與庫存資料
                     customers.forEach(c => batch.delete(doc(db, 'customers', c.customerID)));
-                    inventory.forEach(i => batch.delete(doc(db, 'inventory', i.id))); // 清除庫存
+                    inventory.forEach(i => batch.delete(doc(db, 'inventory', i.id)));
+                    // 重新寫入預設值
                     FULL_IMPORT_DATA.forEach(c => batch.set(doc(db, 'customers', c.customerID), c));
-                    INITIAL_INVENTORY.forEach(i => batch.set(doc(db, 'inventory', i.id), i)); // 重置庫存
+                    INITIAL_INVENTORY.forEach(i => batch.set(doc(db, 'inventory', i.id), i));
                     
                     await batch.commit();
                     showToast('系統已重置');
@@ -283,16 +270,15 @@ export default function App() {
         isTracking: formData.status === 'pending'
     };
     
-    // 扣庫存 (同步寫入 Firebase)
+    // [修正] 填維修單時扣庫存，也要同步到 Firebase
     if (formData.parts && formData.parts.length > 0) {
-      const batch = writeBatch(db);
+      const batch = writeBatch(db); 
       let hasUpdates = false;
-
       formData.parts.forEach(part => {
         const item = inventory.find(i => i.name === part.name);
         if (item) {
            const newQty = Math.max(0, item.qty - part.qty);
-           updateInventory({...item, qty: newQty}); 
+           updateInventory({...item, qty: newQty}); // 更新本地
            if (dbStatus !== 'demo' && user) {
              const ref = doc(db, 'inventory', item.id);
              batch.update(ref, { qty: newQty });
