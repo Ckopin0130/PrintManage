@@ -244,7 +244,7 @@ export default function App() {
     } catch (e) { console.error(e); showToast('更新失敗', 'error'); }
   };
 
-  // --- 客戶與紀錄相關操作 (保持不變) ---
+  // --- 客戶與紀錄相關操作 ---
   const handleResetData = async () => {
     setConfirmDialog({
         isOpen: true,
