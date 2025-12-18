@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   ClipboardList, Users, Search, PenTool, 
   Wifi, WifiOff, Package, FileText, Settings, 
-  Sun, Cloud, CloudRain, MapPin, Printer, ChevronRight
+  Sun, Cloud, CloudRain, MapPin, Printer, ChevronRight, Clock
 } from 'lucide-react';
 
 const Dashboard = ({ 
@@ -35,15 +35,14 @@ const Dashboard = ({
   }, []);
 
   const getWeatherIcon = () => {
-    if (weather.condition === 'Rainy') return <CloudRain size={20} className="text-white drop-shadow-md"/>;
-    if (weather.condition === 'Cloudy') return <Cloud size={20} className="text-gray-300 drop-shadow-md"/>;
-    return <Sun size={20} className="text-amber-400 drop-shadow-md animate-pulse-slow"/>;
+    if (weather.condition === 'Rainy') return <CloudRain size={24} className="text-white drop-shadow-md"/>;
+    if (weather.condition === 'Cloudy') return <Cloud size={24} className="text-gray-300 drop-shadow-md"/>;
+    return <Sun size={24} className="text-amber-400 drop-shadow-md animate-pulse-slow"/>;
   };
 
   const todayDate = new Date().toLocaleDateString('zh-TW', { month: 'long', day: 'numeric' });
   const todayWeek = new Date().toLocaleDateString('zh-TW', { weekday: 'long' });
 
-  // 確保 6 個模組都有簡短的 info 說明，保持排版整齊
   const modules = [
     { 
       id: 'tracking', 
@@ -51,7 +50,7 @@ const Dashboard = ({
       icon: ClipboardList, 
       color: 'text-rose-500', 
       bgColor: 'bg-rose-50',
-      info: pendingTasks > 0 ? `${pendingTasks} 件待辦` : '目前無案', // 動態顯示
+      info: pendingTasks > 0 ? `${pendingTasks} 件待辦` : '目前無案',
       badge: pendingTasks > 0 ? pendingTasks : null, 
       action: () => setCurrentView('tracking') 
     },
@@ -61,7 +60,7 @@ const Dashboard = ({
       icon: Users, 
       color: 'text-blue-600', 
       bgColor: 'bg-blue-50',
-      info: `${totalCustomers} 位客戶`, 
+      info: `${totalCustomers} 戶`, 
       action: () => { setActiveTab('roster'); setCurrentView('roster'); setRosterLevel('l1'); } 
     },
     { 
@@ -103,11 +102,11 @@ const Dashboard = ({
   ];
 
   return (
-    // 使用 h-screen 鎖定高度，防止不必要的滾動
+    // 使用 h-screen 與 flex-col 確保佈局填滿但不過長
     <div className="bg-gray-50 h-screen flex flex-col font-sans animate-in overflow-hidden">
       
-      {/* 1. 頂部標題列 (更緊湊) */}
-      <div className="bg-white/90 backdrop-blur pl-6 pr-4 py-3 flex justify-between items-center border-b border-gray-200/60 shadow-sm z-30">
+      {/* 1. 頂部標題列 */}
+      <div className="bg-white/90 backdrop-blur pl-6 pr-4 py-3 flex justify-between items-center border-b border-gray-200/60 shadow-sm z-30 shrink-0">
          <div className="flex items-center gap-2.5">
             <div className="bg-slate-800 p-1.5 rounded-lg shadow-sm">
               <Printer size={16} className="text-white"/>
@@ -115,19 +114,15 @@ const Dashboard = ({
             <div className="font-extrabold text-base text-slate-800 tracking-wide">印表機管家</div>
          </div>
          
-         {/* 中文連線狀態 */}
          <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border transition-colors ${dbStatus === 'online' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-rose-50 text-rose-500 border-rose-100'}`}>
             {dbStatus === 'online' ? <Wifi size={12}/> : <WifiOff size={12}/>}
             <span>{dbStatus === 'online' ? '連線中' : '離線'}</span>
          </div>
       </div>
 
-      {/* 2. 資訊與搜尋區 (Padding 縮小，節省空間) */}
-      <div className="px-4 py-4 relative z-10 shrink-0">
-         
-         {/* 資訊卡片 */}
+      {/* 2. 資訊與搜尋區 (Banner) */}
+      <div className="px-4 py-3 shrink-0 relative z-10">
          <div className="bg-gradient-to-br from-slate-800 to-blue-900 rounded-2xl p-4 text-white shadow-lg shadow-slate-300 relative overflow-hidden ring-1 ring-white/10">
-            
             {/* 裝飾背景 */}
             <div className="absolute top-0 right-0 w-48 h-48 bg-blue-500/10 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
 
@@ -147,7 +142,6 @@ const Dashboard = ({
                </div>
             </div>
 
-            {/* 搜尋欄 (高度縮小一點) */}
             <div 
                onClick={() => setCurrentView('search')}
                className="bg-white rounded-lg p-2.5 flex items-center gap-2 shadow-md shadow-black/5 cursor-text hover:bg-blue-50 transition-colors active:scale-[0.98] group"
@@ -161,48 +155,55 @@ const Dashboard = ({
          </div>
       </div>
 
-      {/* 分隔標題 (更緊湊) */}
+      {/* 分隔線 */}
       <div className="px-6 my-1 flex items-center gap-4 shrink-0">
          <div className="h-px bg-gray-200 flex-1"></div>
          <span className="text-[10px] font-bold text-gray-400 tracking-widest">功能選單</span>
          <div className="h-px bg-gray-200 flex-1"></div>
       </div>
 
-      {/* 3. 六大宮格 (3欄排列 = 省空間關鍵) */}
-      <div className="px-4 pb-20 overflow-y-auto flex-1">
-         <div className="grid grid-cols-3 gap-3"> {/* 改成 grid-cols-3 */}
+      {/* 3. 六大宮格 (變回 2 欄，但高度微調，確保不滑動) */}
+      <div className="px-4 pb-2 flex-1 overflow-y-auto"> {/* 使用 flex-1 自動填滿剩餘空間 */}
+         <div className="grid grid-cols-2 gap-3"> 
             {modules.map(item => (
                <button 
                   key={item.id} 
                   onClick={item.action}
-                  // 調整高度為 h-28 (方形感)，去除過多留白
-                  className="bg-white p-2 rounded-xl border border-slate-100 border-b-[3px] border-b-slate-200 shadow-sm flex flex-col items-center justify-center gap-2 h-28 active:border-b active:translate-y-0.5 active:shadow-none relative group overflow-hidden"
+                  // h-28 是關鍵：高度適中，比原本的長方形短，比 3 欄大
+                  className="bg-white p-3 rounded-xl border border-slate-100 border-b-[3px] border-b-slate-200 shadow-sm flex flex-col items-center justify-center gap-2 h-28 active:border-b active:translate-y-0.5 active:shadow-none relative group overflow-hidden"
                >
                   <div className={`p-2.5 rounded-xl ${item.bgColor} ${item.color} group-hover:scale-110 transition-transform duration-300 relative z-10`}>
                      <item.icon size={24} strokeWidth={2}/>
                   </div>
                   
                   <div className="text-center relative z-10 w-full">
-                     <div className="font-bold text-gray-700 text-xs">{item.title}</div>
-                     {/* 小標籤字體再縮小，適應 3 欄寬度 */}
-                     <div className="text-[9px] text-gray-400 font-bold mt-1 bg-slate-50 px-1.5 py-0.5 rounded-full inline-block truncate max-w-[90%]">
+                     <div className="font-bold text-gray-700 text-sm">{item.title}</div>
+                     <div className="text-[10px] text-gray-400 font-bold mt-1 bg-slate-50 px-2 py-0.5 rounded-full inline-block border border-slate-100">
                         {item.info}
                      </div>
                   </div>
 
                   {item.badge && (
-                     <div className="absolute top-1.5 right-1.5 w-3 h-3 rounded-full bg-rose-500 shadow-sm ring-1 ring-white animate-pulse z-20"></div>
+                     <div className="absolute top-2 right-2 w-2.5 h-2.5 rounded-full bg-rose-500 shadow-sm ring-1 ring-white animate-pulse z-20"></div>
                   )}
                </button>
             ))}
          </div>
-         
-         <div className="mt-4 text-center">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white border border-gray-100 shadow-sm text-[9px] font-bold text-gray-400">
-               <span>System Ready</span>
-               <div className="w-1 h-1 rounded-full bg-emerald-400 animate-pulse"></div>
+
+         {/* 4. 填補空白用的「最新動態」 (新功能！) */}
+         <div className="mt-3 bg-white rounded-xl border border-gray-100 p-3 flex items-center justify-between shadow-sm">
+            <div className="flex items-center gap-3">
+               <div className="bg-emerald-50 text-emerald-600 p-2 rounded-lg"><Clock size={16}/></div>
+               <div>
+                  <div className="text-[10px] font-bold text-gray-400 uppercase">System Status</div>
+                  <div className="text-xs font-bold text-gray-700">系統運作正常，資料已同步</div>
+               </div>
             </div>
+            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
          </div>
+         
+         {/* 預留底部導覽列空間 (稍微加大一點，避免被遮擋) */}
+         <div className="h-20"></div>
       </div>
 
     </div>
