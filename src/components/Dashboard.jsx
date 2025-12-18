@@ -42,14 +42,16 @@ const Dashboard = ({
   const todayDate = new Date().toLocaleDateString('zh-TW', { month: 'long', day: 'numeric' });
   const todayWeek = new Date().toLocaleDateString('zh-TW', { weekday: 'long' });
 
+  // ★ 模組設定：加入立體漸層 (iconGradient) 與更明顯的背景
   const modules = [
     { 
       id: 'tracking', 
       title: '待辦追蹤', 
       icon: ClipboardList, 
-      color: 'text-rose-500', 
-      bgGradient: 'from-rose-50 to-white', // 增加漸層背景
-      iconBg: 'bg-rose-100',
+      color: 'text-rose-600', 
+      bgGradient: 'from-rose-50 to-white',
+      // 立體感關鍵：圖示背景改用漸層 + 陰影
+      iconGradient: 'bg-gradient-to-br from-rose-100 to-rose-200',
       info: pendingTasks > 0 ? `${pendingTasks} 件待辦` : '目前無案',
       badge: pendingTasks > 0 ? pendingTasks : null, 
       action: () => setCurrentView('tracking') 
@@ -60,7 +62,7 @@ const Dashboard = ({
       icon: Users, 
       color: 'text-blue-600', 
       bgGradient: 'from-blue-50 to-white',
-      iconBg: 'bg-blue-100',
+      iconGradient: 'bg-gradient-to-br from-blue-100 to-blue-200',
       info: `${totalCustomers} 戶`, 
       action: () => { setActiveTab('roster'); setCurrentView('roster'); setRosterLevel('l1'); } 
     },
@@ -68,9 +70,9 @@ const Dashboard = ({
       id: 'records', 
       title: '維修紀錄', 
       icon: FileText, 
-      color: 'text-amber-500', 
+      color: 'text-amber-600', 
       bgGradient: 'from-amber-50 to-white',
-      iconBg: 'bg-amber-100',
+      iconGradient: 'bg-gradient-to-br from-amber-100 to-amber-200',
       info: `今日 ${todayCompletedCount} 件`, 
       action: () => { setActiveTab('records'); setCurrentView('records'); } 
     },
@@ -78,9 +80,9 @@ const Dashboard = ({
       id: 'inventory', 
       title: '車載庫存', 
       icon: Package, 
-      color: 'text-emerald-500', 
+      color: 'text-emerald-600', 
       bgGradient: 'from-emerald-50 to-white',
-      iconBg: 'bg-emerald-100',
+      iconGradient: 'bg-gradient-to-br from-emerald-100 to-emerald-200',
       info: '零件盤點', 
       action: () => { setActiveTab('inventory'); setCurrentView('inventory'); } 
     },
@@ -88,9 +90,9 @@ const Dashboard = ({
       id: 'worklog', 
       title: '工作日誌', 
       icon: PenTool, 
-      color: 'text-violet-500', 
+      color: 'text-violet-600', 
       bgGradient: 'from-violet-50 to-white',
-      iconBg: 'bg-violet-100',
+      iconGradient: 'bg-gradient-to-br from-violet-100 to-violet-200',
       info: '一鍵日報', 
       action: () => setCurrentView('worklog') 
     },
@@ -98,16 +100,16 @@ const Dashboard = ({
       id: 'settings', 
       title: '系統設定', 
       icon: Settings, 
-      color: 'text-slate-500', 
-      bgGradient: 'from-slate-50 to-white',
-      iconBg: 'bg-slate-200',
+      color: 'text-slate-600', 
+      // ★ 修正：加深設定的漸層，讓它不再是死白
+      bgGradient: 'from-slate-100 to-white',
+      iconGradient: 'bg-gradient-to-br from-slate-200 to-slate-300',
       info: '備份還原', 
       action: () => setCurrentView('settings') 
     }
   ];
 
   return (
-    // ★ 關鍵修改：使用 h-[100dvh] 解決手機瀏覽器高度問題
     <div className="bg-gray-50 h-[100dvh] flex flex-col font-sans animate-in overflow-hidden">
       
       {/* 1. 頂部標題列 */}
@@ -118,18 +120,16 @@ const Dashboard = ({
             </div>
             <div className="font-extrabold text-base text-slate-800 tracking-wide">印表機管家</div>
          </div>
-         
          <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border transition-colors ${dbStatus === 'online' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-rose-50 text-rose-500 border-rose-100'}`}>
             {dbStatus === 'online' ? <Wifi size={12}/> : <WifiOff size={12}/>}
             <span>{dbStatus === 'online' ? '連線中' : '離線'}</span>
          </div>
       </div>
 
-      {/* 2. 資訊與搜尋區 (Banner) */}
+      {/* 2. 資訊與搜尋區 */}
       <div className="px-4 py-3 shrink-0 relative z-10">
          <div className="bg-gradient-to-br from-slate-800 to-blue-900 rounded-2xl p-4 text-white shadow-lg shadow-slate-300 relative overflow-hidden ring-1 ring-white/10">
             <div className="absolute top-0 right-0 w-48 h-48 bg-blue-500/10 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
-
             <div className="flex justify-between items-center relative z-10 mb-3">
                <div>
                   <div className="text-[10px] font-bold text-slate-300 mb-0.5 uppercase tracking-wider">{todayWeek}</div>
@@ -145,11 +145,7 @@ const Dashboard = ({
                   </div>
                </div>
             </div>
-
-            <div 
-               onClick={() => setCurrentView('search')}
-               className="bg-white rounded-lg p-2.5 flex items-center gap-2 shadow-md shadow-black/5 cursor-text hover:bg-blue-50 transition-colors active:scale-[0.98] group"
-            >
+            <div onClick={() => setCurrentView('search')} className="bg-white rounded-lg p-2.5 flex items-center gap-2 shadow-md shadow-black/5 cursor-text hover:bg-blue-50 transition-colors active:scale-[0.98] group">
                <Search size={16} className="text-slate-400 group-hover:text-blue-600 transition-colors"/>
                <div className="text-xs font-bold text-gray-400 flex-1 group-hover:text-gray-500 transition-colors">搜尋客戶、電話或機型...</div>
                <div className="bg-gray-100 p-0.5 rounded group-hover:bg-blue-100 transition-colors">
@@ -166,19 +162,19 @@ const Dashboard = ({
          <div className="h-px bg-gray-200 flex-1"></div>
       </div>
 
-      {/* 3. 六大宮格 (可滑動區域) */}
-      {/* flex-1 讓它自動佔滿剩餘空間，min-h-0 防止破版 */}
+      {/* 3. 六大宮格 (重點調整) */}
       <div className="px-4 flex-1 overflow-y-auto custom-scrollbar min-h-0">
          <div className="grid grid-cols-2 gap-3 pb-2"> 
             {modules.map(item => (
                <button 
                   key={item.id} 
                   onClick={item.action}
-                  // 美化重點：加入 bg-gradient-to-br 讓白底不單調
+                  // 使用 bg-gradient-to-br 增加背景層次
                   className={`bg-gradient-to-br ${item.bgGradient} p-3 rounded-xl border border-slate-100 border-b-[3px] border-b-slate-200 shadow-sm flex flex-col items-center justify-center gap-2 h-30 active:border-b active:translate-y-0.5 active:shadow-none relative group overflow-hidden transition-all`}
                >
-                  <div className={`p-3 rounded-2xl ${item.iconBg} ${item.color} group-hover:scale-110 transition-transform duration-300 relative z-10`}>
-                     <item.icon size={26} strokeWidth={2}/>
+                  {/* ★ 立體化關鍵：圖示容器加上 shadow-md, ring-1, 還有自己的漸層背景 */}
+                  <div className={`p-3 rounded-2xl ${item.iconGradient} ${item.color} shadow-md ring-1 ring-white/50 group-hover:scale-110 transition-transform duration-300 relative z-10`}>
+                     <item.icon size={28} strokeWidth={2} className="drop-shadow-sm"/>
                   </div>
                   
                   <div className="text-center relative z-10 w-full">
@@ -196,18 +192,18 @@ const Dashboard = ({
          </div>
       </div>
 
-      {/* 4. 系統狀態 (固定在底部，不隨宮格滑動) */}
-      {/* 放在 grid 容器外面，並加上 pb-20 為導覽列留位子 */}
-      <div className="px-4 pt-2 pb-24 shrink-0 bg-gray-50 z-20">
-         <div className="bg-white rounded-xl border border-gray-100 p-3 flex items-center justify-between shadow-sm">
+      {/* 4. 系統狀態 (★ 修改：壓低高度 py-2.5，拉近距離 mt-3) */}
+      <div className="px-4 pt-0 pb-24 shrink-0 bg-gray-50 z-20">
+         {/* mt-3 讓它不要離上面太遠，py-2.5 讓它不要太厚 */}
+         <div className="mt-3 bg-white rounded-xl border border-gray-100 py-2.5 px-4 flex items-center justify-between shadow-sm">
             <div className="flex items-center gap-3">
-               <div className="bg-emerald-50 text-emerald-600 p-2 rounded-lg"><Clock size={16}/></div>
+               <div className="bg-emerald-50 text-emerald-600 p-1.5 rounded-lg"><Clock size={14}/></div>
                <div>
-                  <div className="text-[10px] font-bold text-gray-400 uppercase">SYSTEM STATUS</div>
-                  <div className="text-xs font-bold text-gray-700">系統運作正常，資料已同步</div>
+                  <div className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">SYSTEM STATUS</div>
+                  <div className="text-[11px] font-bold text-gray-700">系統運作正常，資料已同步</div>
                </div>
             </div>
-            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse ring-4 ring-emerald-100"></div>
+            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse ring-4 ring-emerald-50"></div>
          </div>
       </div>
 
