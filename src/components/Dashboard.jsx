@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   ClipboardList, Users, Search, PenTool, 
   Wifi, WifiOff, Package, FileText, Settings, 
-  Sun, Cloud, CloudRain, MapPin, Printer, ChevronRight, Activity
+  Sun, Cloud, CloudRain, MapPin, Printer, ChevronRight, CheckCircle2
 } from 'lucide-react';
 
 const Dashboard = ({ 
@@ -42,88 +42,76 @@ const Dashboard = ({
   const todayDate = new Date().toLocaleDateString('zh-TW', { month: 'long', day: 'numeric' });
   const todayWeek = new Date().toLocaleDateString('zh-TW', { weekday: 'long' });
 
-  // ★ 科技感模組 (Tech Modules)
+  // ★ 回歸彩色馬卡龍風格 (您喜歡的版本)
   const modules = [
     { 
       id: 'tracking', 
       title: '待辦追蹤', 
-      code: 'TASK-01',
       icon: ClipboardList, 
-      color: 'text-rose-500', 
-      borderBot: 'border-b-rose-500', 
-      glow: 'shadow-rose-100', 
-      iconBg: 'bg-rose-50',
-      info: pendingTasks > 0 ? `${pendingTasks} 件待辦` : '無新案件',
+      // 使用彩色背景與文字
+      color: 'text-rose-600', 
+      bgColor: 'bg-rose-50',
+      iconBg: 'bg-rose-100',
+      info: pendingTasks > 0 ? `${pendingTasks} 件待辦` : '目前無案',
       badge: pendingTasks > 0 ? pendingTasks : null, 
       action: () => setCurrentView('tracking') 
     },
     { 
       id: 'roster', 
       title: '客戶名冊', 
-      code: 'USER-02',
       icon: Users, 
-      color: 'text-cyan-600', 
-      borderBot: 'border-b-cyan-500',
-      glow: 'shadow-cyan-100',
-      iconBg: 'bg-cyan-50',
+      color: 'text-blue-600', 
+      bgColor: 'bg-blue-50',
+      iconBg: 'bg-blue-100',
       info: `${totalCustomers} 戶資料`, 
       action: () => { setActiveTab('roster'); setCurrentView('roster'); setRosterLevel('l1'); } 
     },
     { 
       id: 'records', 
       title: '維修紀錄', 
-      code: 'LOGS-03',
       icon: FileText, 
-      color: 'text-amber-500', 
-      borderBot: 'border-b-amber-500',
-      glow: 'shadow-amber-100',
-      iconBg: 'bg-amber-50',
+      color: 'text-amber-600', 
+      bgColor: 'bg-amber-50',
+      iconBg: 'bg-amber-100',
       info: `今日 ${todayCompletedCount} 完成`, 
       action: () => { setActiveTab('records'); setCurrentView('records'); } 
     },
     { 
       id: 'inventory', 
       title: '車載庫存', 
-      code: 'PART-04',
       icon: Package, 
-      color: 'text-emerald-500', 
-      borderBot: 'border-b-emerald-500',
-      glow: 'shadow-emerald-100',
-      iconBg: 'bg-emerald-50',
-      info: '零件管理', 
+      color: 'text-emerald-600', 
+      bgColor: 'bg-emerald-50',
+      iconBg: 'bg-emerald-100',
+      info: '零件盤點', 
       action: () => { setActiveTab('inventory'); setCurrentView('inventory'); } 
     },
     { 
       id: 'worklog', 
       title: '工作日誌', 
-      code: 'NOTE-05',
       icon: PenTool, 
-      color: 'text-violet-500', 
-      borderBot: 'border-b-violet-500',
-      glow: 'shadow-violet-100',
-      iconBg: 'bg-violet-50',
+      color: 'text-violet-600', 
+      bgColor: 'bg-violet-50',
+      iconBg: 'bg-violet-100',
       info: '日報生成', 
       action: () => setCurrentView('worklog') 
     },
     { 
       id: 'settings', 
       title: '系統設定', 
-      code: 'SYS-99',
       icon: Settings, 
-      color: 'text-slate-500', 
-      borderBot: 'border-b-slate-400',
-      glow: 'shadow-slate-200',
-      iconBg: 'bg-slate-100',
+      color: 'text-slate-600', 
+      bgColor: 'bg-slate-100', // 稍微深一點的灰
+      iconBg: 'bg-slate-200',
       info: '備份還原', 
       action: () => setCurrentView('settings') 
     }
   ];
 
   return (
-    // ★ 結構核心：h-[100dvh] 確保填滿手機螢幕，不超出
     <div className="bg-slate-50 h-[100dvh] flex flex-col font-sans overflow-hidden">
       
-      {/* --- 區塊 1: 頂部標題 (固定) --- */}
+      {/* 1. 頂部標題 */}
       <div className="bg-white/90 backdrop-blur pl-6 pr-4 py-3 flex justify-between items-center border-b border-gray-200/60 shadow-sm shrink-0 z-30">
          <div className="flex items-center gap-2.5">
             <div className="bg-slate-900 p-1.5 rounded-lg shadow-sm">
@@ -137,7 +125,7 @@ const Dashboard = ({
          </div>
       </div>
 
-      {/* --- 區塊 2: 藍色面板 (固定) --- */}
+      {/* 2. 藍色面板 */}
       <div className="px-4 py-3 shrink-0 z-20">
          <div className="bg-gradient-to-br from-slate-800 to-blue-950 rounded-2xl p-4 text-white shadow-xl shadow-slate-300 relative overflow-hidden ring-1 ring-white/10">
             <div className="absolute top-0 right-0 w-48 h-48 bg-cyan-500/10 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
@@ -168,73 +156,63 @@ const Dashboard = ({
          </div>
       </div>
 
-      {/* --- 區塊 3: 分隔線 (固定) --- */}
-      {/* 修正：把 margin-top 拿掉，只留 mb-2，讓它往上靠近藍色面板 */}
-      <div className="px-6 mb-2 flex items-center gap-4 shrink-0 z-10">
+      {/* 分隔線 (縮小上下間距，把空間留給下面) */}
+      <div className="px-6 my-1 flex items-center gap-4 shrink-0 z-10">
          <div className="h-px bg-slate-200 flex-1"></div>
          <span className="text-[10px] font-bold text-slate-400 tracking-widest uppercase">MODULES</span>
          <div className="h-px bg-slate-200 flex-1"></div>
       </div>
 
-      {/* --- 區塊 4: 六大功能 (彈性伸縮區 flex-1) --- */}
-      {/* flex-1: 自動佔滿剩下的空間
-         overflow-y-auto: 內容太多時，只有這塊區域會捲動
-         pb-4: 底部留一點縫隙
-      */}
-      <div className="px-4 flex-1 overflow-y-auto custom-scrollbar min-h-0 pb-4">
-         <div className="grid grid-cols-2 gap-3"> 
+      {/* 3. 可滑動區域 (包含六大功能 + 系統狀態) */}
+      {/* flex-1 填滿剩下空間，內容都放在這裡面滑動 */}
+      <div className="px-4 flex-1 overflow-y-auto custom-scrollbar min-h-0 pb-20">
+         
+         {/* 六大功能區 */}
+         <div className="grid grid-cols-2 gap-3 mb-4"> 
             {modules.map(item => (
                <button 
                   key={item.id} 
                   onClick={item.action}
-                  // Tech Style: 白底 + 灰色邊框 + 底部亮色條 (HUD)
-                  className={`bg-white p-3 rounded-xl border border-slate-200 border-b-[3px] ${item.borderBot} shadow-sm ${item.glow} flex flex-col items-center justify-center gap-2 h-30 active:border-b-0 active:translate-y-0.5 active:shadow-none transition-all relative group overflow-hidden`}
+                  // 使用彩色背景，加上陰影與白色邊框
+                  className={`p-3 rounded-xl border border-white/50 shadow-sm ${item.bgColor} flex flex-col items-center justify-center gap-2 h-30 active:scale-[0.98] transition-all relative group overflow-hidden`}
                >
-                  {/* 科技編號 */}
-                  <div className="absolute top-2 right-2 text-[8px] font-mono text-slate-300 group-hover:text-slate-500 transition-colors">
-                     {item.code}
-                  </div>
-
-                  <div className={`p-2.5 rounded-xl ${item.iconBg} ${item.color} group-hover:scale-110 transition-transform duration-300 relative z-10 border border-slate-100`}>
+                  {/* 圖示容器 */}
+                  <div className={`p-2.5 rounded-xl ${item.iconBg} ${item.color} group-hover:scale-110 transition-transform duration-300 relative z-10 shadow-sm`}>
                      <item.icon size={26} strokeWidth={2}/>
                   </div>
                   
                   <div className="text-center relative z-10 w-full mt-1">
-                     <div className="font-bold text-slate-700 text-sm group-hover:text-black">{item.title}</div>
-                     <div className="text-[10px] text-slate-400 font-bold mt-1 bg-slate-50 px-2 py-0.5 rounded-sm inline-block border border-slate-100 font-mono">
+                     <div className="font-bold text-slate-700 text-sm">{item.title}</div>
+                     <div className="text-[10px] text-slate-500 font-bold mt-1 bg-white/60 px-2 py-0.5 rounded-full inline-block">
                         {item.info}
                      </div>
                   </div>
 
                   {item.badge && (
-                     <div className="absolute top-2 left-2 flex items-center gap-1 bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-200">
-                        <div className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></div>
-                     </div>
+                     <div className="absolute top-2 right-2 w-2.5 h-2.5 rounded-full bg-rose-500 shadow-sm ring-1 ring-white animate-pulse z-20"></div>
                   )}
                </button>
             ))}
          </div>
-      </div>
 
-      {/* --- 區塊 5: 系統狀態 (固定底部 - 物理堆疊) --- */}
-      {/* shrink-0: 禁止被壓縮
-         bg-slate-50: 背景色，防止下面的內容透出來
-         pb-[90px]: 這是關鍵！預留 90px 給底部的導覽列，確保狀態列不會被導覽列遮住
-      */}
-      <div className="px-4 pt-2 pb-[90px] shrink-0 bg-slate-50 z-20 border-t border-slate-100">
-         <div className="bg-slate-900 rounded-lg border border-slate-700 py-2.5 px-4 flex items-center justify-between shadow-lg shadow-slate-400/20">
+         {/* 4. 系統狀態 (放在滑動列表的最後面，當作 Footer) */}
+         {/* 這樣它就永遠在按鈕下面，不會蓋住任何人 */}
+         <div className="bg-white rounded-xl border border-slate-200 py-2.5 px-4 flex items-center justify-between shadow-sm">
             <div className="flex items-center gap-3">
-               <div className="relative flex h-2.5 w-2.5">
+               <div className="relative flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                </div>
                <div>
                   <div className="text-[9px] font-bold text-slate-400 uppercase tracking-widest font-mono">SYSTEM SYNC</div>
-                  <div className="text-[11px] font-bold text-slate-200">系統運作正常，資料已同步</div>
+                  <div className="text-[11px] font-bold text-slate-600">系統運作正常，資料已同步</div>
                </div>
             </div>
-            <Activity size={16} className="text-slate-500"/>
+            <CheckCircle2 size={16} className="text-emerald-500"/>
          </div>
+         
+         {/* 底部留白 (給手機導覽列用) */}
+         <div className="h-4"></div>
       </div>
 
     </div>
