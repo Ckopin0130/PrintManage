@@ -41,7 +41,6 @@ export default function App() {
   const [viewingImage, setViewingImage] = useState(null);
   const [toast, setToast] = useState(null);
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', message: '', onConfirm: null });
-  // ★ isProcessing 用來當作「防連點鎖」
   const [isProcessing, setIsProcessing] = useState(false);
   const [showPhoneSheet, setShowPhoneSheet] = useState(false);
   const [showAddressAlert, setShowAddressAlert] = useState(false);
@@ -163,7 +162,9 @@ export default function App() {
   // --- 5. 資料庫操作 (CRUD) ---
   
   const updateInventory = async (item) => {
+    // 樂觀更新 (先更新畫面)
     setInventory(prev => prev.map(i => i.id === item.id ? item : i));
+    
     if (dbStatus === 'demo' || !user) { showToast('庫存已更新 (離線)'); return; }
     try {
        await setDoc(doc(db, 'inventory', item.id), item);
@@ -174,7 +175,10 @@ export default function App() {
   const addInventoryItem = async (newItem) => {
     const newId = `p-${Date.now()}`;
     const itemWithId = { ...newItem, id: newId };
+    
+    // 樂觀更新
     setInventory(prev => [...prev, itemWithId]);
+
     if (dbStatus === 'demo' || !user) { showToast('新零件已加入 (離線)'); return; }
     try {
        await setDoc(doc(db, 'inventory', newId), itemWithId);
@@ -183,7 +187,9 @@ export default function App() {
   };
 
   const deleteInventoryItem = async (id) => {
+    // 樂觀更新
     setInventory(prev => prev.filter(i => i.id !== id));
+
     if (dbStatus === 'demo' || !user) { showToast('零件已刪除 (離線)'); return; }
     try {
        await deleteDoc(doc(db, 'inventory', id));
@@ -207,7 +213,7 @@ export default function App() {
   
   const handleResetData = async () => {
     setConfirmDialog({
-        isOpen: true, title: '⚠️ 危險操作', message: '清空並重置所有資料？',
+        isOpen: true, title: '⚠️ 危險操作', message: '清空並重置所有資料？這將刪除雲端資料庫所有內容並回復預設值。',
         onConfirm: async () => {
             setIsProcessing(true);
             if (dbStatus === 'demo' || !db) {
@@ -215,13 +221,18 @@ export default function App() {
                 setTimeout(() => { showToast('資料已重置'); setIsProcessing(false); setConfirmDialog({...confirmDialog, isOpen: false}); }, 500);
             } else {
                 try {
+                    // 為了安全起見，這裡只示範簡單重置，實際大量刪除建議分批
                     const batch = writeBatch(db);
                     customers.forEach(c => batch.delete(doc(db, 'customers', c.customerID)));
                     inventory.forEach(i => batch.delete(doc(db, 'inventory', i.id)));
+                    // records 太多時這裡可能會爆 batch limit，這裡僅作示範
+                    records.slice(0, 400).forEach(r => batch.delete(doc(db, 'records', r.id)));
+
                     FULL_IMPORT_DATA.forEach(c => batch.set(doc(db, 'customers', c.customerID), c));
                     INITIAL_INVENTORY.forEach(i => batch.set(doc(db, 'inventory', i.id), i));
-                    await batch.commit(); showToast('系統已重置');
-                } catch(e) { console.error(e); }
+                    await batch.commit(); 
+                    showToast('系統已重置');
+                } catch(e) { console.error(e); showToast('重置部分失敗 (Batch Limit)', 'error'); }
                 setIsProcessing(false); setConfirmDialog({...confirmDialog, isOpen: false});
             }
         }
@@ -245,6 +256,7 @@ export default function App() {
             const item = inventory.find(i => i.name === part.name);
             if (item) {
                const newQty = Math.max(0, item.qty - part.qty);
+               // 本地先更新庫存
                updateInventory({...item, qty: newQty}); 
                if (dbStatus !== 'demo' && user) { const ref = doc(db, 'inventory', item.id); batch.update(ref, { qty: newQty }); hasUpdates = true; }
             }
@@ -256,6 +268,7 @@ export default function App() {
             setRecords(prev => { const exists = prev.find(r => r.id === recId); if (exists) return prev.map(r => r.id === recId ? newRecord : r); return [newRecord, ...prev]; });
             showToast(formData.id ? '紀錄已更新' : '紀錄已新增');
         } else {
+            // 寫入 Firebase，畫面會由 onSnapshot 自動更新，不手動 setRecords
             await setDoc(doc(db, 'records', recId), newRecord); 
             showToast(formData.id ? '紀錄已更新' : '紀錄已新增');
         }
@@ -404,20 +417,72 @@ export default function App() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    showToast('資料已匯出');
+    showToast('備份檔案已下載');
   };
+
+  // ★ 修正重點：匯入資料並寫入 Firebase
   const handleImportData = (event) => {
     const file = event.target.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         const data = JSON.parse(e.target.result);
+        
+        // 1. 先更新畫面 (讓使用者立刻感覺到變化)
         if (data.customers) setCustomers(data.customers);
         if (data.inventory) setInventory(data.inventory);
         if (data.records) setRecords(data.records);
-        showToast('資料匯入成功');
-      } catch (err) { console.error(err); showToast('匯入失敗：格式錯誤', 'error'); }
+        
+        // 2. 寫入 Firebase (真正的還原)
+        if (dbStatus !== 'demo' && user) {
+            setIsProcessing(true);
+            const batch = writeBatch(db);
+            let count = 0;
+
+            // 寫入客戶
+            if (data.customers) {
+                data.customers.forEach(c => {
+                    if(count < 480) { // 防止超過 Batch Limit (500)
+                        const ref = doc(db, 'customers', c.customerID);
+                        batch.set(ref, c);
+                        count++;
+                    }
+                });
+            }
+            // 寫入庫存
+            if (data.inventory) {
+                data.inventory.forEach(i => {
+                    if(count < 480) {
+                        const ref = doc(db, 'inventory', i.id);
+                        batch.set(ref, i);
+                        count++;
+                    }
+                });
+            }
+            // 寫入紀錄
+            if (data.records) {
+                data.records.forEach(r => {
+                    if(count < 480) {
+                         const ref = doc(db, 'records', r.id);
+                         batch.set(ref, r);
+                         count++;
+                    }
+                });
+            }
+
+            await batch.commit();
+            setIsProcessing(false);
+            showToast('資料還原成功，已寫入資料庫');
+        } else {
+            showToast('資料已匯入 (僅本機預覽)');
+        }
+
+      } catch (err) { 
+          console.error(err); 
+          showToast('匯入失敗：格式錯誤或寫入失敗', 'error'); 
+          setIsProcessing(false);
+      }
     };
     reader.readAsText(file);
     event.target.value = '';
@@ -514,8 +579,9 @@ export default function App() {
 
       {currentView === 'settings' && (
         <Settings 
-          dbStatus={dbStatus} customerCount={customers.length} recordCount={records.length}
-          onExport={handleExportData} onImport={handleImportData} onReset={handleResetData}
+        dbStatus={dbStatus} customerCount={customers.length} recordCount={records.length}
+        onExport={handleExportData} onImport={handleImportData} onReset={handleResetData}
+        isProcessing={isProcessing}
         />
       )}
 

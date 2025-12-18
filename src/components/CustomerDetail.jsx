@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   ArrowLeft, Edit, Trash2, MapPin, ShieldAlert, Navigation, Info, User, Phone, 
   Printer, History, Plus, FileText, Search, X 
@@ -13,16 +13,18 @@ const CustomerDetail = ({
 
   if (!selectedCustomer) return null;
   
-  // 篩選邏輯：只顯示符合該客戶 ID 且符合搜尋關鍵字的紀錄
-  const custRecords = records.filter(r => {
-      const matchId = r.customerID === selectedCustomer.customerID;
-      const term = searchTerm.toLowerCase();
-      const matchSearch = searchTerm === '' || 
-                          (r.fault || '').toLowerCase().includes(term) || 
-                          (r.solution || '').toLowerCase().includes(term) ||
-                          (r.parts && r.parts.some(p => p.name.toLowerCase().includes(term)));
-      return matchId && matchSearch;
-  }).sort((a,b) => new Date(b.date) - new Date(a.date));
+  // 優化：使用 useMemo 快取篩選結果，避免每次 render 都重新計算
+  const custRecords = useMemo(() => {
+    return records.filter(r => {
+        const matchId = r.customerID === selectedCustomer.customerID;
+        const term = searchTerm.toLowerCase();
+        const matchSearch = searchTerm === '' || 
+                            (r.fault || '').toLowerCase().includes(term) || 
+                            (r.solution || '').toLowerCase().includes(term) ||
+                            (r.parts && r.parts.some(p => p.name.toLowerCase().includes(term)));
+        return matchId && matchSearch;
+    }).sort((a,b) => new Date(b.date) - new Date(a.date));
+  }, [records, selectedCustomer.customerID, searchTerm]);
 
   const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedCustomer.address)}`;
   const serviceCount = records.filter(r => r.customerID === selectedCustomer.customerID).length; // 總次數不隨搜尋改變

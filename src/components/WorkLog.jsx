@@ -1,24 +1,28 @@
-import React, { useState, useEffect } from 'react';
-import { ArrowLeft, ChevronLeft, ChevronRight, Copy, Check, Calendar } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { ArrowLeft, ChevronLeft, ChevronRight, Copy, Check, Calendar, FileText } from 'lucide-react';
 
 const WorkLog = ({ records, customers, setCurrentView, showToast }) => {
-  // 1. 改用 "YYYY-MM-DD" 字串來管理日期，比用 +/- 數字更直覺
+  // 1. 使用標準日期格式 YYYY-MM-DD
   const todayStr = new Date().toLocaleDateString('en-CA');
   const [selectedDate, setSelectedDate] = useState(todayStr);
   const [isCopied, setIsCopied] = useState(false);
 
-  // 切換日期的函數 (+1 或 -1 天)
+  // 切換日期的函數
   const changeDate = (days) => {
     const d = new Date(selectedDate);
     d.setDate(d.getDate() + days);
     setSelectedDate(d.toLocaleDateString('en-CA'));
   };
 
-  // 找出「選定日期」當天的所有紀錄
-  const targetRecords = records.filter(r => r.date === selectedDate);
+  // 優化 1: 使用 useMemo 篩選當日紀錄，避免無謂的重複運算
+  const targetRecords = useMemo(() => {
+    return records.filter(r => r.date === selectedDate);
+  }, [records, selectedDate]);
 
-  // 產生文字報告的邏輯
-  const generateLogText = () => {
+  // 優化 2: 使用 useMemo 生成日誌文字，只有當紀錄改變時才重新組字串
+  const logText = useMemo(() => {
+      if (targetRecords.length === 0) return '';
+      
       return targetRecords.map((r, i) => {
           const cust = customers.find(c => c.customerID === r.customerID);
           // 處理零件文字
@@ -26,31 +30,32 @@ const WorkLog = ({ records, customers, setCurrentView, showToast }) => {
               ? `\n    更換: ${r.parts.map(p => `${p.name} x${p.qty}`).join(', ')}` 
               : '';
           
-          return `${i+1}. ${cust?.name || '未知'}\n    故障: ${r.fault}\n    處理: ${r.solution}${partsText}\n    狀態: ${r.status === 'completed' ? '完修' : (r.status === 'pending' ? '待料' : '觀察')}`;
+          // 狀態顯示轉換
+          let statusText = '觀察';
+          if (r.status === 'completed') statusText = '完修';
+          if (r.status === 'pending') statusText = '待料';
+
+          return `${i+1}. ${cust?.name || '未知客戶'}\n    故障: ${r.fault}\n    處理: ${r.solution}${partsText}\n    狀態: ${statusText}`;
       }).join('\n\n');
-  };
+  }, [targetRecords, customers]);
 
   const handleCopy = () => {
-      const text = generateLogText();
-      if (!text) {
+      if (!logText) {
           showToast('該日無資料可複製', 'error');
           return;
       }
-      navigator.clipboard.writeText(text).then(() => {
+      navigator.clipboard.writeText(logText).then(() => {
           showToast('已複製到剪貼簿');
           setIsCopied(true);
           setTimeout(() => setIsCopied(false), 2000);
       });
   };
 
-  // 判斷標題顯示 (如果是今天或昨天，顯示中文方便辨識)
   const getDisplayTitle = () => {
       if (selectedDate === todayStr) return '今日 (Today)';
-      
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
       if (selectedDate === yesterday.toLocaleDateString('en-CA')) return '昨日 (Yesterday)';
-      
       return selectedDate;
   };
 
@@ -62,42 +67,25 @@ const WorkLog = ({ records, customers, setCurrentView, showToast }) => {
       </div>
 
       <div className="p-4 space-y-4">
-         {/* --- 日期選擇控制區 (升級版) --- */}
+         {/* --- 日期選擇區 --- */}
          <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between gap-2">
-            
-            {/* 上一天按鈕 */}
-            <button onClick={() => changeDate(-1)} className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 transition-colors">
-                <ChevronLeft size={24}/>
-            </button>
-
-            {/* 中間：日期選擇器 */}
+            <button onClick={() => changeDate(-1)} className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 transition-colors"><ChevronLeft size={24}/></button>
             <div className="flex-1 flex flex-col items-center">
                 <span className="text-xs text-gray-400 font-bold uppercase tracking-wider mb-1">{getDisplayTitle()}</span>
                 <div className="relative">
-                    {/* 這是一個隱藏原本外觀的原生日期輸入框，讓它看起來像文字按鈕 */}
-                    <input 
-                        type="date" 
-                        value={selectedDate}
-                        onChange={(e) => setSelectedDate(e.target.value)}
-                        className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                    />
+                    <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
                     <div className="flex items-center space-x-2 bg-blue-50 text-blue-700 px-4 py-1.5 rounded-lg border border-blue-100 font-mono font-bold text-lg cursor-pointer hover:bg-blue-100 transition-colors">
-                        <Calendar size={18} />
-                        <span>{selectedDate}</span>
+                        <Calendar size={18} /><span>{selectedDate}</span>
                     </div>
                 </div>
             </div>
-
-            {/* 下一天按鈕 (如果是今天就不能按) */}
-            <button onClick={() => changeDate(1)} disabled={selectedDate >= todayStr} className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
-                <ChevronRight size={24}/>
-            </button>
+            <button onClick={() => changeDate(1)} disabled={selectedDate >= todayStr} className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"><ChevronRight size={24}/></button>
          </div>
 
          {/* --- 內容顯示區 --- */}
          <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm min-h-[400px] relative transition-all">
             <div className="absolute top-4 right-4 z-10">
-                <button onClick={handleCopy} className={`flex items-center space-x-1 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm ${isCopied ? 'bg-green-100 text-green-700 ring-2 ring-green-200' : 'bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200'}`}>
+                <button onClick={handleCopy} disabled={!logText} className={`flex items-center space-x-1 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm ${isCopied ? 'bg-green-100 text-green-700 ring-2 ring-green-200' : 'bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200 disabled:opacity-50'}`}>
                     {isCopied ? <Check size={14}/> : <Copy size={14}/>}
                     <span>{isCopied ? '已複製' : '複製'}</span>
                 </button>
@@ -108,9 +96,16 @@ const WorkLog = ({ records, customers, setCurrentView, showToast }) => {
                 {selectedDate} 工作摘要 ({targetRecords.length} 筆)
             </h3>
             
-            <pre className="font-mono text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
-                {targetRecords.length > 0 ? generateLogText() : <div className="text-gray-400 italic text-center mt-10">--- 該日無維修紀錄 ---</div>}
-            </pre>
+            {targetRecords.length > 0 ? (
+                <pre className="font-mono text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
+                    {logText}
+                </pre>
+            ) : (
+                <div className="flex flex-col items-center justify-center mt-20 text-gray-300">
+                    <FileText size={48} className="mb-2 opacity-20" />
+                    <span className="italic">--- 該日無維修紀錄 ---</span>
+                </div>
+            )}
          </div>
       </div>
      </div>
