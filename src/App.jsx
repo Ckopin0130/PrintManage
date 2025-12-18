@@ -2,11 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { 
   collection, onSnapshot, deleteDoc, doc, setDoc, writeBatch, query, orderBy, limit 
 } from 'firebase/firestore';
+import { 
+  ref, uploadString, listAll, getDownloadURL, deleteObject, getMetadata 
+} from 'firebase/storage'; // 新增 Storage 相關引用
 import { signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { Loader2 } from 'lucide-react';
 
 // --- 引入設定與資料 ---
-import { auth, db } from './firebaseConfig';
+import { auth, db, storage } from './firebaseConfig'; // 確保引入 storage
 import { FULL_IMPORT_DATA, MOCK_RECORDS, INITIAL_INVENTORY } from './initialData';
 
 // --- 引入元件 ---
@@ -45,6 +48,9 @@ export default function App() {
   const [showPhoneSheet, setShowPhoneSheet] = useState(false);
   const [showAddressAlert, setShowAddressAlert] = useState(false);
   
+  // 雲端備份列表
+  const [cloudBackups, setCloudBackups] = useState([]);
+
   // 資料篩選與暫存狀態
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [targetCustomer, setTargetCustomer] = useState(null);
@@ -144,7 +150,10 @@ export default function App() {
     if (tab === 'roster') { setCurrentView('roster'); setRosterLevel('l1'); }
     if (tab === 'inventory') setCurrentView('inventory');
     if (tab === 'records') setCurrentView('records');
-    if (tab === 'settings') setCurrentView('settings');
+    if (tab === 'settings') { 
+        setCurrentView('settings');
+        fetchCloudBackups(); // 進入設定頁時，抓取備份列表
+    }
   };
 
   const handleNavClick = (customer) => {
@@ -160,11 +169,8 @@ export default function App() {
   };
 
   // --- 5. 資料庫操作 (CRUD) ---
-  
   const updateInventory = async (item) => {
-    // 樂觀更新 (先更新畫面)
     setInventory(prev => prev.map(i => i.id === item.id ? item : i));
-    
     if (dbStatus === 'demo' || !user) { showToast('庫存已更新 (離線)'); return; }
     try {
        await setDoc(doc(db, 'inventory', item.id), item);
@@ -175,10 +181,7 @@ export default function App() {
   const addInventoryItem = async (newItem) => {
     const newId = `p-${Date.now()}`;
     const itemWithId = { ...newItem, id: newId };
-    
-    // 樂觀更新
     setInventory(prev => [...prev, itemWithId]);
-
     if (dbStatus === 'demo' || !user) { showToast('新零件已加入 (離線)'); return; }
     try {
        await setDoc(doc(db, 'inventory', newId), itemWithId);
@@ -187,9 +190,7 @@ export default function App() {
   };
 
   const deleteInventoryItem = async (id) => {
-    // 樂觀更新
     setInventory(prev => prev.filter(i => i.id !== id));
-
     if (dbStatus === 'demo' || !user) { showToast('零件已刪除 (離線)'); return; }
     try {
        await deleteDoc(doc(db, 'inventory', id));
@@ -209,8 +210,6 @@ export default function App() {
     } catch (e) { console.error(e); showToast('更新失敗', 'error'); }
   };
 
-  // --- 客戶與紀錄相關操作 ---
-  
   const handleResetData = async () => {
     setConfirmDialog({
         isOpen: true, title: '⚠️ 危險操作', message: '清空並重置所有資料？這將刪除雲端資料庫所有內容並回復預設值。',
@@ -221,11 +220,9 @@ export default function App() {
                 setTimeout(() => { showToast('資料已重置'); setIsProcessing(false); setConfirmDialog({...confirmDialog, isOpen: false}); }, 500);
             } else {
                 try {
-                    // 為了安全起見，這裡只示範簡單重置，實際大量刪除建議分批
                     const batch = writeBatch(db);
                     customers.forEach(c => batch.delete(doc(db, 'customers', c.customerID)));
                     inventory.forEach(i => batch.delete(doc(db, 'inventory', i.id)));
-                    // records 太多時這裡可能會爆 batch limit，這裡僅作示範
                     records.slice(0, 400).forEach(r => batch.delete(doc(db, 'records', r.id)));
 
                     FULL_IMPORT_DATA.forEach(c => batch.set(doc(db, 'customers', c.customerID), c));
@@ -256,7 +253,6 @@ export default function App() {
             const item = inventory.find(i => i.name === part.name);
             if (item) {
                const newQty = Math.max(0, item.qty - part.qty);
-               // 本地先更新庫存
                updateInventory({...item, qty: newQty}); 
                if (dbStatus !== 'demo' && user) { const ref = doc(db, 'inventory', item.id); batch.update(ref, { qty: newQty }); hasUpdates = true; }
             }
@@ -268,7 +264,6 @@ export default function App() {
             setRecords(prev => { const exists = prev.find(r => r.id === recId); if (exists) return prev.map(r => r.id === recId ? newRecord : r); return [newRecord, ...prev]; });
             showToast(formData.id ? '紀錄已更新' : '紀錄已新增');
         } else {
-            // 寫入 Firebase，畫面會由 onSnapshot 自動更新，不手動 setRecords
             await setDoc(doc(db, 'records', recId), newRecord); 
             showToast(formData.id ? '紀錄已更新' : '紀錄已新增');
         }
@@ -339,7 +334,7 @@ export default function App() {
     if (!selectedCustomer) return;
     if (isProcessing) return;
     setIsProcessing(true);
-
+    // ... (省略詳細資料建構，保持原樣) ...
     const existingPhones = selectedCustomer.phones || [];
     const newPhone = { label: formData.phoneLabel, number: formData.phoneNumber };
     const updatedPhones = existingPhones.length > 0 ? [newPhone, ...existingPhones.slice(1)] : [newPhone];
@@ -352,7 +347,6 @@ export default function App() {
       address: formData.address, addressNote: formData.addressNote || '', notes: formData.notes || '',
       phones: updatedPhones, assets: updatedAssets
     };
-    
     try {
         if (dbStatus === 'demo' || !user) {
             setCustomers(prev => prev.map(c => c.customerID === selectedCustomer.customerID ? updatedEntry : c));
@@ -361,17 +355,13 @@ export default function App() {
             await setDoc(doc(db, 'customers', selectedCustomer.customerID), updatedEntry);
             setSelectedCustomer(updatedEntry); setCurrentView('detail'); showToast('資料已更新');
         }
-    } catch (err) { 
-        showToast('更新失敗', 'error'); 
-    } finally {
-        setIsProcessing(false);
-    }
+    } catch (err) { showToast('更新失敗', 'error'); } finally { setIsProcessing(false); }
   };
 
   const handleAddSubmit = async (formData) => {
     if (isProcessing) return;
     setIsProcessing(true);
-
+    // ... (省略詳細資料建構，保持原樣) ...
     const newId = `cust-${Date.now()}`;
     const newEntry = {
       customerID: newId, name: formData.name, L1_group: formData.L1_group, L2_district: formData.L2_district,
@@ -379,7 +369,6 @@ export default function App() {
       phones: [{ label: formData.phoneLabel, number: formData.phoneNumber }],
       assets: [{ model: formData.model || '未設定' }], notes: formData.notes || '', serviceCount: 0
     };
-
     try {
         if (dbStatus === 'demo' || !user) {
             setCustomers(prev => [...prev, newEntry]);
@@ -390,11 +379,7 @@ export default function App() {
             showToast('新增成功');
             setSelectedCustomer(newEntry); setCurrentView('detail'); setSelectedL1(formData.L1_group); setSelectedL2(formData.L2_district); setRosterLevel('l3');
         }
-    } catch (err) { 
-        showToast('新增失敗', 'error'); 
-    } finally {
-        setIsProcessing(false);
-    }
+    } catch (err) { showToast('新增失敗', 'error'); } finally { setIsProcessing(false); }
   };
 
   const startEdit = () => { if (!selectedCustomer) return; setCurrentView('edit'); };
@@ -407,6 +392,35 @@ export default function App() {
       setCurrentView('edit_record');
   };
 
+  // --- 通用還原核心邏輯 (共用) ---
+  const restoreDataToFirestore = async (data) => {
+    if (!data) throw new Error("無資料");
+    
+    // 1. 本地預覽
+    if (data.customers) setCustomers(data.customers);
+    if (data.inventory) setInventory(data.inventory);
+    if (data.records) setRecords(data.records);
+
+    // 2. 寫入資料庫
+    if (dbStatus !== 'demo' && user) {
+        const batch = writeBatch(db);
+        let count = 0;
+        const safeBatchSet = (ref, val) => {
+            if (count < 480) { batch.set(ref, val); count++; }
+        };
+
+        if (data.customers) data.customers.forEach(c => safeBatchSet(doc(db, 'customers', c.customerID), c));
+        if (data.inventory) data.inventory.forEach(i => safeBatchSet(doc(db, 'inventory', i.id), i));
+        if (data.records) data.records.forEach(r => safeBatchSet(doc(db, 'records', r.id), r));
+
+        await batch.commit();
+        showToast('還原成功！資料已寫入雲端');
+    } else {
+        showToast('已匯入預覽 (離線模式)');
+    }
+  };
+
+  // --- 本機檔案操作 ---
   const handleExportData = () => {
     const dataStr = JSON.stringify({ customers, inventory, records }, null, 2);
     const blob = new Blob([dataStr], { type: "application/json" });
@@ -420,72 +434,116 @@ export default function App() {
     showToast('備份檔案已下載');
   };
 
-  // ★ 修正重點：匯入資料並寫入 Firebase
   const handleImportData = (event) => {
     const file = event.target.files[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onload = async (e) => {
       try {
+        setIsProcessing(true);
         const data = JSON.parse(e.target.result);
-        
-        // 1. 先更新畫面 (讓使用者立刻感覺到變化)
-        if (data.customers) setCustomers(data.customers);
-        if (data.inventory) setInventory(data.inventory);
-        if (data.records) setRecords(data.records);
-        
-        // 2. 寫入 Firebase (真正的還原)
-        if (dbStatus !== 'demo' && user) {
-            setIsProcessing(true);
-            const batch = writeBatch(db);
-            let count = 0;
-
-            // 寫入客戶
-            if (data.customers) {
-                data.customers.forEach(c => {
-                    if(count < 480) { // 防止超過 Batch Limit (500)
-                        const ref = doc(db, 'customers', c.customerID);
-                        batch.set(ref, c);
-                        count++;
-                    }
-                });
-            }
-            // 寫入庫存
-            if (data.inventory) {
-                data.inventory.forEach(i => {
-                    if(count < 480) {
-                        const ref = doc(db, 'inventory', i.id);
-                        batch.set(ref, i);
-                        count++;
-                    }
-                });
-            }
-            // 寫入紀錄
-            if (data.records) {
-                data.records.forEach(r => {
-                    if(count < 480) {
-                         const ref = doc(db, 'records', r.id);
-                         batch.set(ref, r);
-                         count++;
-                    }
-                });
-            }
-
-            await batch.commit();
-            setIsProcessing(false);
-            showToast('資料還原成功，已寫入資料庫');
-        } else {
-            showToast('資料已匯入 (僅本機預覽)');
-        }
-
-      } catch (err) { 
-          console.error(err); 
-          showToast('匯入失敗：格式錯誤或寫入失敗', 'error'); 
-          setIsProcessing(false);
-      }
+        await restoreDataToFirestore(data);
+      } catch (err) { console.error(err); showToast('檔案匯入失敗', 'error'); }
+      finally { setIsProcessing(false); }
     };
     reader.readAsText(file);
     event.target.value = '';
+  };
+
+  // --- ★ 雲端備份操作 (新增功能) ---
+  
+  // 1. 抓取雲端備份列表
+  const fetchCloudBackups = async () => {
+      if (!user || dbStatus === 'demo') return;
+      try {
+          const listRef = ref(storage, 'backups/');
+          const res = await listAll(listRef);
+          // 抓取 Metadata 取得建立時間
+          const filePromises = res.items.map(async (itemRef) => {
+              try {
+                  const metadata = await getMetadata(itemRef);
+                  return { 
+                      name: itemRef.name, 
+                      fullPath: itemRef.fullPath,
+                      time: new Date(metadata.timeCreated).toLocaleString(),
+                      ref: itemRef 
+                  };
+              } catch (e) {
+                  return { name: itemRef.name, fullPath: itemRef.fullPath, time: 'Unknown', ref: itemRef };
+              }
+          });
+          const files = await Promise.all(filePromises);
+          // 依時間倒序
+          files.sort((a, b) => new Date(b.time) - new Date(a.time));
+          setCloudBackups(files);
+      } catch (err) {
+          console.error("List backups failed", err);
+      }
+  };
+
+  // 2. 建立雲端還原點
+  const handleCreateCloudBackup = async () => {
+      if (isProcessing) return;
+      if (dbStatus === 'demo' || !user) return showToast('請先登入', 'error');
+      
+      setIsProcessing(true);
+      try {
+          const dataStr = JSON.stringify({ customers, inventory, records });
+          const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+          const backupRef = ref(storage, `backups/backup_${timestamp}.json`);
+          
+          await uploadString(backupRef, dataStr);
+          showToast('雲端還原點已建立');
+          fetchCloudBackups(); // 重新整理列表
+      } catch (err) {
+          console.error(err);
+          showToast('建立備份失敗', 'error');
+      } finally {
+          setIsProcessing(false);
+      }
+  };
+
+  // 3. 從雲端還原
+  const handleRestoreFromCloud = async (backupItem) => {
+      if (isProcessing) return;
+      setConfirmDialog({
+          isOpen: true, 
+          title: '確認還原', 
+          message: `確定要使用「${backupItem.time}」的備份覆蓋目前資料嗎？目前的資料將會消失。`,
+          onConfirm: async () => {
+              setIsProcessing(true);
+              setConfirmDialog(prev => ({...prev, isOpen: false}));
+              try {
+                  const url = await getDownloadURL(backupItem.ref);
+                  const response = await fetch(url);
+                  const data = await response.json();
+                  await restoreDataToFirestore(data);
+              } catch (err) {
+                  console.error(err);
+                  showToast('還原失敗：無法讀取檔案', 'error');
+              } finally {
+                  setIsProcessing(false);
+              }
+          }
+      });
+  };
+
+  // 4. 刪除雲端備份
+  const handleDeleteCloudBackup = async (backupItem) => {
+      if (isProcessing) return;
+      if (!window.confirm(`確定要刪除 ${backupItem.time} 的備份嗎？`)) return;
+      
+      setIsProcessing(true);
+      try {
+          await deleteObject(backupItem.ref);
+          showToast('備份檔已刪除');
+          fetchCloudBackups();
+      } catch (err) {
+          console.error(err);
+          showToast('刪除失敗', 'error');
+      } finally {
+          setIsProcessing(false);
+      }
   };
 
   return (
@@ -577,11 +635,17 @@ export default function App() {
         <WorkLog records={records} customers={customers} setCurrentView={setCurrentView} showToast={showToast} />
       )}
 
+      {/* 傳遞雲端備份相關的 props 給 Settings 元件 */}
       {currentView === 'settings' && (
         <Settings 
-        dbStatus={dbStatus} customerCount={customers.length} recordCount={records.length}
-        onExport={handleExportData} onImport={handleImportData} onReset={handleResetData}
-        isProcessing={isProcessing}
+          dbStatus={dbStatus} customerCount={customers.length} recordCount={records.length}
+          onExport={handleExportData} onImport={handleImportData} onReset={handleResetData}
+          isProcessing={isProcessing}
+          // 新增雲端功能 Props
+          cloudBackups={cloudBackups}
+          onCreateCloudBackup={handleCreateCloudBackup}
+          onRestoreFromCloud={handleRestoreFromCloud}
+          onDeleteCloudBackup={handleDeleteCloudBackup}
         />
       )}
 
