@@ -118,7 +118,7 @@ const Dashboard = ({
          </div>
       </div>
 
-      {/* 2. 藍色面板 (縮減下方留白 pb-1，讓線條往上拉) */}
+      {/* 2. 藍色面板 */}
       <div className="px-4 pt-3 pb-1 shrink-0 z-20">
          <div className="bg-gradient-to-br from-slate-800 to-blue-950 rounded-2xl p-4 text-white shadow-xl shadow-slate-300 relative overflow-hidden ring-1 ring-white/10">
             <div className="absolute top-0 right-0 w-48 h-48 bg-cyan-500/10 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
@@ -149,15 +149,16 @@ const Dashboard = ({
          </div>
       </div>
 
-      {/* 分隔線 (改為中文，且位置更靠上) */}
+      {/* 分隔線 */}
       <div className="px-6 my-2 flex items-center gap-4 shrink-0 z-10">
          <div className="h-px bg-slate-200 flex-1"></div>
          <span className="text-[10px] font-bold text-slate-400 tracking-widest">功能選單</span>
          <div className="h-px bg-slate-200 flex-1"></div>
       </div>
 
-      {/* 3. 六大功能區 (底部留白，不擋導航列) */}
-      <div className="px-4 flex-1 overflow-y-auto custom-scrollbar min-h-0 pb-24">
+      {/* 3. 六大功能區 */}
+      {/* 修改：pb-20 (原本是 pb-24)，配合變矮的導覽列 */}
+      <div className="px-4 flex-1 overflow-y-auto custom-scrollbar min-h-0 pb-20">
          <div className="grid grid-cols-2 gap-3"> 
             {modules.map(item => (
                <button 
