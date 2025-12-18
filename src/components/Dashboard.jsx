@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   ClipboardList, Users, Search, PenTool, 
   Wifi, WifiOff, Package, FileText, Settings, 
-  Sun, Cloud, CloudRain, MapPin, Printer, ChevronRight, Clock
+  Sun, Cloud, CloudRain, MapPin, Printer, ChevronRight, CheckCircle2
 } from 'lucide-react';
 
 const Dashboard = ({ 
@@ -42,16 +42,17 @@ const Dashboard = ({
   const todayDate = new Date().toLocaleDateString('zh-TW', { month: 'long', day: 'numeric' });
   const todayWeek = new Date().toLocaleDateString('zh-TW', { weekday: 'long' });
 
-  // ★ 模組設定：加入立體漸層 (iconGradient) 與更明顯的背景
+  // ★ 科技感模組設定：
+  // 1. 移除 bgGradient (粉嫩色)
+  // 2. 加入 accentColor (雷射光條顏色)
   const modules = [
     { 
       id: 'tracking', 
       title: '待辦追蹤', 
       icon: ClipboardList, 
       color: 'text-rose-600', 
-      bgGradient: 'from-rose-50 to-white',
-      // 立體感關鍵：圖示背景改用漸層 + 陰影
-      iconGradient: 'bg-gradient-to-br from-rose-100 to-rose-200',
+      accentColor: 'bg-rose-500', // 紅色光條
+      iconBg: 'bg-rose-50',
       info: pendingTasks > 0 ? `${pendingTasks} 件待辦` : '目前無案',
       badge: pendingTasks > 0 ? pendingTasks : null, 
       action: () => setCurrentView('tracking') 
@@ -61,8 +62,8 @@ const Dashboard = ({
       title: '客戶名冊', 
       icon: Users, 
       color: 'text-blue-600', 
-      bgGradient: 'from-blue-50 to-white',
-      iconGradient: 'bg-gradient-to-br from-blue-100 to-blue-200',
+      accentColor: 'bg-blue-500', // 藍色光條
+      iconBg: 'bg-blue-50',
       info: `${totalCustomers} 戶`, 
       action: () => { setActiveTab('roster'); setCurrentView('roster'); setRosterLevel('l1'); } 
     },
@@ -70,9 +71,9 @@ const Dashboard = ({
       id: 'records', 
       title: '維修紀錄', 
       icon: FileText, 
-      color: 'text-amber-600', 
-      bgGradient: 'from-amber-50 to-white',
-      iconGradient: 'bg-gradient-to-br from-amber-100 to-amber-200',
+      color: 'text-amber-500', 
+      accentColor: 'bg-amber-500', // 黃色光條
+      iconBg: 'bg-amber-50',
       info: `今日 ${todayCompletedCount} 件`, 
       action: () => { setActiveTab('records'); setCurrentView('records'); } 
     },
@@ -80,9 +81,9 @@ const Dashboard = ({
       id: 'inventory', 
       title: '車載庫存', 
       icon: Package, 
-      color: 'text-emerald-600', 
-      bgGradient: 'from-emerald-50 to-white',
-      iconGradient: 'bg-gradient-to-br from-emerald-100 to-emerald-200',
+      color: 'text-emerald-500', 
+      accentColor: 'bg-emerald-500', // 綠色光條
+      iconBg: 'bg-emerald-50',
       info: '零件盤點', 
       action: () => { setActiveTab('inventory'); setCurrentView('inventory'); } 
     },
@@ -90,9 +91,9 @@ const Dashboard = ({
       id: 'worklog', 
       title: '工作日誌', 
       icon: PenTool, 
-      color: 'text-violet-600', 
-      bgGradient: 'from-violet-50 to-white',
-      iconGradient: 'bg-gradient-to-br from-violet-100 to-violet-200',
+      color: 'text-violet-500', 
+      accentColor: 'bg-violet-500', // 紫色光條
+      iconBg: 'bg-violet-50',
       info: '一鍵日報', 
       action: () => setCurrentView('worklog') 
     },
@@ -101,16 +102,15 @@ const Dashboard = ({
       title: '系統設定', 
       icon: Settings, 
       color: 'text-slate-600', 
-      // ★ 修正：加深設定的漸層，讓它不再是死白
-      bgGradient: 'from-slate-100 to-white',
-      iconGradient: 'bg-gradient-to-br from-slate-200 to-slate-300',
+      accentColor: 'bg-slate-500', // 灰色光條
+      iconBg: 'bg-slate-100',
       info: '備份還原', 
       action: () => setCurrentView('settings') 
     }
   ];
 
   return (
-    <div className="bg-gray-50 h-[100dvh] flex flex-col font-sans animate-in overflow-hidden">
+    <div className="bg-slate-50 h-[100dvh] flex flex-col font-sans animate-in overflow-hidden relative">
       
       {/* 1. 頂部標題列 */}
       <div className="bg-white/90 backdrop-blur pl-6 pr-4 py-3 flex justify-between items-center border-b border-gray-200/60 shadow-sm z-30 shrink-0">
@@ -126,13 +126,15 @@ const Dashboard = ({
          </div>
       </div>
 
-      {/* 2. 資訊與搜尋區 */}
+      {/* 2. 資訊與搜尋區 (Tech Banner) */}
       <div className="px-4 py-3 shrink-0 relative z-10">
-         <div className="bg-gradient-to-br from-slate-800 to-blue-900 rounded-2xl p-4 text-white shadow-lg shadow-slate-300 relative overflow-hidden ring-1 ring-white/10">
-            <div className="absolute top-0 right-0 w-48 h-48 bg-blue-500/10 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
+         <div className="bg-gradient-to-br from-slate-800 to-blue-950 rounded-2xl p-4 text-white shadow-xl shadow-slate-300 relative overflow-hidden ring-1 ring-white/10">
+            {/* 裝飾線條 */}
+            <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none"></div>
+            
             <div className="flex justify-between items-center relative z-10 mb-3">
                <div>
-                  <div className="text-[10px] font-bold text-slate-300 mb-0.5 uppercase tracking-wider">{todayWeek}</div>
+                  <div className="text-[10px] font-bold text-slate-400 mb-0.5 uppercase tracking-wider">{todayWeek}</div>
                   <div className="text-2xl font-bold tracking-tight text-white">{todayDate}</div>
                </div>
                <div className="text-right">
@@ -140,70 +142,77 @@ const Dashboard = ({
                      <span className="text-xl font-bold text-white">{weather.temp}°</span>
                      {getWeatherIcon()}
                   </div>
-                  <div className="flex items-center justify-end gap-1 text-[10px] font-medium text-slate-300">
+                  <div className="flex items-center justify-end gap-1 text-[10px] font-medium text-slate-400">
                      <MapPin size={10} /> {weather.location}
                   </div>
                </div>
             </div>
-            <div onClick={() => setCurrentView('search')} className="bg-white rounded-lg p-2.5 flex items-center gap-2 shadow-md shadow-black/5 cursor-text hover:bg-blue-50 transition-colors active:scale-[0.98] group">
-               <Search size={16} className="text-slate-400 group-hover:text-blue-600 transition-colors"/>
-               <div className="text-xs font-bold text-gray-400 flex-1 group-hover:text-gray-500 transition-colors">搜尋客戶、電話或機型...</div>
-               <div className="bg-gray-100 p-0.5 rounded group-hover:bg-blue-100 transition-colors">
-                  <ChevronRight size={14} className="text-gray-400 group-hover:text-blue-600"/>
+
+            <div onClick={() => setCurrentView('search')} className="bg-white/10 backdrop-blur-md border border-white/10 rounded-lg p-2.5 flex items-center gap-2 shadow-inner cursor-text hover:bg-white/20 transition-colors active:scale-[0.98] group">
+               <Search size={16} className="text-slate-300 group-hover:text-white transition-colors"/>
+               <div className="text-xs font-bold text-slate-300 flex-1 group-hover:text-white transition-colors">搜尋客戶、電話或機型...</div>
+               <div className="bg-white/10 p-0.5 rounded group-hover:bg-white/20 transition-colors">
+                  <ChevronRight size={14} className="text-slate-300 group-hover:text-white"/>
                </div>
             </div>
          </div>
       </div>
 
-      {/* 分隔線 */}
+      {/* 分隔線 (Tech Style) */}
       <div className="px-6 my-1 flex items-center gap-4 shrink-0">
-         <div className="h-px bg-gray-200 flex-1"></div>
-         <span className="text-[10px] font-bold text-gray-400 tracking-widest">功能選單</span>
-         <div className="h-px bg-gray-200 flex-1"></div>
+         <div className="h-px bg-slate-200 flex-1"></div>
+         <span className="text-[10px] font-bold text-slate-400 tracking-widest uppercase">Modules</span>
+         <div className="h-px bg-slate-200 flex-1"></div>
       </div>
 
-      {/* 3. 六大宮格 (重點調整) */}
-      <div className="px-4 flex-1 overflow-y-auto custom-scrollbar min-h-0">
-         <div className="grid grid-cols-2 gap-3 pb-2"> 
+      {/* 3. 六大宮格 (Tech Edition) */}
+      <div className="px-4 flex-1 overflow-y-auto custom-scrollbar min-h-0 pb-24">
+         <div className="grid grid-cols-2 gap-3"> 
             {modules.map(item => (
                <button 
                   key={item.id} 
                   onClick={item.action}
-                  // 使用 bg-gradient-to-br 增加背景層次
-                  className={`bg-gradient-to-br ${item.bgGradient} p-3 rounded-xl border border-slate-100 border-b-[3px] border-b-slate-200 shadow-sm flex flex-col items-center justify-center gap-2 h-30 active:border-b active:translate-y-0.5 active:shadow-none relative group overflow-hidden transition-all`}
+                  // 修改重點：背景純白，加上微弱的藍灰色邊框，更乾淨
+                  className="bg-white p-3 rounded-xl border border-slate-200 shadow-[0_2px_8px_rgba(0,0,0,0.04)] flex flex-col items-center justify-center gap-2 h-32 active:scale-[0.98] transition-all relative group overflow-hidden"
                >
-                  {/* ★ 立體化關鍵：圖示容器加上 shadow-md, ring-1, 還有自己的漸層背景 */}
-                  <div className={`p-3 rounded-2xl ${item.iconGradient} ${item.color} shadow-md ring-1 ring-white/50 group-hover:scale-110 transition-transform duration-300 relative z-10`}>
-                     <item.icon size={28} strokeWidth={2} className="drop-shadow-sm"/>
+                  {/* 底部雷射光條 (Accent Bar) */}
+                  <div className={`absolute bottom-0 left-0 w-full h-1 ${item.accentColor} opacity-0 group-hover:opacity-100 transition-opacity`}></div>
+
+                  {/* 圖示容器：淡色背景，保持區分度 */}
+                  <div className={`p-3 rounded-2xl ${item.iconBg} ${item.color} group-hover:scale-110 transition-transform duration-300 relative z-10`}>
+                     <item.icon size={28} strokeWidth={2}/>
                   </div>
                   
                   <div className="text-center relative z-10 w-full">
-                     <div className="font-bold text-gray-700 text-sm">{item.title}</div>
-                     <div className="text-[10px] text-gray-500 font-bold mt-1 bg-white/80 px-2 py-0.5 rounded-full inline-block border border-slate-100 backdrop-blur-sm">
+                     <div className="font-bold text-slate-700 text-sm group-hover:text-slate-900">{item.title}</div>
+                     <div className="text-[10px] text-slate-400 font-bold mt-1 bg-slate-50 px-2 py-0.5 rounded-full inline-block border border-slate-100">
                         {item.info}
                      </div>
                   </div>
 
                   {item.badge && (
-                     <div className="absolute top-2 right-2 w-2.5 h-2.5 rounded-full bg-rose-500 shadow-sm ring-1 ring-white animate-pulse z-20"></div>
+                     <div className="absolute top-2 right-2 w-2.5 h-2.5 rounded-full bg-rose-500 shadow-sm ring-2 ring-white animate-pulse z-20"></div>
                   )}
                </button>
             ))}
          </div>
       </div>
 
-      {/* 4. 系統狀態 (★ 修改：壓低高度 py-2.5，拉近距離 mt-3) */}
-      <div className="px-4 pt-0 pb-24 shrink-0 bg-gray-50 z-20">
-         {/* mt-3 讓它不要離上面太遠，py-2.5 讓它不要太厚 */}
-         <div className="mt-3 bg-white rounded-xl border border-gray-100 py-2.5 px-4 flex items-center justify-between shadow-sm">
-            <div className="flex items-center gap-3">
-               <div className="bg-emerald-50 text-emerald-600 p-1.5 rounded-lg"><Clock size={14}/></div>
-               <div>
-                  <div className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">SYSTEM STATUS</div>
-                  <div className="text-[11px] font-bold text-gray-700">系統運作正常，資料已同步</div>
-               </div>
+      {/* 4. 系統狀態 (★ 修改：固定在底部，扁平化設計) */}
+      {/* 使用 absolute bottom-[導覽列高度] 確保它浮在導覽列上方 */}
+      <div className="absolute bottom-20 left-0 w-full px-4 pb-2 z-20 pointer-events-none">
+         <div className="bg-white/90 backdrop-blur-md rounded-lg border border-slate-200 py-2 px-4 flex items-center justify-between shadow-lg shadow-slate-200/50 pointer-events-auto">
+            <div className="flex items-center gap-2">
+               <div className="bg-emerald-100 text-emerald-600 p-1 rounded-full"><CheckCircle2 size={12}/></div>
+               <span className="text-[10px] font-bold text-slate-600">系統與資料庫已同步</span>
             </div>
-            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse ring-4 ring-emerald-50"></div>
+            <div className="flex items-center gap-1.5">
+               <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+               </span>
+               <span className="text-[9px] font-bold text-slate-400">Live</span>
+            </div>
          </div>
       </div>
 
