@@ -11,8 +11,8 @@ const BottomNavigation = ({ activeTab, onTabChange }) => {
   ];
 
   return (
-    // 修改：py-2 (縮減高度), shadow-sm (輕量陰影)
-    <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-gray-200 px-6 py-2 z-40 shadow-[0_-4px_20px_rgba(0,0,0,0.03)]">
+    // 修改：py-1 (極致縮減上下高度)
+    <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-gray-200 px-6 py-1 z-40 shadow-[0_-4px_20px_rgba(0,0,0,0.03)]">
       <div className="flex justify-between items-end max-w-md mx-auto">
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
@@ -21,20 +21,21 @@ const BottomNavigation = ({ activeTab, onTabChange }) => {
               key={tab.id}
               onClick={() => onTabChange(tab.id)}
               className={`flex flex-col items-center justify-center w-14 transition-all duration-300 group ${
-                isActive ? '-translate-y-1' : 'translate-y-0'
+                isActive ? '-translate-y-0.5' : 'translate-y-0'
               }`}
             >
               <div 
-                className={`p-1.5 rounded-xl transition-all duration-300 ${
+                className={`p-1 rounded-lg transition-all duration-300 ${
                   isActive 
                     ? 'bg-blue-50 text-blue-600' 
                     : 'bg-transparent text-gray-400 group-active:text-gray-600'
                 }`}
               >
-                <tab.icon size={isActive ? 22 : 20} strokeWidth={isActive ? 2.5 : 2} />
+                {/* 圖示縮小：沒選中 18，選中 20 */}
+                <tab.icon size={isActive ? 20 : 18} strokeWidth={isActive ? 2.5 : 2} />
               </div>
               <span 
-                className={`text-[10px] font-bold mt-0.5 transition-colors duration-300 ${
+                className={`text-[9px] font-bold mt-0.5 transition-colors duration-300 ${
                   isActive ? 'text-blue-600' : 'text-gray-400'
                 }`}
               >
