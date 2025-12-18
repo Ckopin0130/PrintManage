@@ -42,15 +42,14 @@ const Dashboard = ({
   const todayDate = new Date().toLocaleDateString('zh-TW', { month: 'long', day: 'numeric' });
   const todayWeek = new Date().toLocaleDateString('zh-TW', { weekday: 'long' });
 
-  // ★ 設定模組：純淨科技風 (White & Slate)
-  // 移除所有背景顏色，只保留圖示顏色做點綴
+  // 設定模組：純白底 + 灰框 (無彩色背景)
   const modules = [
     { 
       id: 'tracking', 
       title: '待辦追蹤', 
       icon: ClipboardList, 
       color: 'text-rose-500', 
-      iconBg: 'bg-rose-50', // 圖示保留淡淡背景
+      iconBg: 'bg-rose-50',
       info: pendingTasks > 0 ? `${pendingTasks} 件待辦` : '無新案件',
       badge: pendingTasks > 0 ? pendingTasks : null, 
       action: () => setCurrentView('tracking') 
@@ -119,8 +118,8 @@ const Dashboard = ({
          </div>
       </div>
 
-      {/* 2. 藍色面板 */}
-      <div className="px-4 py-3 shrink-0 z-20">
+      {/* 2. 藍色面板 (縮減下方留白 pb-1，讓線條往上拉) */}
+      <div className="px-4 pt-3 pb-1 shrink-0 z-20">
          <div className="bg-gradient-to-br from-slate-800 to-blue-950 rounded-2xl p-4 text-white shadow-xl shadow-slate-300 relative overflow-hidden ring-1 ring-white/10">
             <div className="absolute top-0 right-0 w-48 h-48 bg-cyan-500/10 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
             
@@ -150,26 +149,22 @@ const Dashboard = ({
          </div>
       </div>
 
-      {/* 分隔線 (Tech Style) */}
-      <div className="px-6 my-1 flex items-center gap-4 shrink-0 z-10">
+      {/* 分隔線 (改為中文，且位置更靠上) */}
+      <div className="px-6 my-2 flex items-center gap-4 shrink-0 z-10">
          <div className="h-px bg-slate-200 flex-1"></div>
-         <span className="text-[10px] font-bold text-slate-400 tracking-widest uppercase">MODULES</span>
+         <span className="text-[10px] font-bold text-slate-400 tracking-widest">功能選單</span>
          <div className="h-px bg-slate-200 flex-1"></div>
       </div>
 
-      {/* 3. 六大功能區 (核心調整) */}
-      {/* pb-24: 底部預留 96px 空間，確保最後一排不會被 Navbar 擋住 */}
+      {/* 3. 六大功能區 (底部留白，不擋導航列) */}
       <div className="px-4 flex-1 overflow-y-auto custom-scrollbar min-h-0 pb-24">
          <div className="grid grid-cols-2 gap-3"> 
             {modules.map(item => (
                <button 
                   key={item.id} 
                   onClick={item.action}
-                  // ★ 高度設為 h-36 (144px)，更修長
-                  // ★ 背景純白 bg-white，邊框 border-slate-200
                   className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm flex flex-col items-center justify-center gap-2.5 h-36 active:scale-[0.98] active:border-slate-300 transition-all relative group overflow-hidden"
                >
-                  {/* 圖示容器：淡色背景圈圈 */}
                   <div className={`p-3.5 rounded-2xl ${item.iconBg} ${item.color} group-hover:scale-110 transition-transform duration-300 relative z-10`}>
                      <item.icon size={28} strokeWidth={2}/>
                   </div>
@@ -181,9 +176,8 @@ const Dashboard = ({
                      </div>
                   </div>
 
-                  {/* 待辦紅點 */}
                   {item.badge && (
-                     <div className="absolute top-2 right-2 w-2.5 h-2.5 rounded-full bg-rose-500 shadow-sm ring-2 ring-white animate-pulse z-20"></div>
+                     <div className="absolute top-2 right-2 w-2.5 h-2.5 rounded-full bg-rose-500 shadow-sm ring-1 ring-white animate-pulse z-20"></div>
                   )}
                </button>
             ))}
