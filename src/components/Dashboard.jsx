@@ -10,7 +10,6 @@ const Dashboard = ({
   setCurrentView, setActiveTab, setRosterLevel 
 }) => {
 
-  // --- 天氣與定位 ---
   const [weather, setWeather] = useState({ temp: '--', condition: 'Sunny', location: '定位中...' });
 
   useEffect(() => {
@@ -102,7 +101,6 @@ const Dashboard = ({
   ];
 
   return (
-    // 使用 h-screen 與 flex-col 確保佈局填滿但不過長
     <div className="bg-gray-50 h-screen flex flex-col font-sans animate-in overflow-hidden">
       
       {/* 1. 頂部標題列 */}
@@ -120,10 +118,9 @@ const Dashboard = ({
          </div>
       </div>
 
-      {/* 2. 資訊與搜尋區 (Banner) */}
+      {/* 2. 資訊與搜尋區 */}
       <div className="px-4 py-3 shrink-0 relative z-10">
          <div className="bg-gradient-to-br from-slate-800 to-blue-900 rounded-2xl p-4 text-white shadow-lg shadow-slate-300 relative overflow-hidden ring-1 ring-white/10">
-            {/* 裝飾背景 */}
             <div className="absolute top-0 right-0 w-48 h-48 bg-blue-500/10 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
 
             <div className="flex justify-between items-center relative z-10 mb-3">
@@ -162,48 +159,49 @@ const Dashboard = ({
          <div className="h-px bg-gray-200 flex-1"></div>
       </div>
 
-      {/* 3. 六大宮格 (變回 2 欄，但高度微調，確保不滑動) */}
-      <div className="px-4 pb-2 flex-1 overflow-y-auto"> {/* 使用 flex-1 自動填滿剩餘空間 */}
+      {/* 3. 六大宮格 (重點調整區) */}
+      <div className="px-4 pb-2 flex-1 overflow-y-auto custom-scrollbar">
          <div className="grid grid-cols-2 gap-3"> 
             {modules.map(item => (
                <button 
                   key={item.id} 
                   onClick={item.action}
-                  // h-28 是關鍵：高度適中，比原本的長方形短，比 3 欄大
-                  className="bg-white p-3 rounded-xl border border-slate-100 border-b-[3px] border-b-slate-200 shadow-sm flex flex-col items-center justify-center gap-2 h-28 active:border-b active:translate-y-0.5 active:shadow-none relative group overflow-hidden"
+                  // 修改重點：高度改為 h-32 (拉高)，增加內部 gap
+                  className="bg-white p-3 rounded-2xl border border-slate-100 border-b-[3px] border-b-slate-200 shadow-sm flex flex-col items-center justify-center gap-3 h-32 active:border-b active:translate-y-0.5 active:shadow-none relative group overflow-hidden"
                >
-                  <div className={`p-2.5 rounded-xl ${item.bgColor} ${item.color} group-hover:scale-110 transition-transform duration-300 relative z-10`}>
-                     <item.icon size={24} strokeWidth={2}/>
+                  {/* 圖示底座加大 */}
+                  <div className={`p-3 rounded-2xl ${item.bgColor} ${item.color} group-hover:scale-110 transition-transform duration-300 relative z-10`}>
+                     {/* 圖示尺寸加大到 28 */}
+                     <item.icon size={28} strokeWidth={2}/>
                   </div>
                   
                   <div className="text-center relative z-10 w-full">
-                     <div className="font-bold text-gray-700 text-sm">{item.title}</div>
-                     <div className="text-[10px] text-gray-400 font-bold mt-1 bg-slate-50 px-2 py-0.5 rounded-full inline-block border border-slate-100">
+                     {/* 標題字體加大到 text-base (16px) */}
+                     <div className="font-bold text-gray-800 text-base">{item.title}</div>
+                     {/* 說明文字也稍微放大 */}
+                     <div className="text-[11px] text-gray-500 font-bold mt-1.5 bg-slate-50 px-2.5 py-0.5 rounded-full inline-block border border-slate-100 group-hover:bg-white transition-colors">
                         {item.info}
                      </div>
                   </div>
 
                   {item.badge && (
-                     <div className="absolute top-2 right-2 w-2.5 h-2.5 rounded-full bg-rose-500 shadow-sm ring-1 ring-white animate-pulse z-20"></div>
+                     <div className="absolute top-2 right-2 w-3 h-3 rounded-full bg-rose-500 shadow-sm ring-2 ring-white animate-pulse z-20"></div>
                   )}
                </button>
             ))}
          </div>
 
-         {/* 4. 填補空白用的「最新動態」 (新功能！) */}
-         <div className="mt-3 bg-white rounded-xl border border-gray-100 p-3 flex items-center justify-between shadow-sm">
+         {/* 4. 系統狀態 (修改：增加 mt-6 下拉距離) */}
+         <div className="mt-6 mb-20 bg-white rounded-xl border border-gray-100 p-3 flex items-center justify-between shadow-sm">
             <div className="flex items-center gap-3">
-               <div className="bg-emerald-50 text-emerald-600 p-2 rounded-lg"><Clock size={16}/></div>
+               <div className="bg-emerald-50 text-emerald-600 p-2 rounded-lg"><Clock size={18}/></div>
                <div>
                   <div className="text-[10px] font-bold text-gray-400 uppercase">System Status</div>
-                  <div className="text-xs font-bold text-gray-700">系統運作正常，資料已同步</div>
+                  <div className="text-sm font-bold text-gray-700">系統運作正常，資料已同步</div>
                </div>
             </div>
-            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+            <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse ring-4 ring-emerald-100"></div>
          </div>
-         
-         {/* 預留底部導覽列空間 (稍微加大一點，避免被遮擋) */}
-         <div className="h-20"></div>
       </div>
 
     </div>
