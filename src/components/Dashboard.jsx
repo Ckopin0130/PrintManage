@@ -163,9 +163,9 @@ const Dashboard = ({
          </div>
       </div>
 
-      {/* 六大功能區 */}
-      {/* 修改：pb-20 (縮減底部間距) */}
-      <div className="px-4 flex-1 overflow-y-auto custom-scrollbar min-h-0 pb-20 pt-4">
+      {/* 六大功能區 - 滿版拉高調整 */}
+      {/* 修改重點：pb-24 (確保滑到底部時，內容不會被導航列遮住) */}
+      <div className="px-4 flex-1 overflow-y-auto custom-scrollbar min-h-0 pb-24 pt-4">
          <div className="grid grid-cols-2 gap-3 h-full content-start"> 
             {modules.map((item, index) => (
                <button 
@@ -194,7 +194,8 @@ const Dashboard = ({
                </button>
             ))}
          </div>
-         <div className="h-4"></div>
+         {/* 額外緩衝，防止內容完全貼在導航列上緣 */}
+         <div className="h-6"></div>
       </div>
 
     </div>

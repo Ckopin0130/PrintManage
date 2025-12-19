@@ -62,6 +62,7 @@ export default function App() {
   const defaultRecordForm = { 
       id: null, serviceSource: 'customer_call', symptom: '', action: '', status: 'completed', errorCode: '',
       date: new Date().toLocaleDateString('en-CA'),
+      parts: [] // 確保零件陣列初始存在
   };
   const [editingRecordData, setEditingRecordData] = useState(defaultRecordForm); 
 
@@ -168,7 +169,24 @@ export default function App() {
     }
   };
 
-  // --- 5. 資料庫操作 (CRUD) ---
+  // --- ★ 5. 頁面跳轉函式 (補回這些漏掉的函式) ---
+  const startEdit = () => {
+    setCurrentView('edit');
+  };
+
+  const startAddRecord = (customer) => {
+    if (!customer) return;
+    setEditingRecordData({ ...defaultRecordForm, customerID: customer.customerID });
+    setCurrentView('add_record');
+  };
+
+  const startEditRecord = (e, record) => {
+    if (e) e.stopPropagation();
+    setEditingRecordData(record);
+    setCurrentView('edit_record');
+  };
+
+  // --- 6. 資料庫操作 (CRUD) ---
   const updateInventory = async (item) => {
     setInventory(prev => prev.map(i => i.id === item.id ? item : i));
     if (dbStatus === 'demo' || !user) { showToast('庫存已更新 (離線)'); return; }
@@ -536,8 +554,7 @@ export default function App() {
       <ConfirmDialog {...confirmDialog} onCancel={() => setConfirmDialog({...confirmDialog, isOpen: false})} isProcessing={isProcessing} />
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       
-      {/* 修改處：移除了原本浮動的 Status Indicator，因為 Dashboard 已經有了 */}
-
+      {/* 頁面路由區塊 */}
       {currentView === 'dashboard' && (
         <Dashboard 
           today={today} dbStatus={dbStatus} pendingTasks={pendingTasks} 
