@@ -163,18 +163,17 @@ const Dashboard = ({
          </div>
       </div>
 
-      {/* 六大功能區 - 滿版拉高調整 */}
-      <div className="px-4 flex-1 overflow-y-auto custom-scrollbar min-h-0 pb-28 pt-4">
+      {/* 六大功能區 */}
+      {/* 修改：pb-20 (縮減底部間距) */}
+      <div className="px-4 flex-1 overflow-y-auto custom-scrollbar min-h-0 pb-20 pt-4">
          <div className="grid grid-cols-2 gap-3 h-full content-start"> 
             {modules.map((item, index) => (
                <button 
                   key={item.id} 
                   onClick={item.action}
-                  // 修改重點：h-40 (160px) 拉高卡片，視覺上更滿
                   className="bg-white p-3 rounded-2xl border border-slate-100 shadow-[0_2px_8px_rgb(0,0,0,0.04)] flex flex-col items-center justify-center gap-1 h-40 active:scale-[0.96] active:shadow-none transition-all duration-200 relative group overflow-hidden hover:shadow-[0_8px_20px_rgb(0,0,0,0.08)] hover:border-blue-50"
                   style={{ animationDelay: `${index * 50}ms` }}
                >
-                  {/* 圖示區域保持比例 */}
                   <div className={`p-3.5 rounded-2xl ${item.iconBg} ${item.color} group-hover:scale-110 transition-transform duration-300 relative z-10 shadow-sm mb-1.5`}>
                      <item.icon size={32} strokeWidth={2.5} />
                   </div>
@@ -195,7 +194,6 @@ const Dashboard = ({
                </button>
             ))}
          </div>
-         {/* 底部安全留白 */}
          <div className="h-4"></div>
       </div>
 
