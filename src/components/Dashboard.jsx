@@ -34,9 +34,10 @@ const Dashboard = ({
   }, []);
 
   const getWeatherIcon = () => {
-    if (weather.condition === 'Rainy') return <CloudRain size={24} className="text-blue-500 drop-shadow-sm"/>;
-    if (weather.condition === 'Cloudy') return <Cloud size={24} className="text-gray-400 drop-shadow-sm"/>;
-    return <Sun size={24} className="text-amber-500 drop-shadow-sm animate-pulse-slow"/>;
+    // 天氣圖示改為白色，適應藍色背景
+    if (weather.condition === 'Rainy') return <CloudRain size={26} className="text-white drop-shadow-sm"/>;
+    if (weather.condition === 'Cloudy') return <Cloud size={26} className="text-blue-100 drop-shadow-sm"/>;
+    return <Sun size={26} className="text-yellow-300 drop-shadow-sm animate-pulse-slow"/>;
   };
 
   const greeting = useMemo(() => {
@@ -116,58 +117,65 @@ const Dashboard = ({
   return (
     <div className="bg-slate-50 h-[100dvh] flex flex-col font-sans overflow-hidden">
       
-      {/* ★ 整合式頂部控制台 (Unified Header Console) */}
-      <div className="bg-white rounded-b-[2rem] shadow-[0_4px_20px_-10px_rgba(0,0,0,0.05)] pt-3 pb-5 px-6 z-30 shrink-0 flex flex-col gap-3 relative">
+      {/* ★ 參考「夏日旅行」風格的整合式頂部 (Blue Header Block) */}
+      <div className="bg-gradient-to-br from-blue-600 to-blue-500 rounded-b-[2.5rem] shadow-lg shadow-blue-200 pt-3 pb-6 px-6 z-30 shrink-0 relative overflow-hidden">
          
-         {/* 第一行：品牌識別 & 狀態燈 (輔助資訊，縮小字體) */}
-         <div className="flex justify-between items-center opacity-80">
-            <div className="flex items-center gap-1.5 text-slate-400">
-               <Printer size={14} className="text-blue-500"/>
-               <span className="text-[10px] font-bold tracking-wider uppercase">Printer Manager</span>
+         {/* 裝飾背景圓 (增加層次感) */}
+         <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -mr-10 -mt-10 blur-3xl pointer-events-none"></div>
+
+         {/* 第一行：標題與狀態 (白色文字) */}
+         <div className="flex justify-between items-center mb-4 relative z-10">
+            <div className="flex items-center gap-2 text-white/90">
+               <div className="bg-white/20 p-1.5 rounded-lg backdrop-blur-sm">
+                 <Printer size={16} className="text-white"/>
+               </div>
+               <span className="text-sm font-bold tracking-wide text-white">印表機管家</span>
             </div>
             
-            {/* 呼吸燈 (保持精緻) */}
-            <div className="flex items-center gap-1.5 bg-slate-50 px-2 py-0.5 rounded-full border border-slate-100">
-               <div className="relative flex h-1.5 w-1.5">
+            {/* 呼吸燈 (適應深色背景) */}
+            <div className="flex items-center gap-1.5 bg-black/20 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/10">
+               <div className="relative flex h-2 w-2">
                  {dbStatus === 'online' && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>}
-                 <span className={`relative inline-flex rounded-full h-1.5 w-1.5 ${dbStatus === 'online' ? 'bg-emerald-500' : 'bg-rose-500'}`}></span>
+                 <span className={`relative inline-flex rounded-full h-2 w-2 ${dbStatus === 'online' ? 'bg-emerald-400' : 'bg-rose-400'}`}></span>
                </div>
-               <span className={`text-[9px] font-bold ${dbStatus === 'online' ? 'text-slate-500' : 'text-rose-500'}`}>
+               <span className={`text-[10px] font-bold ${dbStatus === 'online' ? 'text-emerald-50' : 'text-rose-100'}`}>
                    {dbStatus === 'online' ? '連線正常' : '離線'}
                </span>
             </div>
          </div>
 
-         {/* 第二行：問候語、日期 & 天氣 (主要視覺) */}
-         <div className="flex justify-between items-end mt-1">
-            <div className="flex flex-col">
-               <h1 className="text-xl font-extrabold text-slate-800 leading-tight">{greeting}</h1>
-               <div className="text-xs font-bold text-slate-400 mt-1 flex items-center gap-1">
-                  <span>{todayDateStr}</span>
+         {/* 第二行：問候語、日期與天氣 (白色大標題) */}
+         <div className="flex justify-between items-end mb-5 relative z-10">
+            <div className="text-white">
+               <h1 className="text-2xl font-extrabold leading-tight tracking-wide mb-1">{greeting}</h1>
+               <div className="flex items-center gap-2 text-blue-100 font-bold text-xs">
+                  <span className="bg-white/20 px-2 py-0.5 rounded backdrop-blur-sm text-white">{todayDateStr}</span>
                </div>
             </div>
-            <div className="flex items-center gap-1 mb-1">
-               <span className="text-2xl font-bold text-slate-700 tracking-tighter">{weather.temp}°</span>
-               {getWeatherIcon()}
+            <div className="flex flex-col items-end text-white">
+               <div className="flex items-center gap-1">
+                   <span className="text-3xl font-bold tracking-tighter">{weather.temp}°</span>
+                   {getWeatherIcon()}
+               </div>
             </div>
          </div>
 
-         {/* 第三行：搜尋列 (嵌入式，更有整體感) */}
+         {/* 第三行：白色搜尋列 (參考圖片的白色條狀) */}
          <div 
              onClick={() => setCurrentView('search')} 
-             className="bg-slate-50 text-slate-600 rounded-xl p-3 flex items-center gap-3 border border-slate-100 cursor-text active:scale-[0.98] transition-all group mt-1 hover:border-blue-100"
+             className="bg-white rounded-2xl p-3.5 flex items-center gap-3 shadow-md shadow-blue-900/10 cursor-text active:scale-[0.98] transition-all group relative z-10"
          >
-            <Search size={18} className="text-blue-500 ml-1"/>
-            <div className="text-sm font-bold text-slate-400 flex-1 group-hover:text-slate-600 transition-colors">輸入客戶名稱、電話或機型...</div>
-            <div className="bg-white p-1 rounded-md border border-slate-100 shadow-sm">
-               <ChevronRight size={14} className="text-slate-300 group-hover:text-blue-500"/>
+            <Search size={20} className="text-blue-500 ml-1"/>
+            <div className="text-sm font-bold text-slate-400 flex-1 group-hover:text-slate-600 transition-colors">搜尋客戶、電話或機型...</div>
+            <div className="bg-slate-50 p-1 rounded-lg border border-slate-100">
+               <ChevronRight size={16} className="text-slate-300 group-hover:text-blue-500"/>
             </div>
          </div>
 
       </div>
 
-      {/* 六大功能區 - 維持您要求的高度 (h-[9.5rem] = h-38) */}
-      <div className="px-4 flex-1 overflow-y-auto custom-scrollbar min-h-0 pb-20 pt-4">
+      {/* 六大功能區 - 維持高度與間距不變 (h-[9.5rem] = h-38) */}
+      <div className="px-4 flex-1 overflow-y-auto custom-scrollbar min-h-0 pb-20 pt-5">
          <div className="grid grid-cols-2 gap-3 h-full content-start"> 
             {modules.map((item, index) => (
                <button 
