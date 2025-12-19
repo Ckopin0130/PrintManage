@@ -58,10 +58,14 @@ const CustomerRoster = ({
     );
   }
 
-  // 第二層：選擇鄉鎮市區
+  // 第二層：選擇鄉鎮市區 (已修改為條列式並依數量排序)
   if (rosterLevel === 'l2') {
     const validCustomers = Array.isArray(customers) ? customers : [];
-    const l2List = [...new Set(validCustomers.filter(c => c.L1_group === selectedL1).map(c => c.L2_district || '未分區'))].map(d => ({ name: d, count: validCustomers.filter(c => c.L1_group === selectedL1 && (c.L2_district || '未分區') === d).length })).sort((a, b) => b.count - a.count);
+    // 這裡保留你原本的排序邏輯：.sort((a, b) => b.count - a.count)
+    const l2List = [...new Set(validCustomers.filter(c => c.L1_group === selectedL1).map(c => c.L2_district || '未分區'))]
+      .map(d => ({ name: d, count: validCustomers.filter(c => c.L1_group === selectedL1 && (c.L2_district || '未分區') === d).length }))
+      .sort((a, b) => b.count - a.count);
+
     return (
       <div className="bg-gray-50 min-h-screen pb-24">
          <div className="bg-white px-4 py-4 flex items-center shadow-sm sticky top-0 z-10 border-b border-gray-100">
@@ -69,10 +73,40 @@ const CustomerRoster = ({
            <h2 className="text-lg font-bold flex-1 text-center pr-8">{selectedL1}</h2>
            <div className="flex -mr-2"><button onClick={() => setCurrentView('search')} className="p-2 mr-1 text-gray-500 hover:bg-gray-100 rounded-full"><Search size={20}/></button><button onClick={() => { setCurrentView('add'); }} className="p-2 bg-blue-50 text-blue-600 rounded-full hover:bg-blue-100"><Plus size={20} /></button></div>
          </div>
-        <div className="p-4 grid grid-cols-2 gap-3">
-           {l2List.map(item => (
-               <button key={item.name} onClick={() => { setSelectedL2(item.name); setRosterLevel('l3'); }} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col items-center justify-center active:scale-[0.98] transition-all h-32 hover:border-blue-300 hover:shadow-md">
-                 {getL1Icon(selectedL1)}<h3 className="font-bold text-gray-800 text-base text-center">{item.name}</h3><span className="text-xs bg-gray-100 text-gray-600 font-medium px-2 py-0.5 rounded-md mt-2">{item.count} 戶</span>
+        
+        {/* 修改重點：原本是 grid grid-cols-2，現在改為 flex flex-col gap-3 */}
+        <div className="p-4 flex flex-col gap-3">
+           {l2List.map((item, index) => (
+               <button 
+                 key={item.name} 
+                 onClick={() => { setSelectedL2(item.name); setRosterLevel('l3'); }} 
+                 // 修改樣式為橫向排列 (flex-row)
+                 className="w-full bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between active:scale-[0.98] transition-all hover:border-blue-300 hover:shadow-md"
+               >
+                 {/* 左側：排名 + 圖示 + 名稱 */}
+                 <div className="flex items-center gap-4">
+                    {/* 排名數字 Badge */}
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${
+                      index === 0 ? 'bg-yellow-100 text-yellow-700' : 
+                      index === 1 ? 'bg-gray-200 text-gray-700' : 
+                      index === 2 ? 'bg-orange-100 text-orange-700' : 'bg-gray-50 text-gray-400'
+                    }`}>
+                      {index + 1}
+                    </div>
+
+                    <div className="flex flex-col items-start">
+                      <h3 className="font-bold text-gray-800 text-base">{item.name}</h3>
+                      <span className="text-xs text-gray-400">區域客戶</span>
+                    </div>
+                 </div>
+
+                 {/* 右側：數量 + 箭頭 */}
+                 <div className="flex items-center gap-3">
+                   <span className="bg-blue-50 text-blue-600 font-bold px-3 py-1 rounded-lg text-sm">
+                     {item.count} 戶
+                   </span>
+                   <ChevronRight className="text-gray-300 w-5 h-5" />
+                 </div>
                </button>
            ))}
         </div>
