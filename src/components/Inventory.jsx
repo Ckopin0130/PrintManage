@@ -4,7 +4,6 @@ import {
   RotateCcw, CheckCircle, AlertCircle, Trash2
 } from 'lucide-react';
 
-// 內部的編輯彈窗 (只在這個檔案裡用)
 const EditInventoryModal = ({ isOpen, onClose, onSave, onDelete, initialItem, existingModels, defaultModel }) => {
   const [formData, setFormData] = useState({ name: '', model: '', qty: 0, max: 5, unit: '個' });
   const [useCustomModel, setUseCustomModel] = useState(false);
@@ -16,8 +15,7 @@ const EditInventoryModal = ({ isOpen, onClose, onSave, onDelete, initialItem, ex
       } else {
         const targetModel = defaultModel || existingModels[0] || '共用耗材';
         setFormData({ name: '', model: targetModel, qty: 1, max: 5, unit: '個' });
-        if (defaultModel && !existingModels.includes(defaultModel)) setUseCustomModel(true);
-        else setUseCustomModel(false);
+        setUseCustomModel(defaultModel && !existingModels.includes(defaultModel));
       }
     }
   }, [isOpen, initialItem, existingModels, defaultModel]);
@@ -27,35 +25,35 @@ const EditInventoryModal = ({ isOpen, onClose, onSave, onDelete, initialItem, ex
     <div className="fixed inset-0 bg-black/60 z-[70] flex items-center justify-center p-4 animate-in" onClick={onClose}>
       <div className="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-4">
-           <h3 className="text-lg font-bold text-gray-800">{initialItem ? '編輯零件詳情' : '新增庫存零件'}</h3>
-           {initialItem && <button onClick={() => { if(window.confirm(`確定要刪除「${formData.name}」嗎？`)) onDelete(formData.id); }} className="p-2 bg-red-50 text-red-500 rounded-lg hover:bg-red-100 transition-colors"><Trash2 size={18}/></button>}
+           <h3 className="text-lg font-bold text-slate-800">{initialItem ? '編輯零件詳情' : '新增庫存零件'}</h3>
+           {initialItem && <button onClick={() => { if(window.confirm(`確定要刪除「${formData.name}」嗎？`)) onDelete(formData.id); }} className="p-2 bg-rose-50 text-rose-500 rounded-lg hover:bg-rose-100 transition-colors"><Trash2 size={18}/></button>}
         </div>
         <div className="space-y-4 mb-6">
            <div>
-             <label className="text-xs font-bold text-gray-500 block mb-1">機型分類</label>
+             <label className="text-xs font-bold text-slate-400 block mb-1">機型分類</label>
              {!useCustomModel ? (
                <div className="flex gap-2">
-                 <select className="w-full bg-gray-50 border rounded-lg p-2.5 outline-none text-gray-700 font-bold" value={formData.model} onChange={e => setFormData({...formData, model: e.target.value})}>
+                 <select className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none text-slate-700 font-bold" value={formData.model} onChange={e => setFormData({...formData, model: e.target.value})}>
                    {existingModels.map(m => <option key={m} value={m}>{m}</option>)}
                  </select>
-                 <button onClick={() => {setUseCustomModel(true);}} className="bg-blue-50 text-blue-600 px-3 rounded-lg text-xs font-bold whitespace-nowrap">自訂</button>
+                 <button onClick={() => {setUseCustomModel(true);}} className="bg-blue-50 text-blue-600 px-3 rounded-xl text-xs font-bold whitespace-nowrap">自訂</button>
                </div>
              ) : (
                 <div className="flex gap-2">
-                  <input autoFocus placeholder="輸入新機型 (例: IM 6000)" className="w-full bg-gray-50 border rounded-lg p-2.5 outline-none" value={formData.model} onChange={e => setFormData({...formData, model: e.target.value})} />
-                  <button onClick={() => setUseCustomModel(false)} className="bg-gray-100 text-gray-500 px-3 rounded-lg text-xs font-bold whitespace-nowrap">取消</button>
+                  <input autoFocus placeholder="輸入新機型" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none font-bold" value={formData.model} onChange={e => setFormData({...formData, model: e.target.value})} />
+                  <button onClick={() => setUseCustomModel(false)} className="bg-slate-100 text-slate-500 px-3 rounded-xl text-xs font-bold whitespace-nowrap">取消</button>
                 </div>
              )}
            </div>
-           <div><label className="text-xs font-bold text-gray-500 block mb-1">零件名稱</label><input placeholder="例: 定影上爪" className="w-full bg-gray-50 border rounded-lg p-2.5 outline-none text-base text-gray-800 font-bold" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} /></div>
+           <div><label className="text-xs font-bold text-slate-400 block mb-1">零件名稱</label><input placeholder="例: 定影上爪" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none text-base text-slate-800 font-bold" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} /></div>
            <div className="grid grid-cols-3 gap-3">
-              <div><label className="text-xs font-bold text-gray-500 block mb-1">目前庫存</label><div className="flex items-center bg-gray-50 border rounded-lg overflow-hidden"><input type="number" className="w-full p-2.5 outline-none text-center font-mono font-bold text-lg bg-transparent" value={formData.qty} onChange={e => setFormData({...formData, qty: Number(e.target.value)})} /></div></div>
-              <div><label className="text-xs font-bold text-gray-500 block mb-1">應備量</label><input type="number" className="w-full bg-gray-50 border rounded-lg p-2.5 outline-none text-center font-mono" value={formData.max} onChange={e => setFormData({...formData, max: Number(e.target.value)})} /></div>
-              <div><label className="text-xs font-bold text-gray-500 block mb-1">單位</label><input placeholder="個" className="w-full bg-gray-50 border rounded-lg p-2.5 outline-none text-center" value={formData.unit} onChange={e => setFormData({...formData, unit: e.target.value})} /></div>
+              <div><label className="text-xs font-bold text-slate-400 block mb-1">目前庫存</label><div className="flex items-center bg-slate-50 border border-slate-200 rounded-xl overflow-hidden"><input type="number" className="w-full p-2.5 outline-none text-center font-mono font-bold text-lg bg-transparent text-blue-600" value={formData.qty} onChange={e => setFormData({...formData, qty: Number(e.target.value)})} /></div></div>
+              <div><label className="text-xs font-bold text-slate-400 block mb-1">應備量</label><input type="number" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none text-center font-mono font-bold" value={formData.max} onChange={e => setFormData({...formData, max: Number(e.target.value)})} /></div>
+              <div><label className="text-xs font-bold text-slate-400 block mb-1">單位</label><input placeholder="個" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 outline-none text-center font-bold" value={formData.unit} onChange={e => setFormData({...formData, unit: e.target.value})} /></div>
            </div>
         </div>
         <div className="flex gap-3">
-            <button onClick={onClose} className="flex-1 py-3.5 bg-gray-100 font-bold text-gray-600 rounded-xl hover:bg-gray-200 transition-colors">取消</button>
+            <button onClick={onClose} className="flex-1 py-3.5 bg-slate-100 font-bold text-slate-500 rounded-xl hover:bg-slate-200 transition-colors">取消</button>
             <button onClick={() => { if(formData.name && formData.model) onSave(formData); }} className="flex-1 py-3.5 bg-blue-600 font-bold text-white rounded-xl shadow-lg shadow-blue-200 hover:bg-blue-700 transition-colors active:scale-95">儲存</button>
         </div>
       </div>
@@ -63,19 +61,17 @@ const EditInventoryModal = ({ isOpen, onClose, onSave, onDelete, initialItem, ex
   );
 };
 
-// 外部用來顯示重命名群組的 Modal
-export const RenameGroupModal = ({ isOpen, onClose, onRename, oldName }) => {
+const RenameGroupModal = ({ isOpen, onClose, onRename, oldName }) => {
   const [newName, setNewName] = useState(oldName || '');
   useEffect(() => { setNewName(oldName || ''); }, [oldName]);
   if (!isOpen) return null;
   return (
     <div className="fixed inset-0 bg-black/60 z-[80] flex items-center justify-center p-4 animate-in" onClick={onClose}>
       <div className="bg-white w-full max-w-xs rounded-2xl p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
-        <h3 className="text-lg font-bold text-gray-800 mb-2">修改分類名稱</h3>
-        <div className="text-xs text-gray-400 mb-4">將同步修改此分類下所有零件的機型名稱</div>
-        <input autoFocus className="w-full bg-gray-50 border rounded-lg p-3 outline-none mb-4 font-bold text-gray-700 focus:ring-2 focus:ring-blue-100" value={newName} onChange={e => setNewName(e.target.value)} />
+        <h3 className="text-lg font-bold text-slate-800 mb-2">修改分類名稱</h3>
+        <input autoFocus className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none mb-4 font-bold text-slate-700" value={newName} onChange={e => setNewName(e.target.value)} />
         <div className="flex gap-2">
-          <button onClick={onClose} className="flex-1 py-3 bg-gray-100 font-bold text-gray-600 rounded-xl">取消</button>
+          <button onClick={onClose} className="flex-1 py-3 bg-slate-100 font-bold text-slate-500 rounded-xl">取消</button>
           <button onClick={() => { onRename(oldName, newName); onClose(); }} className="flex-1 py-3 bg-blue-600 font-bold text-white rounded-xl shadow-lg">儲存</button>
         </div>
       </div>
@@ -83,7 +79,6 @@ export const RenameGroupModal = ({ isOpen, onClose, onRename, oldName }) => {
   );
 };
 
-// 主要庫存頁面元件
 const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteInventory, onRenameGroup, onBack }) => {
   const [editingItem, setEditingItem] = useState(null);
   const [isAddMode, setIsAddMode] = useState(false);
@@ -131,45 +126,45 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
   const existingModels = useMemo(() => [...new Set(inventory.map(i => i.model || '共用耗材'))], [inventory]);
 
   return (
-    <div className="bg-gray-50 min-h-screen pb-24 flex flex-col">
-       <div className="bg-white px-4 py-3 shadow-sm sticky top-0 z-10 border-b border-gray-100">
+    <div className="bg-slate-50 min-h-screen pb-24 flex flex-col font-sans">
+       <div className="bg-white/95 backdrop-blur px-6 py-3 shadow-sm sticky top-0 z-30 border-b border-slate-100/50">
          <div className="flex justify-between items-center mb-3">
             <div className="flex items-center">
-              <button onClick={onBack} className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-full mr-2"><ArrowLeft size={20}/></button>
-              <h2 className="text-lg font-bold">庫存管理</h2>
+              <button onClick={onBack} className="p-2 -ml-2 text-slate-500 hover:bg-slate-50 rounded-full mr-2 transition-colors"><ArrowLeft size={22}/></button>
+              <h2 className="text-lg font-extrabold text-slate-800 tracking-wide">庫存管理</h2>
             </div>
-            <button onClick={() => setIsAddMode(true)} className="flex items-center text-xs font-bold bg-blue-600 text-white px-3 py-1.5 rounded-full shadow hover:bg-blue-700 transition"><Plus size={14} className="mr-1"/>新增品項</button>
+            <button onClick={() => setIsAddMode(true)} className="flex items-center text-xs font-bold bg-emerald-50 text-emerald-600 px-3 py-1.5 rounded-full border border-emerald-100 hover:bg-emerald-100 transition"><Plus size={16} className="mr-1"/>新增品項</button>
          </div>
          <div className="relative">
-            <Search size={16} className="absolute left-3 top-2.5 text-gray-400" />
-            <input className="w-full bg-gray-100 rounded-lg py-2 pl-9 pr-4 text-sm outline-none focus:ring-2 focus:ring-blue-100 transition placeholder-gray-400" placeholder="搜尋機型或零件..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+            <Search size={18} className="absolute left-3 top-2.5 text-slate-400" />
+            <input className="w-full bg-slate-50 border border-slate-100 rounded-xl py-2 pl-10 pr-4 text-sm outline-none focus:border-blue-300 focus:ring-2 focus:ring-blue-50 transition placeholder-slate-400 font-bold text-slate-600" placeholder="搜尋機型或零件..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
          </div>
       </div>
       <div className="p-4 space-y-4">
           {Object.keys(groupedInventory).length === 0 ? (
-            <div className="text-center text-gray-400 mt-20 flex flex-col items-center"><Box size={48} className="mb-4 text-gray-200" /><p>找不到相關零件</p></div>
+            <div className="text-center text-slate-300 mt-20 flex flex-col items-center"><Box size={48} className="mb-4 opacity-50" /><p className="font-bold text-sm">找不到相關零件</p></div>
           ) : (
             Object.keys(groupedInventory).sort().map(model => {
               const isExpanded = expandedCategories[model];
               const items = groupedInventory[model];
               const lowStockCount = items.filter(i => i.qty === 0).length;
               return (
-              <div key={model} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden slide-in-from-bottom">
-                <div className="px-4 py-3 bg-gray-50/80 flex justify-between items-center cursor-pointer select-none active:bg-gray-100 transition-colors" onClick={() => toggleCategory(model)}>
+              <div key={model} className="bg-white rounded-2xl shadow-[0_2px_8px_rgb(0,0,0,0.04)] border border-slate-100 overflow-hidden">
+                <div className="px-4 py-3 bg-white flex justify-between items-center cursor-pointer select-none active:bg-slate-50 transition-colors" onClick={() => toggleCategory(model)}>
                   <div className="flex items-center flex-1">
-                    <Layers size={16} className="text-blue-500 mr-2"/>
-                    <h3 className="text-sm font-bold text-gray-700 mr-2">{model}</h3>
-                    <button onClick={(e) => { e.stopPropagation(); setGroupToRename(model); }} className="p-1.5 bg-white border border-gray-200 text-gray-400 hover:text-blue-600 rounded-lg shadow-sm mr-2 active:scale-90 transition-transform"><Edit3 size={12}/></button>
-                    <span className="bg-gray-200 text-gray-600 text-[10px] px-2 py-0.5 rounded-full font-bold">{items.length}</span>
-                    {lowStockCount > 0 && <span className="ml-2 bg-red-100 text-red-600 text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center"><AlertCircle size={10} className="mr-1"/>{lowStockCount} 缺貨</span>}
+                    <Layers size={18} className="text-blue-500 mr-3"/>
+                    <h3 className="text-sm font-bold text-slate-700 mr-2">{model}</h3>
+                    <button onClick={(e) => { e.stopPropagation(); setGroupToRename(model); }} className="p-1.5 text-slate-300 hover:text-blue-600 rounded-lg active:scale-90 transition-transform"><Edit3 size={14}/></button>
+                    <span className="bg-slate-100 text-slate-500 text-[10px] px-2 py-0.5 rounded-full font-bold ml-auto">{items.length} 項</span>
+                    {lowStockCount > 0 && <span className="ml-2 bg-rose-100 text-rose-600 text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center"><AlertCircle size={10} className="mr-1"/>{lowStockCount} 缺</span>}
                   </div>
-                  <div className="flex items-center">
-                    <button onClick={(e) => { e.stopPropagation(); setAddingToGroupModel(model); setIsAddMode(true); }} className="mr-3 w-7 h-7 flex items-center justify-center bg-blue-100 text-blue-600 rounded-full hover:bg-blue-200 active:scale-90 transition-transform"><Plus size={14} /></button>
-                    {isExpanded ? <ChevronUp size={16} className="text-gray-400"/> : <ChevronDown size={16} className="text-gray-400"/>}
+                  <div className="flex items-center ml-3">
+                    <button onClick={(e) => { e.stopPropagation(); setAddingToGroupModel(model); setIsAddMode(true); }} className="mr-3 w-7 h-7 flex items-center justify-center bg-blue-50 text-blue-600 rounded-full hover:bg-blue-100 active:scale-90 transition-transform"><Plus size={14} strokeWidth={3}/></button>
+                    {isExpanded ? <ChevronUp size={18} className="text-slate-400"/> : <ChevronDown size={18} className="text-slate-400"/>}
                   </div>
                 </div>
                 {isExpanded && (
-                  <div className="divide-y divide-gray-50">
+                  <div className="divide-y divide-slate-50 border-t border-slate-50">
                      {items.map((item) => {
                       const isLowStock = item.qty === 0;
                       const isWarning = item.qty > 0 && item.qty <= (item.max * 0.3);
@@ -177,16 +172,16 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
                         <div key={item.id} className="p-4 flex justify-between items-center hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => setEditingItem(item)}>
                             <div className="flex-1 mr-4">
                                 <div className="flex items-center mb-1">
-                                  <div className="font-bold text-gray-800 text-sm">{item.name}</div>
-                                  {isLowStock && <span className="ml-2 px-1.5 py-0.5 bg-red-100 text-red-600 text-[10px] rounded font-bold">缺貨</span>}
+                                  <div className="font-bold text-slate-700 text-sm">{item.name}</div>
+                                  {isLowStock && <span className="ml-2 px-1.5 py-0.5 bg-rose-50 text-rose-600 text-[10px] rounded font-bold border border-rose-100">缺貨</span>}
                                 </div>
-                                <div className="text-[10px] text-gray-400 font-mono">應備: {item.max} {item.unit}</div>
+                                <div className="text-[10px] text-slate-400 font-bold">應備: {item.max} {item.unit}</div>
                             </div>
                             <div className="flex items-center gap-3">
-                                <div className={`text-xl font-bold font-mono ${isLowStock ? 'text-red-600' : (isWarning ? 'text-amber-600' : 'text-blue-600')}`}>{item.qty}</div>
+                                <div className={`text-xl font-extrabold font-mono ${isLowStock ? 'text-rose-500' : (isWarning ? 'text-amber-500' : 'text-blue-600')}`}>{item.qty}</div>
                                 {item.qty < item.max ? (
-                                  <button onClick={(e) => { e.stopPropagation(); handleRestock(item.id, item.max); }} className="w-8 h-8 flex items-center justify-center bg-blue-50 text-blue-600 rounded-full hover:bg-blue-100 transition-colors active:scale-90" title="一鍵補滿"><RotateCcw size={14} /></button>
-                                ) : ( <div className="w-8 h-8 flex items-center justify-center text-gray-300"><CheckCircle size={16}/></div> )}
+                                  <button onClick={(e) => { e.stopPropagation(); handleRestock(item.id, item.max); }} className="w-8 h-8 flex items-center justify-center bg-blue-50 text-blue-600 rounded-full hover:bg-blue-100 transition-colors active:scale-90 shadow-sm" title="一鍵補滿"><RotateCcw size={14} strokeWidth={2.5}/></button>
+                                ) : ( <div className="w-8 h-8 flex items-center justify-center text-emerald-300"><CheckCircle size={18}/></div> )}
                             </div>
                         </div>
                       );})}
