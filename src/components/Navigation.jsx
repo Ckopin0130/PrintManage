@@ -11,7 +11,6 @@ const BottomNavigation = ({ activeTab, onTabChange }) => {
   ];
 
   return (
-    // 維持深色陰影與高度設定
     <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-gray-100 px-6 py-2 z-40 shadow-[0_-10px_40px_-10px_rgba(0,0,0,0.15)] safe-area-bottom">
       
       <div className="flex justify-between items-center max-w-md mx-auto h-full">
@@ -27,15 +26,13 @@ const BottomNavigation = ({ activeTab, onTabChange }) => {
               }`}
             >
               <div 
-                className={`p-2.5 rounded-xl transition-all duration-300 flex items-center justify-center ${
+                className={`p-1.5 rounded-xl transition-all duration-300 flex items-center justify-center ${
                   isActive 
-                    // 修改重點：改回之前的淺藍色背景 (bg-blue-50) 與深藍文字 (text-blue-600)
-                    // 移除了原本的 bg-blue-600 (深藍色塊)
+                    // 修改重點：p-2.5 -> p-1.5，縮小藍色框框的大小
                     ? 'bg-blue-50 text-blue-600 shadow-sm ring-1 ring-blue-100 scale-110' 
                     : 'bg-transparent text-gray-400 group-active:scale-95 group-hover:text-gray-600'
                 }`}
               >
-                {/* 圖示大小維持稍微放大，視覺更清晰 */}
                 <tab.icon size={isActive ? 28 : 26} strokeWidth={isActive ? 2.5 : 2} />
               </div>
             </button>
