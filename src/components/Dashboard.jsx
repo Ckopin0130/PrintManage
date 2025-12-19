@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { 
   ClipboardList, Users, Search, PenTool, 
   Wifi, WifiOff, Package, FileText, Settings, 
-  Sun, Cloud, CloudRain, MapPin, Printer, ChevronRight
+  Sun, Cloud, CloudRain, MapPin, Printer, ChevronRight, Bell
 } from 'lucide-react';
 
 const Dashboard = ({ 
@@ -34,18 +34,18 @@ const Dashboard = ({
   }, []);
 
   const getWeatherIcon = () => {
-    if (weather.condition === 'Rainy') return <CloudRain size={26} className="text-white drop-shadow-md"/>;
-    if (weather.condition === 'Cloudy') return <Cloud size={26} className="text-gray-200 drop-shadow-md"/>;
-    return <Sun size={26} className="text-amber-400 drop-shadow-md animate-pulse-slow"/>;
+    if (weather.condition === 'Rainy') return <CloudRain size={28} className="text-blue-500 drop-shadow-sm"/>;
+    if (weather.condition === 'Cloudy') return <Cloud size={28} className="text-gray-400 drop-shadow-sm"/>;
+    return <Sun size={28} className="text-amber-500 drop-shadow-sm animate-pulse-slow"/>;
   };
 
   const greeting = useMemo(() => {
     if (todayCompletedCount >= 5) return `今日效率驚人，已完成 ${todayCompletedCount} 件！`;
     const hour = new Date().getHours();
-    if (hour >= 5 && hour < 11) return "早安，充滿活力的一天！";
-    if (hour >= 11 && hour < 14) return "午安，記得吃飽休息喔。";
-    if (hour >= 14 && hour < 18) return "下午好，喝杯水休息一下。";
-    return "晚安，工作辛苦了。";
+    if (hour >= 5 && hour < 11) return "早安，充滿活力的一天";
+    if (hour >= 11 && hour < 14) return "午安，記得吃飽休息";
+    if (hour >= 14 && hour < 18) return "下午好，喝杯水休息一下";
+    return "晚安，工作辛苦了";
   }, [todayCompletedCount]);
 
   const todayDateStr = new Date().toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' });
@@ -120,14 +120,14 @@ const Dashboard = ({
     <div className="bg-slate-50 h-[100dvh] flex flex-col font-sans overflow-hidden">
       
       {/* 1. 頂部標題列 */}
-      <div className="bg-white/90 backdrop-blur pl-5 pr-4 py-3 flex justify-between items-center border-b border-gray-100 shadow-sm shrink-0 z-30">
+      <div className="bg-white/80 backdrop-blur pl-5 pr-4 py-3 flex justify-between items-center shrink-0 z-30">
          <div className="flex items-center gap-2">
-            <div className="bg-slate-800 p-1.5 rounded-lg shadow-sm">
+            <div className="bg-blue-600 p-1.5 rounded-lg shadow-sm shadow-blue-200">
               <Printer size={16} className="text-white"/>
             </div>
             <div className="font-extrabold text-base text-slate-800 tracking-wide">印表機管家</div>
          </div>
-         <div className="flex items-center gap-2 bg-gray-50 px-2.5 py-1 rounded-full border border-gray-100">
+         <div className="flex items-center gap-2 bg-white px-2.5 py-1 rounded-full border border-gray-200 shadow-sm">
             <div className={`w-2 h-2 rounded-full shadow-sm ${dbStatus === 'online' ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`}></div>
             <span className={`text-[10px] font-bold ${dbStatus === 'online' ? 'text-slate-600' : 'text-rose-500'}`}>
                 {dbStatus === 'online' ? '連線正常' : '離線'}
@@ -135,23 +135,24 @@ const Dashboard = ({
          </div>
       </div>
 
-      {/* 2. 藍色資訊面板：稍微加高 (py-5) 讓它不那麼扁 */}
+      {/* 2. 資訊面板 */}
       <div className="px-4 pt-4 pb-2 shrink-0 z-20">
-         <div className="bg-gradient-to-br from-slate-800 to-blue-950 rounded-[1.8rem] p-5 text-white shadow-lg shadow-slate-200 relative overflow-hidden ring-1 ring-white/10">
-            <div className="absolute top-0 right-0 w-48 h-48 bg-cyan-500/20 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
+         {/* 白底+淡藍漸層風格 */}
+         <div className="bg-gradient-to-br from-white to-blue-50 rounded-[1.8rem] p-5 shadow-sm border border-blue-100/50 relative overflow-hidden">
+            
+            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-100/40 rounded-full blur-2xl -mr-10 -mt-10 pointer-events-none"></div>
             
             <div className="flex justify-between items-start relative z-10 mb-4">
                <div>
-                  <h1 className="text-lg font-bold text-white mb-1 tracking-wide leading-tight">{greeting}</h1>
-                  <div className="text-xs text-cyan-100 font-medium tracking-wide opacity-80 flex items-center gap-2">
-                    <span>{todayDateStr}</span>
-                    <span className="w-1 h-1 rounded-full bg-cyan-100/50"></span>
+                  <h1 className="text-lg font-bold text-slate-800 mb-1 tracking-wide leading-tight">{greeting}</h1>
+                  <div className="text-xs text-slate-400 font-bold tracking-wide flex items-center gap-2">
+                    <span className="bg-white px-2 py-0.5 rounded text-slate-500 shadow-sm border border-slate-100">{todayDateStr}</span>
                     <span>{todayWeekStr}</span>
                   </div>
                </div>
                <div className="text-right flex flex-col items-end">
                   <div className="flex items-center gap-1.5">
-                     <span className="text-3xl font-bold text-white tracking-tighter">{weather.temp}°</span>
+                     <span className="text-3xl font-bold text-slate-800 tracking-tighter">{weather.temp}°</span>
                      {getWeatherIcon()}
                   </div>
                </div>
@@ -159,33 +160,33 @@ const Dashboard = ({
 
             <div 
                 onClick={() => setCurrentView('search')} 
-                className="bg-white text-slate-600 rounded-xl p-3 flex items-center gap-3 shadow-md shadow-blue-900/20 cursor-text active:scale-[0.98] transition-all group relative z-10"
+                className="bg-white text-slate-600 rounded-xl p-3 flex items-center gap-3 shadow-md shadow-slate-200/50 border border-slate-100 cursor-text active:scale-[0.98] transition-all group relative z-10"
             >
                <Search size={18} className="text-slate-400 group-hover:text-blue-500 transition-colors"/>
                <div className="text-sm font-bold text-slate-400 flex-1 group-hover:text-slate-600 transition-colors">搜尋客戶、電話或機型...</div>
-               <div className="bg-slate-100 p-1 rounded-md group-hover:bg-blue-50 transition-colors">
+               <div className="bg-slate-50 p-1 rounded-md border border-slate-100 group-hover:bg-blue-50 group-hover:border-blue-100 transition-colors">
                   <ChevronRight size={14} className="text-slate-400 group-hover:text-blue-500"/>
                </div>
             </div>
          </div>
       </div>
 
-      {/* 分隔線：加大一點 margin (my-3) */}
-      <div className="px-8 my-3 flex items-center gap-4 shrink-0 z-10 opacity-60">
-         <div className="h-px bg-slate-200 flex-1"></div>
-         <span className="text-[10px] font-bold text-slate-400 tracking-widest uppercase">Quick Actions</span>
-         <div className="h-px bg-slate-200 flex-1"></div>
+      {/* 分隔線 + 中文標題 */}
+      <div className="px-8 my-3 flex items-center gap-4 shrink-0 z-10 opacity-40">
+         <div className="h-px bg-slate-300 flex-1"></div>
+         {/* 這裡改成中文了 */}
+         <span className="text-[10px] font-bold text-slate-400 tracking-widest">功能選單</span>
+         <div className="h-px bg-slate-300 flex-1"></div>
       </div>
 
-      {/* 3. 六大功能區：調整為最適合的高度 (h-32) 與間距 (gap-3.5) */}
+      {/* 3. 六大功能區 */}
       <div className="px-4 flex-1 overflow-y-auto custom-scrollbar min-h-0 pb-24">
          <div className="grid grid-cols-2 gap-3.5"> 
             {modules.map((item, index) => (
                <button 
                   key={item.id} 
                   onClick={item.action}
-                  // 修改重點：h-32 (約128px) 讓方塊長高一點點，gap-3.5 拉開距離
-                  className="bg-white p-3 rounded-2xl border border-slate-100 shadow-[0_2px_8px_rgba(0,0,0,0.02)] flex flex-col items-center justify-center gap-2 h-32 active:scale-[0.98] active:border-blue-100 transition-all relative group overflow-hidden"
+                  className="bg-white p-3 rounded-2xl border border-slate-200/60 shadow-sm flex flex-col items-center justify-center gap-2 h-32 active:scale-[0.98] active:border-blue-200 transition-all relative group overflow-hidden hover:shadow-md"
                   style={{ animationDelay: `${index * 50}ms` }}
                >
                   <div className={`p-3 rounded-full ${item.iconBg} ${item.color} group-hover:scale-110 transition-transform duration-300 relative z-10`}>
@@ -209,7 +210,6 @@ const Dashboard = ({
             ))}
          </div>
 
-         {/* 填補最後的空隙 */}
          <div className="text-center mt-6 opacity-40">
             <span className="text-[10px] font-bold text-slate-400">System v2.0</span>
          </div>
