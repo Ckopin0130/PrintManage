@@ -4,12 +4,12 @@ import {
 } from 'firebase/firestore';
 import { 
   ref, uploadString, listAll, getDownloadURL, deleteObject, getMetadata 
-} from 'firebase/storage'; // 新增 Storage 相關引用
+} from 'firebase/storage'; 
 import { signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { Loader2 } from 'lucide-react';
 
 // --- 引入設定與資料 ---
-import { auth, db, storage } from './firebaseConfig'; // 確保引入 storage
+import { auth, db, storage } from './firebaseConfig'; 
 import { FULL_IMPORT_DATA, MOCK_RECORDS, INITIAL_INVENTORY } from './initialData';
 
 // --- 引入元件 ---
@@ -152,7 +152,7 @@ export default function App() {
     if (tab === 'records') setCurrentView('records');
     if (tab === 'settings') { 
         setCurrentView('settings');
-        fetchCloudBackups(); // 進入設定頁時，抓取備份列表
+        fetchCloudBackups(); 
     }
   };
 
@@ -334,7 +334,6 @@ export default function App() {
     if (!selectedCustomer) return;
     if (isProcessing) return;
     setIsProcessing(true);
-    // ... (省略詳細資料建構，保持原樣) ...
     const existingPhones = selectedCustomer.phones || [];
     const newPhone = { label: formData.phoneLabel, number: formData.phoneNumber };
     const updatedPhones = existingPhones.length > 0 ? [newPhone, ...existingPhones.slice(1)] : [newPhone];
@@ -361,7 +360,6 @@ export default function App() {
   const handleAddSubmit = async (formData) => {
     if (isProcessing) return;
     setIsProcessing(true);
-    // ... (省略詳細資料建構，保持原樣) ...
     const newId = `cust-${Date.now()}`;
     const newEntry = {
       customerID: newId, name: formData.name, L1_group: formData.L1_group, L2_district: formData.L2_district,
@@ -380,16 +378,6 @@ export default function App() {
             setSelectedCustomer(newEntry); setCurrentView('detail'); setSelectedL1(formData.L1_group); setSelectedL2(formData.L2_district); setRosterLevel('l3');
         }
     } catch (err) { showToast('新增失敗', 'error'); } finally { setIsProcessing(false); }
-  };
-
-  const startEdit = () => { if (!selectedCustomer) return; setCurrentView('edit'); };
-  const startAddRecord = () => { setEditingRecordData(defaultRecordForm); setCurrentView('add_record'); };
-  const startEditRecord = (e, r) => {
-      if(e) e.stopPropagation();
-      const recordCustomer = customers.find(c => c.customerID === r.customerID);
-      if (recordCustomer && !selectedCustomer) setSelectedCustomer(recordCustomer);
-      setEditingRecordData({ ...defaultRecordForm, ...r, parts: r.parts || [] }); 
-      setCurrentView('edit_record');
   };
 
   // --- 通用還原核心邏輯 (共用) ---
@@ -450,15 +438,12 @@ export default function App() {
     event.target.value = '';
   };
 
-  // --- ★ 雲端備份操作 (新增功能) ---
-  
-  // 1. 抓取雲端備份列表
+  // --- ★ 雲端備份操作 ---
   const fetchCloudBackups = async () => {
       if (!user || dbStatus === 'demo') return;
       try {
           const listRef = ref(storage, 'backups/');
           const res = await listAll(listRef);
-          // 抓取 Metadata 取得建立時間
           const filePromises = res.items.map(async (itemRef) => {
               try {
                   const metadata = await getMetadata(itemRef);
@@ -473,7 +458,6 @@ export default function App() {
               }
           });
           const files = await Promise.all(filePromises);
-          // 依時間倒序
           files.sort((a, b) => new Date(b.time) - new Date(a.time));
           setCloudBackups(files);
       } catch (err) {
@@ -481,7 +465,6 @@ export default function App() {
       }
   };
 
-  // 2. 建立雲端還原點
   const handleCreateCloudBackup = async () => {
       if (isProcessing) return;
       if (dbStatus === 'demo' || !user) return showToast('請先登入', 'error');
@@ -494,7 +477,7 @@ export default function App() {
           
           await uploadString(backupRef, dataStr);
           showToast('雲端還原點已建立');
-          fetchCloudBackups(); // 重新整理列表
+          fetchCloudBackups(); 
       } catch (err) {
           console.error(err);
           showToast('建立備份失敗', 'error');
@@ -503,7 +486,6 @@ export default function App() {
       }
   };
 
-  // 3. 從雲端還原
   const handleRestoreFromCloud = async (backupItem) => {
       if (isProcessing) return;
       setConfirmDialog({
@@ -528,7 +510,6 @@ export default function App() {
       });
   };
 
-  // 4. 刪除雲端備份
   const handleDeleteCloudBackup = async (backupItem) => {
       if (isProcessing) return;
       if (!window.confirm(`確定要刪除 ${backupItem.time} 的備份嗎？`)) return;
@@ -555,10 +536,7 @@ export default function App() {
       <ConfirmDialog {...confirmDialog} onCancel={() => setConfirmDialog({...confirmDialog, isOpen: false})} isProcessing={isProcessing} />
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       
-      <div className="fixed top-4 right-4 z-[55] pointer-events-none">
-        <div className={`transition-all duration-500 transform ${dbStatus === 'online' ? 'translate-y-0 opacity-100' : '-translate-y-2 opacity-0'}`}><div className="w-3 h-3 bg-green-500 rounded-full shadow-lg shadow-green-200 ring-2 ring-white"></div></div>
-        <div className={`transition-all duration-500 transform absolute top-0 right-0 ${dbStatus !== 'online' ? 'translate-y-0 opacity-100' : '-translate-y-2 opacity-0'}`}><div className={`w-3 h-3 rounded-full shadow-lg ring-2 ring-white ${dbStatus === 'connecting' ? 'bg-yellow-400 animate-pulse' : (dbStatus === 'demo' ? 'bg-blue-500' : 'bg-red-500')}`}></div></div>
-      </div>
+      {/* 修改處：移除了原本浮動的 Status Indicator，因為 Dashboard 已經有了 */}
 
       {currentView === 'dashboard' && (
         <Dashboard 
@@ -635,13 +613,11 @@ export default function App() {
         <WorkLog records={records} customers={customers} setCurrentView={setCurrentView} showToast={showToast} />
       )}
 
-      {/* 傳遞雲端備份相關的 props 給 Settings 元件 */}
       {currentView === 'settings' && (
         <Settings 
           dbStatus={dbStatus} customerCount={customers.length} recordCount={records.length}
           onExport={handleExportData} onImport={handleImportData} onReset={handleResetData}
           isProcessing={isProcessing}
-          // 新增雲端功能 Props
           cloudBackups={cloudBackups}
           onCreateCloudBackup={handleCreateCloudBackup}
           onRestoreFromCloud={handleRestoreFromCloud}

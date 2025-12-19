@@ -136,9 +136,8 @@ const Dashboard = ({
          </div>
       </div>
 
-      {/* 精簡版資訊面板 + 獨立搜尋列 */}
+      {/* 資訊面板 + 搜尋列 */}
       <div className="px-4 pt-3 shrink-0 z-20 space-y-3">
-         
          <div className="flex justify-between items-end px-2">
             <div>
                <div className="text-lg font-bold text-slate-800 leading-none mb-1.5">{greeting}</div>
@@ -164,38 +163,39 @@ const Dashboard = ({
          </div>
       </div>
 
-      {/* 六大功能區 */}
-      {/* 修改：pb-28 (留出更多底部空間給加大的導航列) */}
+      {/* 六大功能區 - 滿版拉高調整 */}
       <div className="px-4 flex-1 overflow-y-auto custom-scrollbar min-h-0 pb-28 pt-4">
-         <div className="grid grid-cols-2 gap-3"> 
+         <div className="grid grid-cols-2 gap-3 h-full content-start"> 
             {modules.map((item, index) => (
                <button 
                   key={item.id} 
                   onClick={item.action}
-                  className="bg-white p-3 rounded-2xl border border-slate-100 shadow-[0_2px_8px_rgb(0,0,0,0.04)] flex flex-col items-center justify-center gap-1 h-32 active:scale-[0.96] active:shadow-none transition-all duration-200 relative group overflow-hidden hover:shadow-[0_8px_20px_rgb(0,0,0,0.08)] hover:border-blue-50"
+                  // 修改重點：h-40 (160px) 拉高卡片，視覺上更滿
+                  className="bg-white p-3 rounded-2xl border border-slate-100 shadow-[0_2px_8px_rgb(0,0,0,0.04)] flex flex-col items-center justify-center gap-1 h-40 active:scale-[0.96] active:shadow-none transition-all duration-200 relative group overflow-hidden hover:shadow-[0_8px_20px_rgb(0,0,0,0.08)] hover:border-blue-50"
                   style={{ animationDelay: `${index * 50}ms` }}
                >
-                  <div className={`p-3 rounded-2xl ${item.iconBg} ${item.color} group-hover:scale-110 transition-transform duration-300 relative z-10 shadow-sm mb-1`}>
-                     <item.icon size={26} strokeWidth={2.5} />
+                  {/* 圖示區域保持比例 */}
+                  <div className={`p-3.5 rounded-2xl ${item.iconBg} ${item.color} group-hover:scale-110 transition-transform duration-300 relative z-10 shadow-sm mb-1.5`}>
+                     <item.icon size={32} strokeWidth={2.5} />
                   </div>
                   
                   <div className="text-center relative z-10 w-full">
-                     <div className="font-bold text-slate-700 text-sm group-hover:text-blue-600 transition-colors">{item.title}</div>
-                     <div className={`text-[10px] mt-0.5 ${item.infoColor}`}>
+                     <div className="font-bold text-slate-700 text-base group-hover:text-blue-600 transition-colors">{item.title}</div>
+                     <div className={`text-xs mt-1 ${item.infoColor}`}>
                         {item.info}
                      </div>
                   </div>
 
                   {item.badge && (
-                     <div className="absolute top-2 right-2 flex h-2.5 w-2.5">
+                     <div className="absolute top-3 right-3 flex h-3 w-3">
                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500 border-2 border-white"></span>
+                        <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-500 border-2 border-white"></span>
                      </div>
                   )}
                </button>
             ))}
          </div>
-         {/* 額外的底部留白 */}
+         {/* 底部安全留白 */}
          <div className="h-4"></div>
       </div>
 
