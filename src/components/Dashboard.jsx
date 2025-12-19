@@ -49,7 +49,6 @@ const Dashboard = ({
 
   const todayDateStr = new Date().toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric', weekday: 'short' });
 
-  // 設定模組
   const modules = [
     { 
       id: 'tracking', 
@@ -117,7 +116,7 @@ const Dashboard = ({
   return (
     <div className="bg-slate-50 h-[100dvh] flex flex-col font-sans overflow-hidden">
       
-      {/* 1. 頂部標題列 (調整 padding-x 為 6，解決感覺太偏左的問題) */}
+      {/* 頂部標題列 */}
       <div className="bg-white/95 backdrop-blur px-6 py-3 flex justify-between items-center shrink-0 z-30 shadow-sm border-b border-gray-100/50">
          <div className="flex items-center gap-2.5">
             <div className="bg-blue-600 p-1.5 rounded-lg shadow-sm shadow-blue-200">
@@ -137,10 +136,9 @@ const Dashboard = ({
          </div>
       </div>
 
-      {/* 2. 精簡版資訊面板 + 獨立搜尋列 */}
+      {/* 精簡版資訊面板 + 獨立搜尋列 */}
       <div className="px-4 pt-3 shrink-0 z-20 space-y-3">
          
-         {/* A. 問候語與天氣 (水平排列，極度精簡高度) */}
          <div className="flex justify-between items-end px-2">
             <div>
                <div className="text-lg font-bold text-slate-800 leading-none mb-1.5">{greeting}</div>
@@ -154,7 +152,6 @@ const Dashboard = ({
             </div>
          </div>
 
-         {/* B. 獨立搜尋列 (立體感強，作為主要入口) */}
          <div 
              onClick={() => setCurrentView('search')} 
              className="bg-white text-slate-600 rounded-2xl p-3.5 flex items-center gap-3 shadow-[0_4px_16px_rgb(0,0,0,0.06)] border border-white cursor-text active:scale-[0.98] transition-all group relative z-10 hover:border-blue-200 ring-1 ring-slate-100"
@@ -167,18 +164,17 @@ const Dashboard = ({
          </div>
       </div>
 
-      {/* 3. 六大功能區 (高度適配) */}
-      <div className="px-4 flex-1 overflow-y-auto custom-scrollbar min-h-0 pb-20 pt-4">
+      {/* 六大功能區 */}
+      {/* 修改：pb-28 (留出更多底部空間給加大的導航列) */}
+      <div className="px-4 flex-1 overflow-y-auto custom-scrollbar min-h-0 pb-28 pt-4">
          <div className="grid grid-cols-2 gap-3"> 
             {modules.map((item, index) => (
                <button 
                   key={item.id} 
                   onClick={item.action}
-                  // 高度調整為 h-32 (128px)，在小螢幕也能盡量塞入
                   className="bg-white p-3 rounded-2xl border border-slate-100 shadow-[0_2px_8px_rgb(0,0,0,0.04)] flex flex-col items-center justify-center gap-1 h-32 active:scale-[0.96] active:shadow-none transition-all duration-200 relative group overflow-hidden hover:shadow-[0_8px_20px_rgb(0,0,0,0.08)] hover:border-blue-50"
                   style={{ animationDelay: `${index * 50}ms` }}
                >
-                  {/* 圖示底色區塊縮小一點 */}
                   <div className={`p-3 rounded-2xl ${item.iconBg} ${item.color} group-hover:scale-110 transition-transform duration-300 relative z-10 shadow-sm mb-1`}>
                      <item.icon size={26} strokeWidth={2.5} />
                   </div>
@@ -199,7 +195,7 @@ const Dashboard = ({
                </button>
             ))}
          </div>
-         {/* 底部版本號留白，避免貼底 */}
+         {/* 額外的底部留白 */}
          <div className="h-4"></div>
       </div>
 

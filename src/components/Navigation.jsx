@@ -11,8 +11,10 @@ const BottomNavigation = ({ activeTab, onTabChange }) => {
   ];
 
   return (
-    // 修改：加強陰影 shadow-[0_-8px_20px_rgba(0,0,0,0.08)]，看起來更有層次
-    <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-gray-100 px-6 py-1 z-40 shadow-[0_-8px_30px_rgba(0,0,0,0.08)] safe-area-bottom">
+    // 修改重點：
+    // 1. shadow-[0_-10px_40px_-10px_rgba(0,0,0,0.15)]: 模擬照片中的深色上浮陰影
+    // 2. py-3: 增加上下高度，讓導航列看起來更穩重，不那麼擠
+    <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-gray-100 px-6 py-3 z-40 shadow-[0_-10px_40px_-10px_rgba(0,0,0,0.15)] safe-area-bottom">
       <div className="flex justify-between items-end max-w-md mx-auto">
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
@@ -24,18 +26,20 @@ const BottomNavigation = ({ activeTab, onTabChange }) => {
                 isActive ? '-translate-y-1' : 'translate-y-0'
               }`}
             >
+              {/* 圖示容器 */}
               <div 
-                className={`p-1.5 rounded-xl transition-all duration-300 mb-0.5 ${
+                className={`p-1.5 rounded-2xl transition-all duration-300 mb-1 ${
                   isActive 
                     ? 'bg-blue-50 text-blue-600 shadow-sm' 
                     : 'bg-transparent text-gray-400 group-active:text-gray-600'
                 }`}
               >
-                <tab.icon size={isActive ? 22 : 20} strokeWidth={isActive ? 2.5 : 2} />
+                <tab.icon size={isActive ? 24 : 22} strokeWidth={isActive ? 2.5 : 2} />
               </div>
+              {/* 文字標籤 */}
               <span 
                 className={`text-[10px] font-bold transition-colors duration-300 ${
-                  isActive ? 'text-blue-600' : 'text-gray-300'
+                  isActive ? 'text-blue-600' : 'text-gray-400'
                 }`}
               >
                 {tab.label}
