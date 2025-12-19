@@ -34,9 +34,9 @@ const Dashboard = ({
   }, []);
 
   const getWeatherIcon = () => {
-    if (weather.condition === 'Rainy') return <CloudRain size={24} className="text-white drop-shadow-md"/>;
-    if (weather.condition === 'Cloudy') return <Cloud size={24} className="text-gray-200 drop-shadow-md"/>;
-    return <Sun size={24} className="text-amber-400 drop-shadow-md animate-pulse-slow"/>;
+    if (weather.condition === 'Rainy') return <CloudRain size={26} className="text-white drop-shadow-md"/>;
+    if (weather.condition === 'Cloudy') return <Cloud size={26} className="text-gray-200 drop-shadow-md"/>;
+    return <Sun size={26} className="text-amber-400 drop-shadow-md animate-pulse-slow"/>;
   };
 
   const greeting = useMemo(() => {
@@ -119,8 +119,8 @@ const Dashboard = ({
   return (
     <div className="bg-slate-50 h-[100dvh] flex flex-col font-sans overflow-hidden">
       
-      {/* 1. 頂部標題列：減少 padding (py-2) */}
-      <div className="bg-white/90 backdrop-blur pl-5 pr-4 py-2 flex justify-between items-center border-b border-gray-100 shadow-sm shrink-0 z-30">
+      {/* 1. 頂部標題列 */}
+      <div className="bg-white/90 backdrop-blur pl-5 pr-4 py-3 flex justify-between items-center border-b border-gray-100 shadow-sm shrink-0 z-30">
          <div className="flex items-center gap-2">
             <div className="bg-slate-800 p-1.5 rounded-lg shadow-sm">
               <Printer size={16} className="text-white"/>
@@ -135,15 +135,14 @@ const Dashboard = ({
          </div>
       </div>
 
-      {/* 2. 藍色資訊面板：更緊湊 (p-4, mb-4 -> mb-3) */}
-      <div className="px-4 pt-3 pb-1 shrink-0 z-20">
-         <div className="bg-gradient-to-br from-slate-800 to-blue-950 rounded-[1.5rem] p-4 text-white shadow-lg shadow-slate-200 relative overflow-hidden ring-1 ring-white/10">
+      {/* 2. 藍色資訊面板：稍微加高 (py-5) 讓它不那麼扁 */}
+      <div className="px-4 pt-4 pb-2 shrink-0 z-20">
+         <div className="bg-gradient-to-br from-slate-800 to-blue-950 rounded-[1.8rem] p-5 text-white shadow-lg shadow-slate-200 relative overflow-hidden ring-1 ring-white/10">
             <div className="absolute top-0 right-0 w-48 h-48 bg-cyan-500/20 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
             
-            <div className="flex justify-between items-start relative z-10 mb-3">
+            <div className="flex justify-between items-start relative z-10 mb-4">
                <div>
-                  {/* 問候語字體縮小一點點适应小屏 */}
-                  <h1 className="text-lg font-bold text-white mb-0.5 tracking-wide leading-tight">{greeting}</h1>
+                  <h1 className="text-lg font-bold text-white mb-1 tracking-wide leading-tight">{greeting}</h1>
                   <div className="text-xs text-cyan-100 font-medium tracking-wide opacity-80 flex items-center gap-2">
                     <span>{todayDateStr}</span>
                     <span className="w-1 h-1 rounded-full bg-cyan-100/50"></span>
@@ -152,54 +151,50 @@ const Dashboard = ({
                </div>
                <div className="text-right flex flex-col items-end">
                   <div className="flex items-center gap-1.5">
-                     <span className="text-2xl font-bold text-white tracking-tighter">{weather.temp}°</span>
+                     <span className="text-3xl font-bold text-white tracking-tighter">{weather.temp}°</span>
                      {getWeatherIcon()}
                   </div>
                </div>
             </div>
 
-            {/* 搜尋框：p-2.5 更薄 */}
             <div 
                 onClick={() => setCurrentView('search')} 
-                className="bg-white text-slate-600 rounded-xl p-2.5 flex items-center gap-2.5 shadow-md shadow-blue-900/20 cursor-text active:scale-[0.98] transition-all group relative z-10"
+                className="bg-white text-slate-600 rounded-xl p-3 flex items-center gap-3 shadow-md shadow-blue-900/20 cursor-text active:scale-[0.98] transition-all group relative z-10"
             >
                <Search size={18} className="text-slate-400 group-hover:text-blue-500 transition-colors"/>
-               <div className="text-xs font-bold text-slate-400 flex-1 group-hover:text-slate-600 transition-colors">搜尋客戶、電話或機型...</div>
-               <div className="bg-slate-100 p-0.5 rounded-md group-hover:bg-blue-50 transition-colors">
+               <div className="text-sm font-bold text-slate-400 flex-1 group-hover:text-slate-600 transition-colors">搜尋客戶、電話或機型...</div>
+               <div className="bg-slate-100 p-1 rounded-md group-hover:bg-blue-50 transition-colors">
                   <ChevronRight size={14} className="text-slate-400 group-hover:text-blue-500"/>
                </div>
             </div>
          </div>
       </div>
 
-      {/* 分隔線：margin 縮小 (my-2) */}
-      <div className="px-8 my-2 flex items-center gap-4 shrink-0 z-10 opacity-60">
+      {/* 分隔線：加大一點 margin (my-3) */}
+      <div className="px-8 my-3 flex items-center gap-4 shrink-0 z-10 opacity-60">
          <div className="h-px bg-slate-200 flex-1"></div>
          <span className="text-[10px] font-bold text-slate-400 tracking-widest uppercase">Quick Actions</span>
          <div className="h-px bg-slate-200 flex-1"></div>
       </div>
 
-      {/* 3. 六大功能區：Grid Gap 縮小, 高度限制, 字體調整 */}
-      <div className="px-4 flex-1 overflow-y-auto custom-scrollbar min-h-0 pb-16">
-         <div className="grid grid-cols-2 gap-2.5"> 
+      {/* 3. 六大功能區：調整為最適合的高度 (h-32) 與間距 (gap-3.5) */}
+      <div className="px-4 flex-1 overflow-y-auto custom-scrollbar min-h-0 pb-24">
+         <div className="grid grid-cols-2 gap-3.5"> 
             {modules.map((item, index) => (
                <button 
                   key={item.id} 
                   onClick={item.action}
-                  // 修改重點：h-28 (固定高度約112px)，p-3 (內距縮小)，讓方塊變矮胖
-                  className="bg-white p-3 rounded-2xl border border-slate-100 shadow-[0_2px_8px_rgba(0,0,0,0.02)] flex flex-col items-center justify-center gap-1.5 h-28 active:scale-[0.98] active:border-blue-100 transition-all relative group overflow-hidden"
+                  // 修改重點：h-32 (約128px) 讓方塊長高一點點，gap-3.5 拉開距離
+                  className="bg-white p-3 rounded-2xl border border-slate-100 shadow-[0_2px_8px_rgba(0,0,0,0.02)] flex flex-col items-center justify-center gap-2 h-32 active:scale-[0.98] active:border-blue-100 transition-all relative group overflow-hidden"
                   style={{ animationDelay: `${index * 50}ms` }}
                >
-                  {/* 圖示：保留 28px 夠大，但容器 padding 縮小 */}
-                  <div className={`p-2.5 rounded-full ${item.iconBg} ${item.color} group-hover:scale-110 transition-transform duration-300 relative z-10`}>
+                  <div className={`p-3 rounded-full ${item.iconBg} ${item.color} group-hover:scale-110 transition-transform duration-300 relative z-10`}>
                      <item.icon size={28} strokeWidth={2} />
                   </div>
                   
                   <div className="text-center relative z-10 w-full">
-                     {/* 標題：text-sm (14px) */}
                      <div className="font-bold text-slate-700 text-sm group-hover:text-blue-600 transition-colors">{item.title}</div>
-                     {/* 副標題：text-[10px] */}
-                     <div className={`text-[10px] mt-0.5 font-bold ${item.infoColor}`}>
+                     <div className={`text-[10px] mt-1 font-bold ${item.infoColor}`}>
                         {item.info}
                      </div>
                   </div>
@@ -213,7 +208,13 @@ const Dashboard = ({
                </button>
             ))}
          </div>
+
+         {/* 填補最後的空隙 */}
+         <div className="text-center mt-6 opacity-40">
+            <span className="text-[10px] font-bold text-slate-400">System v2.0</span>
+         </div>
       </div>
+
     </div>
   );
 };
