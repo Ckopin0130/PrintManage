@@ -116,69 +116,61 @@ const Dashboard = ({
   return (
     <div className="bg-slate-50 h-[100dvh] flex flex-col font-sans overflow-hidden">
       
-      {/* ★ 整合後的頂部區域 (Unified Header) 
-        設計重點：白底、圓弧底部、陰影、整合所有資訊
-      */}
-      <div className="bg-white rounded-b-[2rem] shadow-[0_8px_30px_-10px_rgba(0,0,0,0.05)] pt-4 pb-6 px-6 z-30 relative shrink-0">
-         
-         {/* 第一層：品牌 與 狀態 (縮小字體，作為輔助資訊) */}
-         <div className="flex justify-between items-center mb-4">
-            <div className="flex items-center gap-2 text-slate-400">
-              <div className="bg-slate-100 p-1 rounded-md">
-                <Printer size={14} className="text-slate-500"/>
-              </div>
-              <span className="text-xs font-bold tracking-widest uppercase">Printer Manager</span>
+      {/* 頂部標題列 */}
+      <div className="bg-white/95 backdrop-blur px-6 py-3 flex justify-between items-center shrink-0 z-30 shadow-sm border-b border-gray-100/50">
+         <div className="flex items-center gap-2.5">
+            <div className="bg-blue-600 p-1.5 rounded-lg shadow-sm shadow-blue-200">
+              <Printer size={18} className="text-white"/>
             </div>
-
-            {/* 呼吸燈狀態 */}
-            <div className="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1 rounded-full border border-slate-100">
-                <div className="relative flex h-2 w-2">
-                  {dbStatus === 'online' && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>}
-                  <span className={`relative inline-flex rounded-full h-2 w-2 ${dbStatus === 'online' ? 'bg-emerald-500' : 'bg-rose-500'}`}></span>
-                </div>
-                <span className={`text-[10px] font-bold ${dbStatus === 'online' ? 'text-slate-500' : 'text-rose-500'}`}>
-                    {dbStatus === 'online' ? '連線正常' : '離線'}
-                </span>
-            </div>
+            <div className="font-extrabold text-lg text-slate-800 tracking-wide">印表機管家</div>
          </div>
+         
+         <div className="flex items-center gap-2 bg-slate-50 px-3 py-1 rounded-full border border-slate-200/60">
+            <div className="relative flex h-2.5 w-2.5">
+              {dbStatus === 'online' && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>}
+              <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${dbStatus === 'online' ? 'bg-emerald-500' : 'bg-rose-500'}`}></span>
+            </div>
+            <span className={`text-[10px] font-bold tracking-wide ${dbStatus === 'online' ? 'text-slate-600' : 'text-rose-500'}`}>
+                {dbStatus === 'online' ? '連線正常' : '離線'}
+            </span>
+         </div>
+      </div>
 
-         {/* 第二層：主要問候語 與 天氣 (視覺重心) */}
-         <div className="flex justify-between items-end mb-5">
+      {/* 資訊面板 + 搜尋列 */}
+      <div className="px-4 pt-3 shrink-0 z-20 space-y-3">
+         <div className="flex justify-between items-end px-2">
             <div>
-               <div className="text-2xl font-extrabold text-slate-800 leading-tight mb-1">{greeting}</div>
+               <div className="text-lg font-bold text-slate-800 leading-none mb-1.5">{greeting}</div>
                <div className="text-xs font-bold text-slate-400 flex items-center gap-2">
-                  <span className="bg-slate-100 px-2 py-0.5 rounded text-slate-500">{todayDateStr}</span>
+                  <span>{todayDateStr}</span>
                </div>
             </div>
-            {/* 天氣小卡 */}
-            <div className="flex flex-col items-end">
-                <div className="flex items-center gap-1">
-                   <span className="text-2xl font-bold text-slate-700 tracking-tighter">{weather.temp}°</span>
-                   {getWeatherIcon()}
-                </div>
+            <div className="flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-2xl border border-slate-100 shadow-sm">
+                <span className="text-xl font-bold text-slate-700 tracking-tighter">{weather.temp}°</span>
+                {getWeatherIcon()}
             </div>
          </div>
 
-         {/* 第三層：搜尋列 (整合在卡片內部) */}
          <div 
              onClick={() => setCurrentView('search')} 
-             className="bg-slate-50 text-slate-600 rounded-xl p-3 flex items-center gap-3 border border-slate-100 cursor-text active:scale-[0.99] transition-all group hover:border-blue-200 hover:shadow-sm"
+             className="bg-white text-slate-600 rounded-2xl p-3.5 flex items-center gap-3 shadow-[0_4px_16px_rgb(0,0,0,0.06)] border border-white cursor-text active:scale-[0.98] transition-all group relative z-10 hover:border-blue-200 ring-1 ring-slate-100"
          >
-            <Search size={18} className="text-slate-400 group-hover:text-blue-500 transition-colors ml-1"/>
-            <div className="text-sm font-bold text-slate-400 flex-1 group-hover:text-slate-600 transition-colors">搜尋客戶、電話或機型...</div>
-            <div className="bg-white p-1 rounded-md border border-slate-100 shadow-sm">
-               <ChevronRight size={14} className="text-slate-300 group-hover:text-blue-500"/>
+            <Search size={20} className="text-blue-500 ml-1"/>
+            <div className="text-sm font-bold text-slate-400 flex-1 group-hover:text-slate-600 transition-colors">輸入客戶名稱、電話或機型...</div>
+            <div className="bg-slate-50 p-1 rounded-lg border border-slate-100 group-hover:bg-blue-50 group-hover:border-blue-100 transition-colors">
+               <ChevronRight size={16} className="text-slate-400 group-hover:text-blue-500"/>
             </div>
          </div>
       </div>
 
-      {/* 六大功能區 - 維持您要求的高度 (h-[9.5rem] = h-38) */}
-      <div className="px-4 flex-1 overflow-y-auto custom-scrollbar min-h-0 pb-20 pt-5">
+      {/* 六大功能區 - 高度微調至 h-38 */}
+      <div className="px-4 flex-1 overflow-y-auto custom-scrollbar min-h-0 pb-20 pt-4">
          <div className="grid grid-cols-2 gap-3 h-full content-start"> 
             {modules.map((item, index) => (
                <button 
                   key={item.id} 
                   onClick={item.action}
+                  // 修改重點：h-[9.5rem] 等同於 h-38 (152px)
                   className="bg-white p-3 rounded-2xl border border-slate-100 shadow-[0_2px_8px_rgb(0,0,0,0.04)] flex flex-col items-center justify-center gap-1 h-[9.5rem] active:scale-[0.96] active:shadow-none transition-all duration-200 relative group overflow-hidden hover:shadow-[0_8px_20px_rgb(0,0,0,0.08)] hover:border-blue-50"
                   style={{ animationDelay: `${index * 50}ms` }}
                >
