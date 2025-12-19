@@ -163,7 +163,8 @@ export default function App() {
       setTargetCustomer(customer); 
       setShowAddressAlert(true);
     } else {
-      const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(customer.address)}`;
+      // 修正：補上 $ 符號，確保字串樣板正確運作
+      const url = `https://www.google.com/maps/search/?api=1&query=$${encodeURIComponent(customer.address)}`;
       const newWindow = window.open(url, '_blank');
       if (!newWindow || newWindow.closed || typeof newWindow.closed == 'undefined') window.location.href = url;
     }
