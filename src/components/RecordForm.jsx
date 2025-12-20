@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { 
   ArrowLeft, FileText, Zap, Trash2, Camera, Loader2, Save,
   CheckCircle, Clock, AlertCircle, ClipboardList, PhoneIncoming, Briefcase, 
-  Package, Search, Wrench, AlertTriangle, Image as ImageIcon
+  Package, Search, Wrench, AlertTriangle, Image as ImageIcon, X
 } from 'lucide-react';
 import { ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { storage } from '../firebaseConfig'; 
@@ -27,7 +27,7 @@ const SOURCE_OPTIONS = [
   { id: 'company_dispatch', label: '專案派工', desc: 'Project', icon: Briefcase, activeColor: 'bg-blue-600 text-white', iconColor: 'text-blue-600' },
 ];
 
-// --- 圖片處理函數 ---
+// --- 圖片處理函數 (高畫質優化版) ---
 const compressImage = (file) => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -37,8 +37,9 @@ const compressImage = (file) => {
       img.src = event.target.result;
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 600;
-        const MAX_HEIGHT = 600;
+        // --- 修改點：提升解析度至 1200 (原本 800) ---
+        const MAX_WIDTH = 1200; 
+        const MAX_HEIGHT = 1200;
         let width = img.width;
         let height = img.height;
         if (width > height) {
@@ -50,7 +51,8 @@ const compressImage = (file) => {
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', 0.5));
+        // --- 修改點：提升畫質至 0.7 (原本 0.6) ---
+        resolve(canvas.toDataURL('image/jpeg', 0.7));
       };
       img.onerror = (e) => reject(e);
     };
@@ -59,7 +61,7 @@ const compressImage = (file) => {
 };
 
 const uploadImageToStorage = async (base64String, path) => {
-  if (!storage) return base64String;
+  if (!storage) throw new Error("Firebase Storage 未初始化");
   const storageRef = ref(storage, path);
   await uploadString(storageRef, base64String, 'data_url');
   return await getDownloadURL(storageRef);
@@ -133,28 +135,69 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
         const file = e.target.files[0];
         if (file) {
             try {
+                // 顯示讀取中提示（可選）
                 const compressedBase64 = await compressImage(file);
                 setPreviews(prev => ({ ...prev, [type]: compressedBase64 }));
                 setForm(prev => ({ ...prev, [`photo${type === 'before' ? 'Before' : 'After'}`]: compressedBase64 }));
-            } catch (err) { console.error("圖片壓縮失敗", err); }
+            } catch (err) { 
+                console.error("圖片壓縮失敗", err); 
+                alert("圖片處理失敗，請重試");
+            }
         }
+    };
+
+    // --- 移除/重拍照片的功能 ---
+    const handleRemovePhoto = (e, type) => {
+        e.preventDefault(); 
+        e.stopPropagation();
+        setPreviews(prev => ({ ...prev, [type]: null }));
+        setForm(prev => ({ ...prev, [`photo${type === 'before' ? 'Before' : 'After'}`]: null }));
     };
 
     const handleConfirm = async () => {
         if (isSubmitting) return; 
+        
+        if (!form.symptom && !form.action) {
+             alert("請至少輸入故障情形或處理過程");
+             return;
+        }
+
         setIsSubmitting(true);
         let finalForm = { ...form };
+
         try {
+            const uploadTasks = [];
+
             if (finalForm.photoBefore && finalForm.photoBefore.startsWith('data:image')) {
-                try { const url = await uploadImageToStorage(finalForm.photoBefore, `repairs/${Date.now()}_before.jpg`);
-                finalForm.photoBefore = url; } catch(e) { console.warn("Upload failed", e); }
+                const task = uploadImageToStorage(finalForm.photoBefore, `repairs/${Date.now()}_before.jpg`)
+                    .then(url => { finalForm.photoBefore = url; })
+                    .catch(e => {
+                        console.error("維修前照片上傳失敗", e);
+                        finalForm.photoBefore = null; 
+                        alert("警告：維修前照片上傳失敗，將只儲存文字紀錄。");
+                    });
+                uploadTasks.push(task);
             }
+
             if (finalForm.photoAfter && finalForm.photoAfter.startsWith('data:image')) {
-                try { const url = await uploadImageToStorage(finalForm.photoAfter, `repairs/${Date.now()}_after.jpg`);
-                finalForm.photoAfter = url; } catch(e) { console.warn("Upload failed", e); }
+                const task = uploadImageToStorage(finalForm.photoAfter, `repairs/${Date.now()}_after.jpg`)
+                    .then(url => { finalForm.photoAfter = url; })
+                    .catch(e => {
+                        console.error("維修後照片上傳失敗", e);
+                        finalForm.photoAfter = null;
+                        alert("警告：完修後照片上傳失敗，將只儲存文字紀錄。");
+                    });
+                uploadTasks.push(task);
             }
+
+            await Promise.all(uploadTasks);
             await onSubmit(finalForm);
-        } catch (e) { console.error(e); } finally { setIsSubmitting(false); }
+            
+        } catch (e) { 
+            console.error("表單處理錯誤:", e); 
+            alert(`存檔發生錯誤: ${e.message}`);
+            setIsSubmitting(false); 
+        }
     };
 
     return (
@@ -167,7 +210,7 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
 
         <main className="max-w-md mx-auto p-4 space-y-5">
             
-            {/* 1. 基本資訊卡片 (服務類型 + 日期) */}
+            {/* 1. 基本資訊卡片 */}
             <section className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
                 <div className="flex justify-between items-center mb-3">
                     <h3 className="text-sm font-bold text-gray-700 flex items-center"><ClipboardList size={18} className="mr-2 text-blue-500"/> 基本資訊</h3>
@@ -186,10 +229,8 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
                 </div>
             </section>
 
-            {/* 2. 故障與處理 (合併卡片) */}
+            {/* 2. 故障與處理 */}
             <section className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-5">
-                
-                {/* 故障描述 */}
                 <div>
                     <div className="flex justify-between items-center mb-2">
                          <label className="text-sm font-bold text-gray-700 flex items-center"><AlertTriangle size={18} className="mr-2 text-amber-500"/> 故障情形</label>
@@ -208,24 +249,21 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
                     </div>
                 </div>
 
-                {/* 虛線分隔 */}
                 <div className="border-t border-dashed border-gray-200"></div>
 
-                {/* 處置對策 */}
                 <div>
                     <label className="text-sm font-bold text-gray-700 mb-2 flex items-center"><Wrench size={18} className="mr-2 text-purple-500"/> 處理過程</label>
                     <textarea rows="3" className="w-full text-base text-gray-800 bg-gray-50 border border-gray-200 rounded-xl p-4 focus:bg-white focus:ring-2 focus:ring-purple-100 focus:border-purple-300 outline-none resize-none transition-all" placeholder="輸入處理方式或更換項目..." value={form.action} onChange={(e) => setForm({...form, action: e.target.value})} ></textarea>
                 </div>
             </section>
 
-            {/* 3. 零件更換 (新版清單設計) */}
+            {/* 3. 零件更換 */}
             <section className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
                 <label className="text-sm font-bold text-gray-700 mb-3 flex items-center justify-between">
                     <div className="flex items-center"><Package size={18} className="mr-2 text-blue-600"/> 零件更換</div>
                     <span className="text-xs font-normal text-gray-400">點擊下方列表加入</span>
                 </label>
                 
-                {/* 已選零件列表 (置頂) */}
                 {form.parts && form.parts.length > 0 && (
                         <div className="mb-4 space-y-2">
                         {form.parts.map((part, index) => (
@@ -248,7 +286,6 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
                         </div>
                 )}
 
-                {/* 零件選擇器 (清單式) */}
                 <div className="bg-gray-50 rounded-xl border border-gray-200 p-3">
                     <div className="relative mb-3">
                         <Search className="absolute left-3 top-2.5 text-gray-400 w-4 h-4" />
@@ -292,18 +329,58 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
                 </div>
             </section>
 
-            {/* 4. 照片與結案狀態 */}
+            {/* 4. 照片與結案狀態 (已更新：支援刪除與重拍) */}
             <section className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
                 <div className="flex items-center mb-4 text-sm font-bold text-gray-700"><ImageIcon size={18} className="mr-2 text-pink-500"/> 照片紀錄</div>
                 <div className="grid grid-cols-2 gap-4 mb-6">
-                    <label className="flex flex-col items-center justify-center p-4 border border-gray-200 rounded-xl bg-gray-50 hover:bg-white hover:border-blue-400 transition cursor-pointer relative overflow-hidden h-32 group">
-                        <input type="file" accept="image/*" className="hidden" onChange={(e) => handleFileChange(e, 'before')} />
-                        {previews.before ? <img src={previews.before} alt="Before" className="absolute inset-0 w-full h-full object-cover" /> : <><Camera className="w-8 h-8 mb-2 text-gray-300 group-hover:text-blue-400 transition-colors" /><span className="text-xs font-bold text-gray-400 group-hover:text-blue-500">維修前</span></>}
-                    </label>
-                    <label className="flex flex-col items-center justify-center p-4 border border-gray-200 rounded-xl bg-gray-50 hover:bg-white hover:border-blue-400 transition cursor-pointer relative overflow-hidden h-32 group">
-                        <input type="file" accept="image/*" className="hidden" onChange={(e) => handleFileChange(e, 'after')} />
-                        {previews.after ? <img src={previews.after} alt="After" className="absolute inset-0 w-full h-full object-cover" /> : <><Camera className="w-8 h-8 mb-2 text-gray-300 group-hover:text-blue-400 transition-colors" /><span className="text-xs font-bold text-gray-400 group-hover:text-blue-500">完修後</span></>}
-                    </label>
+                    
+                    {/* 維修前照片 */}
+                    <div className="relative group">
+                        <label className={`flex flex-col items-center justify-center p-4 border border-gray-200 rounded-xl bg-gray-50 hover:bg-white hover:border-blue-400 transition cursor-pointer relative overflow-hidden h-32`}>
+                            <input type="file" accept="image/*" className="hidden" onChange={(e) => handleFileChange(e, 'before')} />
+                            {previews.before ? (
+                                <img src={previews.before} alt="Before" className="absolute inset-0 w-full h-full object-cover" />
+                            ) : (
+                                <>
+                                    <Camera className="w-8 h-8 mb-2 text-gray-300 group-hover:text-blue-400 transition-colors" />
+                                    <span className="text-xs font-bold text-gray-400 group-hover:text-blue-500">維修前</span>
+                                </>
+                            )}
+                        </label>
+                        {/* 刪除按鈕 (只在有照片時顯示) */}
+                        {previews.before && (
+                            <button 
+                                onClick={(e) => handleRemovePhoto(e, 'before')} 
+                                className="absolute -top-2 -right-2 bg-red-500 text-white p-1.5 rounded-full shadow-md hover:bg-red-600 active:scale-95 transition-all z-10 border-2 border-white"
+                            >
+                                <Trash2 size={14} />
+                            </button>
+                        )}
+                    </div>
+
+                    {/* 完修後照片 */}
+                    <div className="relative group">
+                        <label className={`flex flex-col items-center justify-center p-4 border border-gray-200 rounded-xl bg-gray-50 hover:bg-white hover:border-blue-400 transition cursor-pointer relative overflow-hidden h-32`}>
+                            <input type="file" accept="image/*" className="hidden" onChange={(e) => handleFileChange(e, 'after')} />
+                            {previews.after ? (
+                                <img src={previews.after} alt="After" className="absolute inset-0 w-full h-full object-cover" />
+                            ) : (
+                                <>
+                                    <Camera className="w-8 h-8 mb-2 text-gray-300 group-hover:text-blue-400 transition-colors" />
+                                    <span className="text-xs font-bold text-gray-400 group-hover:text-blue-500">完修後</span>
+                                </>
+                            )}
+                        </label>
+                        {/* 刪除按鈕 (只在有照片時顯示) */}
+                        {previews.after && (
+                            <button 
+                                onClick={(e) => handleRemovePhoto(e, 'after')} 
+                                className="absolute -top-2 -right-2 bg-red-500 text-white p-1.5 rounded-full shadow-md hover:bg-red-600 active:scale-95 transition-all z-10 border-2 border-white"
+                            >
+                                <Trash2 size={14} />
+                            </button>
+                        )}
+                    </div>
                 </div>
                 
                 <div className="border-t border-dashed border-gray-200 my-5"></div>

@@ -163,14 +163,13 @@ export default function App() {
       setTargetCustomer(customer); 
       setShowAddressAlert(true);
     } else {
-      // 修正：補上 $ 符號，確保字串樣板正確運作
-      const url = `https://www.google.com/maps/search/?api=1&query=$${encodeURIComponent(customer.address)}`;
+      const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(customer.address)}`;
       const newWindow = window.open(url, '_blank');
       if (!newWindow || newWindow.closed || typeof newWindow.closed == 'undefined') window.location.href = url;
     }
   };
 
-  // --- ★ 5. 頁面跳轉函式 (補回這些漏掉的函式) ---
+  // --- 頁面跳轉函式 ---
   const startEdit = () => {
     setCurrentView('edit');
   };
@@ -187,7 +186,7 @@ export default function App() {
     setCurrentView('edit_record');
   };
 
-  // --- 6. 資料庫操作 (CRUD) ---
+  // --- 5. 資料庫操作 (CRUD) ---
   const updateInventory = async (item) => {
     setInventory(prev => prev.map(i => i.id === item.id ? item : i));
     if (dbStatus === 'demo' || !user) { showToast('庫存已更新 (離線)'); return; }
@@ -255,15 +254,30 @@ export default function App() {
     });
   };
 
+  // --- ★ 關鍵修改：修復存檔邏輯 (解決 undefined 錯誤) ---
   const handleSaveRecord = async (formData) => {
     if (isProcessing) return;
     setIsProcessing(true);
 
     const recId = formData.id || `rec-${Date.now()}`;
+    
+    // 確保 customerID 絕對不會是 undefined
+    // 優先順序：1. 當前選中的客戶ID 2. 表單自帶ID 3. 預設 'unknown'
+    const finalCustomerID = selectedCustomer?.customerID || formData.customerID || 'unknown';
+
+    // 建立新紀錄物件 (注意：展開 ...formData 必須在最前面，以免覆蓋我們修正後的欄位)
     const newRecord = {
-        id: recId, customerID: selectedCustomer ? selectedCustomer.customerID : (formData.customerID || 'unknown'),
-        ...formData, fault: formData.symptom, solution: formData.action, type: 'repair', isTracking: formData.status === 'pending'
+        ...formData, // 先展開，把所有欄位帶入
+        id: recId,   // 確保 ID 正確
+        customerID: finalCustomerID, // 確保 customerID 有值
+        fault: formData.symptom || '', // 防止 undefined
+        solution: formData.action || '', // 防止 undefined
+        type: 'repair', 
+        isTracking: formData.status === 'pending'
     };
+
+    // 終極防護：移除所有 undefined 的屬性 (Firestore 不接受 undefined)
+    Object.keys(newRecord).forEach(key => newRecord[key] === undefined && delete newRecord[key]);
     
     try {
         if (formData.parts && formData.parts.length > 0) {
@@ -283,14 +297,26 @@ export default function App() {
             setRecords(prev => { const exists = prev.find(r => r.id === recId); if (exists) return prev.map(r => r.id === recId ? newRecord : r); return [newRecord, ...prev]; });
             showToast(formData.id ? '紀錄已更新' : '紀錄已新增');
         } else {
+            // 這裡原本因為 undefined 會報錯，現在應該安全了
             await setDoc(doc(db, 'records', recId), newRecord); 
             showToast(formData.id ? '紀錄已更新' : '紀錄已新增');
         }
+        
+        // 成功後才切換頁面
         if (activeTab === 'records') setCurrentView('records'); else setCurrentView('detail');
 
     } catch (err) { 
-        console.error(err); 
-        showToast('儲存失敗', 'error'); 
+        console.error("儲存詳細錯誤:", err); 
+        // 判斷常見錯誤
+        if (err.code === 'resource-exhausted' || (err.message && err.message.includes('larger than'))) {
+            showToast('存檔失敗：檔案過大，請減少照片或文字', 'error');
+        } else if (err.code === 'permission-denied') {
+            showToast('存檔失敗：權限不足 (Firebase Rules)', 'error');
+        } else if (err.message && err.message.includes('undefined')) {
+            showToast('存檔失敗：資料格式錯誤 (Undefined)', 'error');
+        } else {
+            showToast(`儲存失敗: ${err.message}`, 'error'); 
+        }
     } finally {
         setIsProcessing(false);
     }
@@ -457,7 +483,7 @@ export default function App() {
     event.target.value = '';
   };
 
-  // --- ★ 雲端備份操作 ---
+  // --- 雲端備份操作 ---
   const fetchCloudBackups = async () => {
       if (!user || dbStatus === 'demo') return;
       try {
