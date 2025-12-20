@@ -70,6 +70,10 @@ export default function App() {
   const showToast = (message, type = 'success') => setToast({ message, type });
   const today = new Date().toLocaleDateString('zh-TW', { month: 'long', day: 'numeric', weekday: 'long' });
   const pendingTasks = records.filter(r => r.status === 'pending').length;
+
+  // 🔴【修正重點】：改成使用本地時間格式 (YYYY-MM-DD) 來計算今日單量
+  const currentLocalTime = new Date().toLocaleDateString('en-CA'); 
+  const todayCompletedCount = records.filter(r => r.date === currentLocalTime).length;
   
   // --- 3. Firebase 連線邏輯 ---
   useEffect(() => {
@@ -254,29 +258,23 @@ export default function App() {
     });
   };
 
-  // --- ★ 關鍵修改：修復存檔邏輯 (解決 undefined 錯誤) ---
   const handleSaveRecord = async (formData) => {
     if (isProcessing) return;
     setIsProcessing(true);
 
     const recId = formData.id || `rec-${Date.now()}`;
-    
-    // 確保 customerID 絕對不會是 undefined
-    // 優先順序：1. 當前選中的客戶ID 2. 表單自帶ID 3. 預設 'unknown'
     const finalCustomerID = selectedCustomer?.customerID || formData.customerID || 'unknown';
 
-    // 建立新紀錄物件 (注意：展開 ...formData 必須在最前面，以免覆蓋我們修正後的欄位)
     const newRecord = {
-        ...formData, // 先展開，把所有欄位帶入
-        id: recId,   // 確保 ID 正確
-        customerID: finalCustomerID, // 確保 customerID 有值
-        fault: formData.symptom || '', // 防止 undefined
-        solution: formData.action || '', // 防止 undefined
+        ...formData, 
+        id: recId,
+        customerID: finalCustomerID,
+        fault: formData.symptom || '',
+        solution: formData.action || '',
         type: 'repair', 
         isTracking: formData.status === 'pending'
     };
 
-    // 終極防護：移除所有 undefined 的屬性 (Firestore 不接受 undefined)
     Object.keys(newRecord).forEach(key => newRecord[key] === undefined && delete newRecord[key]);
     
     try {
@@ -297,17 +295,14 @@ export default function App() {
             setRecords(prev => { const exists = prev.find(r => r.id === recId); if (exists) return prev.map(r => r.id === recId ? newRecord : r); return [newRecord, ...prev]; });
             showToast(formData.id ? '紀錄已更新' : '紀錄已新增');
         } else {
-            // 這裡原本因為 undefined 會報錯，現在應該安全了
             await setDoc(doc(db, 'records', recId), newRecord); 
             showToast(formData.id ? '紀錄已更新' : '紀錄已新增');
         }
         
-        // 成功後才切換頁面
         if (activeTab === 'records') setCurrentView('records'); else setCurrentView('detail');
 
     } catch (err) { 
         console.error("儲存詳細錯誤:", err); 
-        // 判斷常見錯誤
         if (err.code === 'resource-exhausted' || (err.message && err.message.includes('larger than'))) {
             showToast('存檔失敗：檔案過大，請減少照片或文字', 'error');
         } else if (err.code === 'permission-denied') {
@@ -428,13 +423,10 @@ export default function App() {
   // --- 通用還原核心邏輯 (共用) ---
   const restoreDataToFirestore = async (data) => {
     if (!data) throw new Error("無資料");
-    
-    // 1. 本地預覽
     if (data.customers) setCustomers(data.customers);
     if (data.inventory) setInventory(data.inventory);
     if (data.records) setRecords(data.records);
 
-    // 2. 寫入資料庫
     if (dbStatus !== 'demo' && user) {
         const batch = writeBatch(db);
         let count = 0;
@@ -585,7 +577,7 @@ export default function App() {
       {currentView === 'dashboard' && (
         <Dashboard 
           today={today} dbStatus={dbStatus} pendingTasks={pendingTasks} 
-          todayCompletedCount={records.filter(r => r.date === new Date().toISOString().split('T')[0]).length}
+          todayCompletedCount={todayCompletedCount} // 🔴 使用已修正的變數
           totalCustomers={customers.length} setCurrentView={setCurrentView} setActiveTab={setActiveTab} setRosterLevel={setRosterLevel} 
         />
       )}
