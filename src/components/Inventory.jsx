@@ -1,13 +1,9 @@
-{
-type: uploaded file
-fileName: src/components/Inventory.jsx
-fullContent:
 import React, { useState, useMemo, useEffect } from 'react';
 import { 
   ArrowLeft, Plus, Search, ChevronRight, ChevronDown, Edit3, 
   RotateCcw, CheckCircle, Trash2, AlertTriangle, Box, Tag, 
-  Printer, Palette, Archive, MoreHorizontal, Droplets, Layers, 
-  GripVertical, Copy, FileText, SortAsc, SortDesc
+  Printer, Palette, Archive, MoreHorizontal, Droplets, SortAsc, SortDesc,
+  GripVertical, FileText, Copy
 } from 'lucide-react';
 import {
   DndContext, 
@@ -27,7 +23,8 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
-// --- 輔助：定義大分類與顯示名稱 ---
+// --- 0. 全域設定與輔助函式 (移至最外層以避免定義順序錯誤) ---
+
 const BIG_CATEGORY_CONFIG = {
   TONER: { label: '碳粉系列', icon: Droplets, color: 'bg-sky-100 text-sky-600 border-sky-200' },
   COLOR: { label: '彩色影印機', icon: Palette, color: 'bg-purple-100 text-purple-600 border-purple-200' },
@@ -36,7 +33,22 @@ const BIG_CATEGORY_CONFIG = {
   OTHER: { label: '其他周邊', icon: MoreHorizontal, color: 'bg-blue-100 text-blue-600 border-blue-200' },
 };
 
-// --- 1. 報表視窗 (LINE 格式) ---
+// 輔助：判斷大分類 (依據 item 屬性或型號名稱)
+const getBigCategoryType = (modelName, item) => {
+    // 1. 如果 item 本身有紀錄 categoryType，優先使用
+    if (item && item.categoryType && BIG_CATEGORY_CONFIG[item.categoryType]) {
+        return item.categoryType;
+    }
+    // 2. 否則依據型號名稱字串判斷 (相容舊資料)
+    const up = (modelName || '').toUpperCase();
+    if (up.includes('碳粉') || up.includes('TONER') || up.includes('INK')) return 'TONER';
+    if (up.includes(' C') || up.includes('MPC') || up.includes('IMC') || up.includes('彩色')) return 'COLOR';
+    if (up.includes('MP') || up.includes('IM') || up.includes('AFICIO') || up.includes('黑白')) return 'BW';
+    if (up.includes('耗材') || up.includes('共用') || up.includes('COMMON')) return 'COMMON';
+    return 'OTHER';
+};
+
+// --- 1. 庫存報表視窗 (LINE 格式) ---
 const ReportModal = ({ isOpen, onClose, inventory }) => {
   const [copied, setCopied] = useState(false);
 
@@ -56,11 +68,10 @@ const ReportModal = ({ isOpen, onClose, inventory }) => {
 
     Object.keys(groups).sort().forEach(model => {
         const items = groups[model];
-        // 過濾出缺貨或少於一半的 (可選，這裡先列出全部或低庫存)
-        // 這裡邏輯設為：列出所有項目，但特別標記缺貨
         text += `\n\n📌 ${model}`;
         items.forEach(i => {
-            const status = i.qty <= 0 ? '❌缺貨' : (i.qty < i.max / 2 ? '⚠️補' : '✅');
+            // 標記狀態：缺貨、低庫存、充足
+            const status = i.qty <= 0 ? '❌缺' : (i.qty < i.max / 2 ? '⚠️補' : '✅');
             text += `\n${status} ${i.name}: ${i.qty}/${i.max} ${i.unit}`;
         });
     });
@@ -83,7 +94,6 @@ const ReportModal = ({ isOpen, onClose, inventory }) => {
             <div className="flex justify-between items-center mb-4 border-b pb-3">
                 <h3 className="text-lg font-bold text-slate-800 flex items-center"><FileText className="mr-2 text-blue-600"/> 庫存報表</h3>
                 <button onClick={onClose} className="p-1.5 bg-gray-100 rounded-full text-gray-500 hover:bg-gray-200"><Trash2 size={16} className="rotate-45" /></button> 
-                {/* Trash icon rotated 45deg acts as close X, or just use X icon */}
             </div>
             <div className="flex-1 overflow-y-auto bg-slate-50 p-3 rounded-xl border border-slate-200 mb-4 font-mono text-xs leading-relaxed whitespace-pre-wrap text-slate-700 shadow-inner">
                 {reportText}
@@ -100,7 +110,7 @@ const ReportModal = ({ isOpen, onClose, inventory }) => {
   );
 };
 
-// --- 2. 編輯與新增視窗 (修復鍵盤遮擋 & 增加分類選擇) ---
+// --- 2. 編輯與新增視窗 ---
 const EditInventoryModal = ({ isOpen, onClose, onSave, onDelete, initialItem, existingModels, defaultModel }) => {
   const [formData, setFormData] = useState({ name: '', model: '', subGroup: '', qty: 0, max: 5, unit: '個', categoryType: 'OTHER' });
   const [useCustomModel, setUseCustomModel] = useState(false);
@@ -108,40 +118,32 @@ const EditInventoryModal = ({ isOpen, onClose, onSave, onDelete, initialItem, ex
   useEffect(() => {
     if (isOpen) {
       if (initialItem) {
+        // 編輯模式
         setFormData({ 
             ...initialItem, 
             subGroup: initialItem.subGroup || '',
-            categoryType: initialItem.categoryType || getBigGroup(initialItem.model) // 兼容舊資料
+            categoryType: getBigCategoryType(initialItem.model, initialItem)
         });
         setUseCustomModel(false);
       } else {
+        // 新增模式
         const targetModel = defaultModel || existingModels[0] || '共用耗材';
         setFormData({ 
             name: '', 
             model: targetModel, 
             subGroup: '', 
             qty: 1, max: 5, unit: '個',
-            categoryType: getBigGroup(targetModel)
+            categoryType: getBigCategoryType(targetModel, null)
         });
         setUseCustomModel(defaultModel && !existingModels.includes(defaultModel));
       }
     }
   }, [isOpen, initialItem, existingModels, defaultModel]);
 
-  // 輔助：判斷大分類 (兼容舊邏輯)
-  const getBigGroup = (modelName) => {
-    const up = (modelName || '').toUpperCase();
-    if (up.includes('碳粉') || up.includes('TONER')) return 'TONER';
-    if (up.includes(' C') || up.includes('MPC') || up.includes('IMC') || up.includes('彩色')) return 'COLOR';
-    if (up.includes('MP') || up.includes('IM') || up.includes('黑白')) return 'BW';
-    if (up.includes('耗材') || up.includes('共用')) return 'COMMON';
-    return 'OTHER';
-  };
-
   if (!isOpen) return null;
   
   return (
-    // 修改點 5: items-start + pt-12 (避免鍵盤遮擋) + overflow-y-auto
+    // 修改：items-start + pt-12 防止手機鍵盤遮擋
     <div className="fixed inset-0 bg-black/60 z-[70] flex items-start justify-center pt-12 px-4 animate-in fade-in duration-200 overflow-y-auto" onClick={onClose}>
       <div className="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl relative mb-10" onClick={e => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-5 border-b border-gray-100 pb-4">
@@ -159,7 +161,7 @@ const EditInventoryModal = ({ isOpen, onClose, onSave, onDelete, initialItem, ex
                     value={formData.model} 
                     onChange={e => {
                         const val = e.target.value;
-                        setFormData({...formData, model: val, categoryType: getBigGroup(val)});
+                        setFormData({...formData, model: val, categoryType: getBigCategoryType(val, null)});
                     }}>
                    {existingModels.map(m => <option key={m} value={m}>{m}</option>)}
                  </select>
@@ -168,10 +170,10 @@ const EditInventoryModal = ({ isOpen, onClose, onSave, onDelete, initialItem, ex
              ) : (
                 <div className="space-y-2 animate-in slide-in-from-top-2">
                   <div className="flex gap-2">
-                    <input autoFocus placeholder="輸入新分類名稱 (如: Canon IR-200)" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none font-bold text-base" value={formData.model} onChange={e => setFormData({...formData, model: e.target.value})} />
+                    <input autoFocus placeholder="輸入新分類名稱" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none font-bold text-base" value={formData.model} onChange={e => setFormData({...formData, model: e.target.value})} />
                     <button onClick={() => setUseCustomModel(false)} className="bg-slate-100 text-slate-500 px-3 rounded-xl text-sm font-bold whitespace-nowrap">取消</button>
                   </div>
-                  {/* 修改點 3: 自訂型號時，強制選擇大分類 */}
+                  {/* 自訂型號時，強制選擇大分類 */}
                   <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
                       <label className="text-xs font-bold text-slate-400 block mb-2 uppercase">此型號屬於？</label>
                       <div className="flex flex-wrap gap-2">
@@ -259,7 +261,6 @@ const SortableBigCategory = ({ category, count, onClick, onEditLabel }) => {
     
     return (
         <div ref={setNodeRef} style={style} onClick={onClick} className="w-full bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center active:scale-[0.98] transition-all hover:border-blue-200 group mb-3 relative touch-manipulation">
-            {/* 修改點 6: 更美觀的圖示 */}
             <div className={`p-3.5 rounded-xl mr-4 border transition-colors shadow-sm ${category.color}`}>
                 <Icon size={26} strokeWidth={2.5} />
             </div>
@@ -336,7 +337,6 @@ const AccordionGroup = ({ groupName, items, onEdit, onRestock }) => {
 
 // --- 7. 型號列表 (Level 2 List Item) ---
 const ModelListRow = ({ title, count, lowStock, onClick, onRename, categoryType }) => {
-    // 根據 categoryType 決定 icon
     const config = BIG_CATEGORY_CONFIG[categoryType] || BIG_CATEGORY_CONFIG.OTHER;
     const Icon = config.icon;
 
@@ -365,7 +365,7 @@ const ModelListRow = ({ title, count, lowStock, onClick, onRename, categoryType 
     );
 };
 
-// --- 8. 主視圖 ---
+// --- 8. 主視圖 (Main Component) ---
 const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteInventory, onRenameGroup, onBack }) => {
   const [selectedBigGroup, setSelectedBigGroup] = useState(null); 
   const [activeCategory, setActiveCategory] = useState(null); 
@@ -376,19 +376,22 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
   const [searchTerm, setSearchTerm] = useState(''); 
   const [showReport, setShowReport] = useState(false);
   
-  // 排序狀態 (Level 2 & 3)
-  const [sortMode, setSortMode] = useState('name'); // 'name' or 'qty'
+  const [sortMode, setSortMode] = useState('name'); 
 
-  // 自訂大分類名稱 (不存 DB，僅 Session 顯示，如需持久化需存 DB)
+  // 大分類名稱 (顯示用)
   const [bigGroupLabels, setBigGroupLabels] = useState({
       COLOR: '彩色影印機', BW: '黑白影印機', TONER: '碳粉系列', COMMON: '共用耗材', OTHER: '其他周邊'
   });
   const [editingBigGroup, setEditingBigGroup] = useState(null);
 
-  // --- 修正點 1: 拖曳排序狀態持久化 ---
+  // 拖曳排序持久化 (localStorage)
   const [categoryOrder, setCategoryOrder] = useState(() => {
-    const saved = localStorage.getItem('inventoryLevel1Order');
-    return saved ? JSON.parse(saved) : ['TONER', 'COLOR', 'BW', 'COMMON', 'OTHER'];
+    try {
+      const saved = localStorage.getItem('inventoryLevel1Order');
+      return saved ? JSON.parse(saved) : ['TONER', 'COLOR', 'BW', 'COMMON', 'OTHER'];
+    } catch {
+      return ['TONER', 'COLOR', 'BW', 'COMMON', 'OTHER'];
+    }
   });
 
   useEffect(() => {
@@ -412,19 +415,7 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
     }
   };
 
-  // --- 資料運算邏輯 (加入新的分類判斷) ---
-  const getGroupType = (model, item) => {
-      // 1. 優先使用 item 本身的 categoryType
-      if (item && item.categoryType && BIG_CATEGORY_CONFIG[item.categoryType]) return item.categoryType;
-      // 2. 舊資料相容：用字串判斷
-      const up = (model || '').toUpperCase();
-      if (up.includes('碳粉') || up.includes('TONER')) return 'TONER';
-      if (up.includes(' C') || up.includes('MPC') || up.includes('IMC') || up.includes('彩色')) return 'COLOR';
-      if (up.includes('MP') || up.includes('IM') || up.includes('黑白')) return 'BW';
-      if (up.includes('耗材') || up.includes('共用')) return 'COMMON';
-      return 'OTHER';
-  };
-
+  // 資料運算
   const groupedInventory = useMemo(() => {
     const groups = {};
     inventory.forEach(item => {
@@ -439,49 +430,41 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
       const counts = { COLOR: 0, BW: 0, TONER: 0, COMMON: 0, OTHER: 0 };
       Object.keys(groupedInventory).forEach(model => {
           const sampleItem = groupedInventory[model][0];
-          const bg = getGroupType(model, sampleItem);
+          const bg = getBigCategoryType(model, sampleItem);
           if (counts[bg] !== undefined) counts[bg] += groupedInventory[model].length;
           else counts.OTHER += groupedInventory[model].length;
       });
       return counts;
   }, [groupedInventory]);
 
-  // Level 2 List (Filtered by BigGroup)
   const currentFolders = useMemo(() => {
       if (!selectedBigGroup) return [];
       const allModels = Object.keys(groupedInventory);
-      // 過濾
       const filtered = allModels.filter(model => {
           const sampleItem = groupedInventory[model][0];
-          return getGroupType(model, sampleItem) === selectedBigGroup;
+          return getBigCategoryType(model, sampleItem) === selectedBigGroup;
       });
-
-      // 修正點 2: Level 2 排序功能
       return filtered.sort((a, b) => {
           if (sortMode === 'qty') {
-             // 依該型號下總數量排序
              const countA = groupedInventory[a].length;
              const countB = groupedInventory[b].length;
              return countB - countA;
           }
-          return a.localeCompare(b); // 預設字母排序
+          return a.localeCompare(b);
       });
   }, [selectedBigGroup, groupedInventory, sortMode]);
 
-  // Level 3 Items
   const currentItemsData = useMemo(() => {
     if (!activeCategory) return { grouped: {}, ungrouped: [], totalCount: 0 };
     let list = groupedInventory[activeCategory] || [];
     
-    // 搜尋
     if (searchTerm) {
         const lower = searchTerm.toLowerCase();
         list = list.filter(i => i.name.toLowerCase().includes(lower) || (i.subGroup && i.subGroup.toLowerCase().includes(lower)));
     }
 
-    // 修正點 2: Level 3 排序功能 (依庫存量或名稱)
     list.sort((a, b) => {
-        if (sortMode === 'qty') return a.qty - b.qty; // 數量少的在上面 (方便補貨)
+        if (sortMode === 'qty') return a.qty - b.qty; 
         return a.name.localeCompare(b.name);
     });
 
@@ -498,21 +481,21 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
     return { grouped, ungrouped, totalCount: list.length };
   }, [activeCategory, groupedInventory, searchTerm, sortMode]);
 
-  // --- 操作邏輯 ---
+  // 操作邏輯
   const handleSelectBigGroup = (groupId) => {
     setSelectedBigGroup(groupId);
     // 自動進入唯一資料夾
     const allModels = Object.keys(groupedInventory);
-    const folders = allModels.filter(model => getGroupType(model, groupedInventory[model][0]) === groupId);
+    const folders = allModels.filter(model => getBigCategoryType(model, groupedInventory[model][0]) === groupId);
     if (folders.length === 1) setActiveCategory(folders[0]);
   };
 
   const handleBackNavigation = () => {
     if (activeCategory) { 
         setActiveCategory(null); setSearchTerm(''); 
-        // 檢查是否要直接退回首頁 (如果該分類只有一個資料夾)
+        // 檢查是否要直接退回首頁
         const allModels = Object.keys(groupedInventory);
-        const folders = allModels.filter(model => getGroupType(model, groupedInventory[model][0]) === selectedBigGroup);
+        const folders = allModels.filter(model => getBigCategoryType(model, groupedInventory[model][0]) === selectedBigGroup);
         if (folders.length === 1) setSelectedBigGroup(null);
     } 
     else if (selectedBigGroup) { setSelectedBigGroup(null); } 
@@ -541,13 +524,11 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
             </div>
             
             <div className="flex items-center gap-2">
-                {/* 修正點 7: 報表按鈕 */}
                 {!selectedBigGroup && (
                     <button onClick={() => setShowReport(true)} className="p-2 bg-slate-100 text-slate-600 rounded-xl hover:bg-blue-50 hover:text-blue-600 transition-colors">
                         <FileText size={20}/>
                     </button>
                 )}
-                {/* 排序切換按鈕 (只在 Level 2/3 顯示) */}
                 {selectedBigGroup && (
                     <button onClick={() => setSortMode(prev => prev === 'name' ? 'qty' : 'name')} className="p-2 bg-slate-100 text-slate-600 rounded-xl font-bold text-xs flex items-center">
                         {sortMode === 'name' ? <SortAsc size={18} className="mr-1"/> : <SortDesc size={18} className="mr-1"/>}
@@ -558,7 +539,6 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
             </div>
          </div>
          
-         {/* 修正點 4: 搜尋欄 text-base 防止縮放 */}
          {!selectedBigGroup && (
              <div className="relative animate-in fade-in slide-in-from-top-1 mb-1">
                 <Search size={18} className="absolute left-3 top-2.5 text-slate-400" />
@@ -573,8 +553,7 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
 
       {/* 內容區 */}
       <div className="p-4 flex-1">
-          
-          {/* Level 1: 五大分類 (可拖曳排序) */}
+          {/* Level 1 */}
           {!selectedBigGroup && (
              <div className="space-y-1 animate-in slide-in-from-left-4 duration-300">
                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
@@ -593,7 +572,7 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
              </div>
           )}
 
-          {/* Level 2: 型號列表 */}
+          {/* Level 2 */}
           {selectedBigGroup && !activeCategory && (
               <div className="animate-in slide-in-from-right-4 duration-300">
                   <div className="space-y-1">
@@ -620,7 +599,7 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
               </div>
           )}
 
-          {/* Level 3: 零件列表 */}
+          {/* Level 3 */}
           {activeCategory && (
               <div className="space-y-4 animate-in slide-in-from-right-4 duration-300">
                   {currentItemsData.totalCount === 0 && <div className="text-center text-slate-400 mt-10"><p className="font-bold">無項目</p></div>}
@@ -639,7 +618,6 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
           )}
       </div>
 
-      {/* 彈出視窗 */}
       <EditInventoryModal 
         isOpen={!!editingItem || isAddMode} 
         onClose={() => { setEditingItem(null); setIsAddMode(false); }} 
@@ -667,4 +645,3 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
 };
 
 export default InventoryView;
-}
