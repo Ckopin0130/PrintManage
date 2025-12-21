@@ -128,7 +128,6 @@ const RenameModal = ({ isOpen, onClose, onRename, oldName, title = "修改名稱
 };
 
 // --- 3. 可拖曳的項目元件 (Level 3 & Level 1 共用邏輯封裝) ---
-// 這裡我們針對大分類 (Level 1) 建立專用的可拖曳組件
 const SortableBigCategory = ({ category, count, onClick, onEditLabel }) => {
     const {
         attributes,
@@ -152,32 +151,40 @@ const SortableBigCategory = ({ category, count, onClick, onEditLabel }) => {
         <div
             ref={setNodeRef}
             style={style}
-            // 點擊卡片本體 -> 進入分類 (onClick)
             onClick={onClick}
+            // 修改：加入 pr-2 讓右邊稍微留白
             className="w-full bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center active:scale-[0.98] transition-all hover:border-blue-200 group mb-3 relative touch-manipulation"
         >
-             {/* 拖曳手柄：只按這裡才能拖曳，避免誤觸點擊 */}
-            <div {...attributes} {...listeners} className="mr-3 text-slate-300 cursor-grab active:cursor-grabbing hover:text-slate-500 p-1" onClick={(e) => e.stopPropagation()}>
-                <GripVertical size={20} />
-            </div>
-
+            {/* 圖標 (顏色固定，不再隨 hover 改變) */}
             <div className={`p-3.5 rounded-xl mr-4 border transition-colors ${category.colorClass}`}>
                 <Icon size={24} />
             </div>
+            
             <div className="flex-1 text-left min-w-0">
                 <h3 className="text-lg font-extrabold text-slate-800 truncate">{category.label}</h3>
                 <span className="text-xs text-slate-500 font-bold">共 {count} 個項目</span>
             </div>
             
-            {/* 編輯按鈕：點這裡才改名 */}
-            <button 
-                onClick={(e) => { e.stopPropagation(); onEditLabel(category.id, category.label); }}
-                className="p-2 text-slate-300 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors mr-1"
-            >
-                <Edit3 size={18} />
-            </button>
-            
-            <ChevronRight className="text-slate-300 group-hover:text-blue-400" />
+            {/* 右側控制區：編輯與拖曳放在一起 */}
+            <div className="flex items-center gap-1 ml-2">
+                {/* 編輯按鈕 */}
+                <button 
+                    onClick={(e) => { e.stopPropagation(); onEditLabel(category.id, category.label); }}
+                    className="p-2 text-slate-300 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
+                >
+                    <Edit3 size={18} />
+                </button>
+                
+                {/* 拖曳手柄：移到最右邊，且縮小 (size={16}) */}
+                <div 
+                    {...attributes} 
+                    {...listeners} 
+                    className="text-slate-300 cursor-grab active:cursor-grabbing hover:text-slate-500 p-2" 
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <GripVertical size={18} />
+                </div>
+            </div>
         </div>
     );
 };
@@ -258,7 +265,7 @@ const ModelListRow = ({ title, count, lowStock, onClick, onRename, categoryType 
         iconBg = "bg-slate-100"; iconColor = "text-slate-600";
     } else {
         icon = <Box size={20} />;
-        iconBg = "bg-slate-50"; iconColor = "text-slate-500"; // 修正：共用耗材改為中性色
+        iconBg = "bg-slate-50"; iconColor = "text-slate-500"; 
     }
 
     return (
@@ -321,13 +328,11 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
   // --- 拖曳排序狀態 (Category Order) ---
   const [categoryOrder, setCategoryOrder] = useState(['TONER', 'COLOR', 'BW', 'COMMON', 'OTHER']);
 
-  // Dnd Sensors (優化觸控體驗，加入延遲避免誤觸)
+  // Dnd Sensors
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-    useSensor(TouchSensor, {
-      activationConstraint: { delay: 250, tolerance: 5 }, // 長按 0.25s 才能拖曳
-    })
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } })
   );
 
   const handleDragEnd = (event) => {
@@ -361,14 +366,13 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
       return counts;
   }, [groupedInventory]);
 
-  // 大分類設定檔 (包含顏色樣式)
+  // 修改：移除 group-hover 樣式，顏色固定
   const categoryConfig = {
-      TONER: { icon: Droplets, colorClass: "bg-sky-50 text-sky-600 border-sky-100 group-hover:bg-sky-500 group-hover:text-white" },
-      COLOR: { icon: Palette, colorClass: "bg-purple-50 text-purple-600 border-purple-100 group-hover:bg-purple-600 group-hover:text-white" },
-      BW: { icon: Printer, colorClass: "bg-slate-100 text-slate-600 border-slate-200 group-hover:bg-slate-700 group-hover:text-white" },
-      // 修改重點：共用耗材改成低調的藍灰色 (Slate/Blue-Gray)
-      COMMON: { icon: Archive, colorClass: "bg-slate-50 text-slate-500 border-slate-200 group-hover:bg-slate-500 group-hover:text-white" },
-      OTHER: { icon: MoreHorizontal, colorClass: "bg-blue-50 text-blue-600 border-blue-100 group-hover:bg-blue-600 group-hover:text-white" },
+      TONER: { icon: Droplets, colorClass: "bg-sky-50 text-sky-600 border-sky-100" },
+      COLOR: { icon: Palette, colorClass: "bg-purple-50 text-purple-600 border-purple-100" },
+      BW: { icon: Printer, colorClass: "bg-slate-100 text-slate-600 border-slate-200" },
+      COMMON: { icon: Archive, colorClass: "bg-slate-50 text-slate-500 border-slate-200" },
+      OTHER: { icon: MoreHorizontal, colorClass: "bg-blue-50 text-blue-600 border-blue-100" },
   };
 
   const currentFolders = useMemo(() => {
@@ -397,10 +401,35 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
     return { grouped, ungrouped, totalCount: list.length };
   }, [activeCategory, groupedInventory, searchTerm]);
 
+  // --- 智能選擇邏輯 (Auto-Skip Level 2) ---
+  const handleSelectBigGroup = (groupId) => {
+    setSelectedBigGroup(groupId);
+    // 立即檢查該分類下有幾個資料夾
+    const allModels = Object.keys(groupedInventory).sort();
+    const folders = allModels.filter(model => getBigGroup(model) === groupId);
+    
+    // 如果只有一個資料夾 (例如：共用耗材 只有 共用耗材)，直接進入該資料夾
+    if (folders.length === 1) {
+        setActiveCategory(folders[0]);
+    }
+  };
+
   const handleBackNavigation = () => {
-      if (activeCategory) { setActiveCategory(null); setSearchTerm(''); } 
-      else if (selectedBigGroup) { setSelectedBigGroup(null); } 
-      else { onBack(); }
+    if (activeCategory) { 
+        // 檢查是否需要跳過 Level 2 直接回首頁
+        // 邏輯：如果該大分類下只有一個資料夾，代表我們是自動進來的，所以回去也要自動跳過
+        const allModels = Object.keys(groupedInventory).sort();
+        const folders = allModels.filter(model => getBigGroup(model) === selectedBigGroup);
+        
+        setActiveCategory(null); 
+        setSearchTerm(''); 
+
+        if (folders.length === 1) {
+            setSelectedBigGroup(null); // 直接回首頁
+        }
+    } 
+    else if (selectedBigGroup) { setSelectedBigGroup(null); } 
+    else { onBack(); }
   };
 
   const getHeaderTitle = () => {
@@ -432,14 +461,13 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
               <button onClick={handleBackNavigation} className="p-2 -ml-2 text-slate-500 hover:bg-slate-50 rounded-full mr-1 transition-colors"><ArrowLeft size={24}/></button>
               <div className="flex flex-col ml-1">
                   <h2 className="text-xl font-extrabold text-slate-800 tracking-wide truncate max-w-[180px]">{getHeaderTitle()}</h2>
-                  {(selectedBigGroup || activeCategory) && <span className="text-[10px] font-bold text-slate-400">點擊箭頭返回上一層</span>}
+                  {/* 移除了原本這裡的「點擊箭頭返回」提示文字 */}
               </div>
             </div>
             <button onClick={() => setIsAddMode(true)} className="flex items-center text-sm font-bold bg-blue-600 text-white px-3 py-2 rounded-xl shadow-lg shadow-blue-200 hover:bg-blue-700 active:scale-95 transition-all"><Plus size={18} className="mr-1"/>新增</button>
          </div>
          
-         {/* 搜尋欄 - 修正重點：只在最上層 (Level 1) 顯示，或是進入特定層級後需要搜尋 */}
-         {/* 根據需求：其餘二三層不要顯示，搜尋欄放到大分類的上方就好 */}
+         {/* 搜尋欄：只在最上層 (Level 1) 顯示 */}
          {!selectedBigGroup && (
              <div className="relative animate-in fade-in slide-in-from-top-1 mb-1">
                 <Search size={18} className="absolute left-3 top-2.5 text-slate-400" />
@@ -469,7 +497,7 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
                                     ...categoryConfig[id]
                                 }}
                                 count={bigGroupsCounts[id]}
-                                onClick={() => setSelectedBigGroup(id)}
+                                onClick={() => handleSelectBigGroup(id)} // 改用新的 handleSelectBigGroup
                                 onEditLabel={(catId, name) => setEditingBigGroup({ id: catId, name })}
                             />
                         ))}
