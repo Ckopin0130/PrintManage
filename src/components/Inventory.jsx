@@ -2,8 +2,25 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { 
   ArrowLeft, Plus, Search, ChevronRight, ChevronDown, Edit3, 
   RotateCcw, CheckCircle, Trash2, AlertTriangle, Box, Tag, 
-  Printer, Palette, Archive, MoreHorizontal, Droplets, Layers, Settings2
+  Printer, Palette, Archive, MoreHorizontal, Droplets, Layers, Settings2, GripVertical 
 } from 'lucide-react';
+import {
+  DndContext, 
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  TouchSensor
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 // --- 1. 編輯與新增視窗 (維持不變) ---
 const EditInventoryModal = ({ isOpen, onClose, onSave, onDelete, initialItem, existingModels, defaultModel }) => {
@@ -33,7 +50,6 @@ const EditInventoryModal = ({ isOpen, onClose, onSave, onDelete, initialItem, ex
         </div>
         
         <div className="space-y-4 mb-6">
-           {/* 主分類 (機型) */}
            <div>
              <label className="text-xs font-bold text-slate-400 block mb-1.5 uppercase tracking-wider">歸屬分類 (例如: MP C3503)</label>
              {!useCustomModel ? (
@@ -51,7 +67,6 @@ const EditInventoryModal = ({ isOpen, onClose, onSave, onDelete, initialItem, ex
              )}
            </div>
 
-           {/* 次分類 (收納群組) */}
            <div className="bg-blue-50/50 p-3 rounded-xl border border-blue-100">
                <label className="text-xs font-bold text-blue-500 block mb-1.5 uppercase tracking-wider flex items-center">
                    <Tag size={12} className="mr-1"/> 次分類 (選填：用於收納)
@@ -93,7 +108,7 @@ const EditInventoryModal = ({ isOpen, onClose, onSave, onDelete, initialItem, ex
   );
 };
 
-// --- 2. 重新命名視窗 (共用：可改群組名 & 大分類名) ---
+// --- 2. 重新命名視窗 ---
 const RenameModal = ({ isOpen, onClose, onRename, oldName, title = "修改名稱" }) => {
   const [newName, setNewName] = useState(oldName || '');
   useEffect(() => { setNewName(oldName || ''); }, [oldName]);
@@ -112,7 +127,62 @@ const RenameModal = ({ isOpen, onClose, onRename, oldName, title = "修改名稱
   );
 };
 
-// --- 3. 項目列表列 (Level 3 Item) ---
+// --- 3. 可拖曳的項目元件 (Level 3 & Level 1 共用邏輯封裝) ---
+// 這裡我們針對大分類 (Level 1) 建立專用的可拖曳組件
+const SortableBigCategory = ({ category, count, onClick, onEditLabel }) => {
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+        isDragging,
+    } = useSortable({ id: category.id });
+
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.5 : 1,
+        zIndex: isDragging ? 50 : 'auto',
+    };
+
+    const Icon = category.icon;
+    
+    return (
+        <div
+            ref={setNodeRef}
+            style={style}
+            // 點擊卡片本體 -> 進入分類 (onClick)
+            onClick={onClick}
+            className="w-full bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center active:scale-[0.98] transition-all hover:border-blue-200 group mb-3 relative touch-manipulation"
+        >
+             {/* 拖曳手柄：只按這裡才能拖曳，避免誤觸點擊 */}
+            <div {...attributes} {...listeners} className="mr-3 text-slate-300 cursor-grab active:cursor-grabbing hover:text-slate-500 p-1" onClick={(e) => e.stopPropagation()}>
+                <GripVertical size={20} />
+            </div>
+
+            <div className={`p-3.5 rounded-xl mr-4 border transition-colors ${category.colorClass}`}>
+                <Icon size={24} />
+            </div>
+            <div className="flex-1 text-left min-w-0">
+                <h3 className="text-lg font-extrabold text-slate-800 truncate">{category.label}</h3>
+                <span className="text-xs text-slate-500 font-bold">共 {count} 個項目</span>
+            </div>
+            
+            {/* 編輯按鈕：點這裡才改名 */}
+            <button 
+                onClick={(e) => { e.stopPropagation(); onEditLabel(category.id, category.label); }}
+                className="p-2 text-slate-300 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors mr-1"
+            >
+                <Edit3 size={18} />
+            </button>
+            
+            <ChevronRight className="text-slate-300 group-hover:text-blue-400" />
+        </div>
+    );
+};
+
+// --- 4. 項目列表列 (Level 3 Item) ---
 const InventoryRow = ({ item, onEdit, onRestock, isLast }) => {
     const isOut = item.qty === 0;
     const rowClass = isOut ? "bg-rose-50/60" : "bg-white hover:bg-slate-50";
@@ -143,7 +213,7 @@ const InventoryRow = ({ item, onEdit, onRestock, isLast }) => {
     );
 }
 
-// --- 4. 可收合的群組 (Level 3 Accordion) ---
+// --- 5. 可收合的群組 (Level 3 Accordion) ---
 const AccordionGroup = ({ groupName, items, onEdit, onRestock }) => {
     const [isOpen, setIsOpen] = useState(false);
     const lowStockCount = items.filter(i => i.qty === 0).length;
@@ -171,9 +241,8 @@ const AccordionGroup = ({ groupName, items, onEdit, onRestock }) => {
     );
 };
 
-// --- 5. 新版條列式分類 (Level 2 List Item) ---
+// --- 6. 新版條列式分類 (Level 2 List Item) ---
 const ModelListRow = ({ title, count, lowStock, onClick, onRename, categoryType }) => {
-    // 根據大分類決定圖示
     let icon = <Layers size={20} />;
     let iconColor = "text-slate-500";
     let iconBg = "bg-slate-100";
@@ -189,7 +258,7 @@ const ModelListRow = ({ title, count, lowStock, onClick, onRename, categoryType 
         iconBg = "bg-slate-100"; iconColor = "text-slate-600";
     } else {
         icon = <Box size={20} />;
-        iconBg = "bg-amber-50"; iconColor = "text-amber-600";
+        iconBg = "bg-slate-50"; iconColor = "text-slate-500"; // 修正：共用耗材改為中性色
     }
 
     return (
@@ -208,7 +277,6 @@ const ModelListRow = ({ title, count, lowStock, onClick, onRename, categoryType 
             </div>
             
             <div className="flex items-center pl-2">
-                {/* 編輯按鈕 (預設隱藏，hover 或點擊時顯示，或者一直顯示但淡色) */}
                 <button 
                     onClick={(e) => { e.stopPropagation(); onRename(title); }} 
                     className="p-2 text-slate-300 hover:text-blue-500 hover:bg-slate-50 rounded-lg transition-colors mr-1"
@@ -221,62 +289,26 @@ const ModelListRow = ({ title, count, lowStock, onClick, onRename, categoryType 
     );
 };
 
-// --- 6. 大分類按鈕 (Level 1 Card) ---
-const BigCategoryButton = ({ id, label, count, icon: Icon, colorClass, onClick, onEditLabel }) => {
-    return (
-        <div 
-            onClick={onClick} 
-            className="w-full bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center active:scale-[0.98] transition-all hover:border-blue-200 group mb-3 relative"
-        >
-            <div className={`p-3.5 rounded-xl mr-4 border transition-colors ${colorClass}`}>
-                <Icon size={24} />
-            </div>
-            <div className="flex-1 text-left">
-                <h3 className="text-lg font-extrabold text-slate-800">{label}</h3>
-                <span className="text-xs text-slate-500 font-bold">共 {count} 個項目</span>
-            </div>
-            
-            {/* 編輯大分類名稱按鈕 */}
-            <button 
-                onClick={(e) => { e.stopPropagation(); onEditLabel(id, label); }}
-                className="absolute top-3 right-3 p-1.5 text-slate-300 hover:text-blue-500 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
-            >
-                <Settings2 size={14} />
-            </button>
-            
-            <ChevronRight className="text-slate-300 group-hover:text-blue-400" />
-        </div>
-    );
-};
-
-// --- 7. 輔助函數：判斷大分類歸屬 ---
+// --- 7. 輔助函數 ---
 const getBigGroup = (modelName) => {
     const up = modelName.toUpperCase();
-    // 優先判斷碳粉
     if (up.includes('碳粉') || up.includes('TONER') || up.includes('INK')) return 'TONER';
-    // 判斷彩色機
     if (up.includes(' C') || up.includes('MPC') || up.includes('IM C') || up.includes('IMC') || up.includes('彩色')) return 'COLOR';
-    // 判斷黑白機
     if (up.includes('MP') || up.includes('IM') || up.includes('AFICIO') || up.includes('黑白')) return 'BW';
-    // 判斷共用
     if (up.includes('耗材') || up.includes('共用') || up.includes('COMMON')) return 'COMMON';
-    // 其他
     return 'OTHER';
 };
 
-// --- 8. 主視圖 (三層式架構) ---
+// --- 8. 主視圖 (三層式架構 + 拖曳排序) ---
 const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteInventory, onRenameGroup, onBack }) => {
-  // 導航狀態
   const [selectedBigGroup, setSelectedBigGroup] = useState(null); 
   const [activeCategory, setActiveCategory] = useState(null); 
   
-  // UI 狀態
   const [editingItem, setEditingItem] = useState(null);
   const [isAddMode, setIsAddMode] = useState(false);
   const [groupToRename, setGroupToRename] = useState(null);
   const [searchTerm, setSearchTerm] = useState(''); 
   
-  // 大分類自定義名稱 (可擴充儲存到 LocalStorage)
   const [bigGroupLabels, setBigGroupLabels] = useState({
       COLOR: '彩色影印機',
       BW: '黑白影印機',
@@ -284,9 +316,32 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
       COMMON: '共用耗材',
       OTHER: '其他周邊'
   });
-  const [editingBigGroup, setEditingBigGroup] = useState(null); // 控制大分類改名視窗
+  const [editingBigGroup, setEditingBigGroup] = useState(null);
 
-  // 1. 資料分組
+  // --- 拖曳排序狀態 (Category Order) ---
+  const [categoryOrder, setCategoryOrder] = useState(['TONER', 'COLOR', 'BW', 'COMMON', 'OTHER']);
+
+  // Dnd Sensors (優化觸控體驗，加入延遲避免誤觸)
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 250, tolerance: 5 }, // 長按 0.25s 才能拖曳
+    })
+  );
+
+  const handleDragEnd = (event) => {
+    const { active, over } = event;
+    if (active.id !== over.id) {
+      setCategoryOrder((items) => {
+        const oldIndex = items.indexOf(active.id);
+        const newIndex = items.indexOf(over.id);
+        return arrayMove(items, oldIndex, newIndex);
+      });
+    }
+  };
+
+  // 資料運算
   const groupedInventory = useMemo(() => {
     const groups = {};
     inventory.forEach(item => {
@@ -297,7 +352,6 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
     return groups;
   }, [inventory]);
 
-  // 2. 計算各大分類數量
   const bigGroupsCounts = useMemo(() => {
       const counts = { COLOR: 0, BW: 0, TONER: 0, COMMON: 0, OTHER: 0 };
       Object.keys(groupedInventory).forEach(model => {
@@ -307,14 +361,22 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
       return counts;
   }, [groupedInventory]);
 
-  // 3. 第二層：取得目前選定大分類下的所有型號
+  // 大分類設定檔 (包含顏色樣式)
+  const categoryConfig = {
+      TONER: { icon: Droplets, colorClass: "bg-sky-50 text-sky-600 border-sky-100 group-hover:bg-sky-500 group-hover:text-white" },
+      COLOR: { icon: Palette, colorClass: "bg-purple-50 text-purple-600 border-purple-100 group-hover:bg-purple-600 group-hover:text-white" },
+      BW: { icon: Printer, colorClass: "bg-slate-100 text-slate-600 border-slate-200 group-hover:bg-slate-700 group-hover:text-white" },
+      // 修改重點：共用耗材改成低調的藍灰色 (Slate/Blue-Gray)
+      COMMON: { icon: Archive, colorClass: "bg-slate-50 text-slate-500 border-slate-200 group-hover:bg-slate-500 group-hover:text-white" },
+      OTHER: { icon: MoreHorizontal, colorClass: "bg-blue-50 text-blue-600 border-blue-100 group-hover:bg-blue-600 group-hover:text-white" },
+  };
+
   const currentFolders = useMemo(() => {
       if (!selectedBigGroup) return [];
       const allModels = Object.keys(groupedInventory).sort();
       return allModels.filter(model => getBigGroup(model) === selectedBigGroup);
   }, [selectedBigGroup, groupedInventory]);
 
-  // 4. 第三層：取得目前選定型號下的項目
   const currentItemsData = useMemo(() => {
     if (!activeCategory) return { grouped: {}, ungrouped: [], totalCount: 0 };
     let list = groupedInventory[activeCategory] || [];
@@ -335,7 +397,6 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
     return { grouped, ungrouped, totalCount: list.length };
   }, [activeCategory, groupedInventory, searchTerm]);
 
-  // Handle Functions
   const handleBackNavigation = () => {
       if (activeCategory) { setActiveCategory(null); setSearchTerm(''); } 
       else if (selectedBigGroup) { setSelectedBigGroup(null); } 
@@ -358,10 +419,8 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
     else { onUpdateInventory(itemData); setEditingItem(null); }
   };
 
-  // 修改大分類名稱
   const handleBigGroupRename = (oldId, newName) => {
       setBigGroupLabels(prev => ({ ...prev, [oldId]: newName }));
-      // 這裡可以加入儲存到 LocalStorage 的邏輯
   };
 
   return (
@@ -378,10 +437,13 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
             </div>
             <button onClick={() => setIsAddMode(true)} className="flex items-center text-sm font-bold bg-blue-600 text-white px-3 py-2 rounded-xl shadow-lg shadow-blue-200 hover:bg-blue-700 active:scale-95 transition-all"><Plus size={18} className="mr-1"/>新增</button>
          </div>
-         {activeCategory && (currentItemsData.totalCount > 5) && (
-             <div className="relative animate-in fade-in slide-in-from-top-1">
+         
+         {/* 搜尋欄 - 修正重點：只在最上層 (Level 1) 顯示，或是進入特定層級後需要搜尋 */}
+         {/* 根據需求：其餘二三層不要顯示，搜尋欄放到大分類的上方就好 */}
+         {!selectedBigGroup && (
+             <div className="relative animate-in fade-in slide-in-from-top-1 mb-1">
                 <Search size={18} className="absolute left-3 top-2.5 text-slate-400" />
-                <input className="w-full bg-slate-100 border-none rounded-xl py-2 pl-10 pr-4 text-sm outline-none focus:ring-2 focus:ring-blue-100 font-bold text-slate-700 transition-all placeholder-slate-400" placeholder={`搜尋 ${activeCategory} ...`} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+                <input className="w-full bg-slate-100 border-none rounded-xl py-2 pl-10 pr-4 text-sm outline-none focus:ring-2 focus:ring-blue-100 font-bold text-slate-700 transition-all placeholder-slate-400" placeholder="全域搜尋零件..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
              </div>
          )}
       </div>
@@ -389,40 +451,30 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
       {/* 內容區 */}
       <div className="p-4 flex-1">
           
-          {/* Level 1: 五大分類 (可改名) */}
+          {/* Level 1: 五大分類 (可拖曳排序) */}
           {!selectedBigGroup && (
              <div className="space-y-1 animate-in slide-in-from-left-4 duration-300">
-                <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 ml-1">庫存分類</div>
+                <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 ml-1 flex justify-between">
+                    <span>庫存分類 (長按可排序)</span>
+                </div>
                 
-                <BigCategoryButton 
-                    id="TONER" label={bigGroupLabels.TONER} count={bigGroupsCounts.TONER} 
-                    icon={Droplets} colorClass="bg-sky-50 text-sky-600 border-sky-100 group-hover:bg-sky-500 group-hover:text-white"
-                    onClick={() => setSelectedBigGroup('TONER')} onEditLabel={(id, name) => setEditingBigGroup({ id, name })}
-                />
-                
-                <BigCategoryButton 
-                    id="COLOR" label={bigGroupLabels.COLOR} count={bigGroupsCounts.COLOR} 
-                    icon={Palette} colorClass="bg-purple-50 text-purple-600 border-purple-100 group-hover:bg-purple-600 group-hover:text-white"
-                    onClick={() => setSelectedBigGroup('COLOR')} onEditLabel={(id, name) => setEditingBigGroup({ id, name })}
-                />
-
-                <BigCategoryButton 
-                    id="BW" label={bigGroupLabels.BW} count={bigGroupsCounts.BW} 
-                    icon={Printer} colorClass="bg-slate-100 text-slate-600 border-slate-200 group-hover:bg-slate-700 group-hover:text-white"
-                    onClick={() => setSelectedBigGroup('BW')} onEditLabel={(id, name) => setEditingBigGroup({ id, name })}
-                />
-
-                <BigCategoryButton 
-                    id="COMMON" label={bigGroupLabels.COMMON} count={bigGroupsCounts.COMMON} 
-                    icon={Archive} colorClass="bg-amber-50 text-amber-600 border-amber-100 group-hover:bg-amber-500 group-hover:text-white"
-                    onClick={() => setSelectedBigGroup('COMMON')} onEditLabel={(id, name) => setEditingBigGroup({ id, name })}
-                />
-
-                <BigCategoryButton 
-                    id="OTHER" label={bigGroupLabels.OTHER} count={bigGroupsCounts.OTHER} 
-                    icon={MoreHorizontal} colorClass="bg-blue-50 text-blue-600 border-blue-100 group-hover:bg-blue-600 group-hover:text-white"
-                    onClick={() => setSelectedBigGroup('OTHER')} onEditLabel={(id, name) => setEditingBigGroup({ id, name })}
-                />
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                    <SortableContext items={categoryOrder} strategy={verticalListSortingStrategy}>
+                        {categoryOrder.map(id => (
+                            <SortableBigCategory 
+                                key={id}
+                                category={{
+                                    id: id,
+                                    label: bigGroupLabels[id],
+                                    ...categoryConfig[id]
+                                }}
+                                count={bigGroupsCounts[id]}
+                                onClick={() => setSelectedBigGroup(id)}
+                                onEditLabel={(catId, name) => setEditingBigGroup({ id: catId, name })}
+                            />
+                        ))}
+                    </SortableContext>
+                </DndContext>
              </div>
           )}
 
@@ -475,7 +527,7 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
       {/* 彈出視窗 */}
       <EditInventoryModal isOpen={!!editingItem || isAddMode} onClose={() => { setEditingItem(null); setIsAddMode(false); }} onSave={handleModalSave} onDelete={(id) => { onDeleteInventory(id); setEditingItem(null); }} initialItem={editingItem} existingModels={Object.keys(groupedInventory)} defaultModel={activeCategory} />
       
-      {/* 分類/型號 改名視窗 (共用) */}
+      {/* 分類/型號 改名視窗 */}
       <RenameModal 
           isOpen={!!groupToRename || !!editingBigGroup} 
           title={editingBigGroup ? "修改大分類名稱" : "修改型號名稱"}
