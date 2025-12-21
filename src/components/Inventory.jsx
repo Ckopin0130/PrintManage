@@ -1,12 +1,12 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { 
   ArrowLeft, Plus, Search, Folder, ChevronRight, ChevronDown, Edit3, 
-  RotateCcw, CheckCircle, Package, Trash2, AlertTriangle, Box, Tag
+  RotateCcw, CheckCircle, Package, Trash2, AlertTriangle, Box, Tag, Layers, 
+  Printer, Palette, Archive, MoreHorizontal
 } from 'lucide-react';
 
-// --- 1. 編輯與新增視窗 (新增：次分類欄位) ---
+// --- 1. 編輯與新增視窗 ---
 const EditInventoryModal = ({ isOpen, onClose, onSave, onDelete, initialItem, existingModels, defaultModel }) => {
-  // 新增 subGroup 欄位，用來做第二層收納
   const [formData, setFormData] = useState({ name: '', model: '', subGroup: '', qty: 0, max: 5, unit: '個' });
   const [useCustomModel, setUseCustomModel] = useState(false);
   
@@ -33,9 +33,9 @@ const EditInventoryModal = ({ isOpen, onClose, onSave, onDelete, initialItem, ex
         </div>
         
         <div className="space-y-4 mb-6">
-           {/* 主分類 */}
+           {/* 主分類 (機型) */}
            <div>
-             <label className="text-xs font-bold text-slate-400 block mb-1.5 uppercase tracking-wider">主分類 (資料夾)</label>
+             <label className="text-xs font-bold text-slate-400 block mb-1.5 uppercase tracking-wider">歸屬機型 (資料夾)</label>
              {!useCustomModel ? (
                <div className="flex gap-2">
                  <select className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none text-slate-700 font-bold text-base" value={formData.model} onChange={e => setFormData({...formData, model: e.target.value})}>
@@ -45,25 +45,23 @@ const EditInventoryModal = ({ isOpen, onClose, onSave, onDelete, initialItem, ex
                </div>
              ) : (
                 <div className="flex gap-2">
-                  <input autoFocus placeholder="輸入新分類" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none font-bold text-base" value={formData.model} onChange={e => setFormData({...formData, model: e.target.value})} />
+                  <input autoFocus placeholder="輸入新機型" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none font-bold text-base" value={formData.model} onChange={e => setFormData({...formData, model: e.target.value})} />
                   <button onClick={() => setUseCustomModel(false)} className="bg-slate-100 text-slate-500 px-3 rounded-xl text-sm font-bold whitespace-nowrap">取消</button>
                 </div>
              )}
            </div>
 
-           {/* 次分類 (關鍵功能) */}
-           <div>
-               <label className="text-xs font-bold text-slate-400 block mb-1.5 uppercase tracking-wider">次分類 (收攏群組)</label>
-               <div className="relative">
-                   <Tag size={16} className="absolute left-3 top-3.5 text-slate-400"/>
-                   <input 
-                      placeholder="例如: C3503 (選填)" 
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 pl-9 pr-3 outline-none text-base text-slate-800 font-bold placeholder:font-normal placeholder:text-slate-400" 
-                      value={formData.subGroup} 
-                      onChange={e => setFormData({...formData, subGroup: e.target.value})} 
-                   />
-               </div>
-               <p className="text-[10px] text-slate-400 mt-1 ml-1">若填寫相同名稱，列表會自動將它們收納在一起。</p>
+           {/* 次分類 (收納群組) */}
+           <div className="bg-blue-50/50 p-3 rounded-xl border border-blue-100">
+               <label className="text-xs font-bold text-blue-500 block mb-1.5 uppercase tracking-wider flex items-center">
+                   <Tag size={12} className="mr-1"/> 次分類 (選填：用於收納)
+               </label>
+               <input 
+                  placeholder="例如: MP C5503 (填寫相同名稱會自動分組)" 
+                  className="w-full bg-white border border-blue-200 rounded-lg py-2 px-3 outline-none text-base text-slate-800 font-bold placeholder:font-normal placeholder:text-slate-400 focus:ring-2 focus:ring-blue-100" 
+                  value={formData.subGroup} 
+                  onChange={e => setFormData({...formData, subGroup: e.target.value})} 
+               />
            </div>
            
            <div>
@@ -74,7 +72,7 @@ const EditInventoryModal = ({ isOpen, onClose, onSave, onDelete, initialItem, ex
            <div className="grid grid-cols-3 gap-3">
               <div className="col-span-1">
                   <label className="text-xs font-bold text-slate-400 block mb-1.5 uppercase tracking-wider">目前數量</label>
-                  <input type="number" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none text-center font-mono font-bold text-lg text-blue-600" value={formData.qty} onChange={e => setFormData({...formData, qty: Number(e.target.value)})} />
+                  <input type="number" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none text-center font-mono font-bold text-xl text-blue-600" value={formData.qty} onChange={e => setFormData({...formData, qty: Number(e.target.value)})} />
               </div>
               <div className="col-span-1">
                   <label className="text-xs font-bold text-slate-400 block mb-1.5 uppercase tracking-wider">應備量</label>
@@ -114,12 +112,9 @@ const RenameGroupModal = ({ isOpen, onClose, onRename, oldName }) => {
   );
 };
 
-// --- 3. 項目列表列 (List Item) - 正常化設計 ---
-// 字體調整回 text-sm / text-base，不再巨大化
+// --- 3. 項目列表列 (List Item) ---
 const InventoryRow = ({ item, onEdit, onRestock, isLast }) => {
     const isOut = item.qty === 0;
-    
-    // 正常化樣式：字體適中，背景乾淨
     const rowClass = isOut ? "bg-rose-50/60" : "bg-white hover:bg-slate-50";
     const textClass = isOut ? "text-rose-700" : "text-slate-700";
     const numClass = isOut ? "text-rose-600" : "text-blue-600";
@@ -130,35 +125,22 @@ const InventoryRow = ({ item, onEdit, onRestock, isLast }) => {
             onClick={() => onEdit(item)} 
             className={`flex items-center justify-between py-3 px-4 transition-colors cursor-pointer ${rowClass} ${borderClass}`}
         >
-            {/* 左側：品名 + 單位 */}
             <div className="flex items-center flex-1 min-w-0 mr-3">
-                <span className={`text-[15px] font-bold truncate leading-tight ${textClass}`}>
-                    {item.name}
-                </span>
-                <span className="text-xs font-bold text-slate-400 ml-2 shrink-0">
-                    {item.unit}
-                </span>
+                <span className={`text-[15px] font-bold truncate leading-tight ${textClass}`}>{item.name}</span>
+                <span className="text-xs font-bold text-slate-400 ml-2 shrink-0">{item.unit}</span>
                 {isOut && <span className="ml-2 px-1.5 py-0.5 bg-rose-200 text-rose-700 text-[10px] font-black rounded">缺貨</span>}
             </div>
-
-            {/* 右側：標準大小數據 + 操作 */}
             <div className="flex items-center gap-3 shrink-0">
                 <div className={`font-mono font-bold text-[15px] ${numClass}`}>
                     {item.qty} <span className="text-slate-300 text-xs font-bold">/ {item.max}</span>
                 </div>
-                
                 <div onClick={e => e.stopPropagation()}>
                     {item.qty < item.max ? (
-                        <button 
-                            onClick={() => onRestock(item.id, item.max)} 
-                            className="p-1.5 rounded-lg bg-blue-100 text-blue-600 hover:bg-blue-600 hover:text-white transition-colors"
-                        >
+                        <button onClick={() => onRestock(item.id, item.max)} className="p-1.5 rounded-lg bg-blue-100 text-blue-600 hover:bg-blue-600 hover:text-white transition-colors">
                             <RotateCcw size={18} />
                         </button>
                     ) : (
-                        <div className="p-1.5 text-emerald-400">
-                            <CheckCircle size={18} />
-                        </div>
+                        <div className="p-1.5 text-emerald-400"><CheckCircle size={18} /></div>
                     )}
                 </div>
             </div>
@@ -166,14 +148,13 @@ const InventoryRow = ({ item, onEdit, onRestock, isLast }) => {
     );
 }
 
-// --- 4. 可收合的群組 (手風琴效果) ---
+// --- 4. 可收合的群組 (手風琴) ---
 const AccordionGroup = ({ groupName, items, onEdit, onRestock }) => {
     const [isOpen, setIsOpen] = useState(false);
     const lowStockCount = items.filter(i => i.qty === 0).length;
 
     return (
         <div className="border border-slate-200 bg-white rounded-xl overflow-hidden shadow-sm mb-3">
-            {/* 標題列：點擊展開/收合 */}
             <div 
                 onClick={() => setIsOpen(!isOpen)}
                 className={`flex justify-between items-center px-4 py-3 cursor-pointer select-none transition-colors ${isOpen ? 'bg-slate-50 border-b border-slate-100' : 'bg-white hover:bg-slate-50'}`}
@@ -182,30 +163,15 @@ const AccordionGroup = ({ groupName, items, onEdit, onRestock }) => {
                     {isOpen ? <ChevronDown size={18} className="text-slate-400"/> : <ChevronRight size={18} className="text-slate-400"/>}
                     <span className="text-base font-extrabold text-slate-800">{groupName}</span>
                 </div>
-                
                 <div className="flex items-center gap-3">
-                    {lowStockCount > 0 && (
-                        <span className="flex items-center text-xs font-bold text-rose-500 bg-rose-50 px-2 py-0.5 rounded-full">
-                            <AlertTriangle size={10} className="mr-1"/> {lowStockCount} 缺
-                        </span>
-                    )}
-                    <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md">
-                        {items.length} 項
-                    </span>
+                    {lowStockCount > 0 && <span className="flex items-center text-xs font-bold text-rose-500 bg-rose-50 px-2 py-0.5 rounded-full"><AlertTriangle size={10} className="mr-1"/> {lowStockCount} 缺</span>}
+                    <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md">{items.length} 項</span>
                 </div>
             </div>
-
-            {/* 內容區域 */}
             {isOpen && (
                 <div className="bg-white animate-in slide-in-from-top-1">
                     {items.map((item, idx) => (
-                        <InventoryRow 
-                            key={item.id} 
-                            item={item} 
-                            onEdit={onEdit} 
-                            onRestock={onRestock}
-                            isLast={idx === items.length - 1}
-                        />
+                        <InventoryRow key={item.id} item={item} onEdit={onEdit} onRestock={onRestock} isLast={idx === items.length - 1} />
                     ))}
                 </div>
             )}
@@ -213,50 +179,46 @@ const AccordionGroup = ({ groupName, items, onEdit, onRestock }) => {
     );
 };
 
-// --- 5. 分類卡片 (首頁大圖示) ---
+// --- 5. 分類卡片 (Folder Card - 第二層) ---
 const CategoryCard = ({ title, count, lowStock, onClick, onRename }) => {
     return (
-        <div 
-            onClick={onClick}
-            className="bg-white p-5 rounded-2xl border border-slate-100 shadow-[0_2px_10px_rgb(0,0,0,0.03)] active:scale-95 transition-all cursor-pointer group relative overflow-hidden"
-        >
-            <div className="flex justify-between items-start mb-3">
-                <div className="p-3 bg-blue-50 text-blue-600 rounded-xl group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                    {title.includes('碳粉') ? <Package size={24} /> : <Folder size={24} />}
+        <div onClick={onClick} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-[0_2px_8px_rgb(0,0,0,0.03)] active:scale-95 transition-all cursor-pointer group relative overflow-hidden flex flex-col justify-between">
+            <div className="flex justify-between items-start mb-2">
+                <div className="p-2.5 rounded-xl bg-slate-50 text-slate-500"><Folder size={20} /></div>
+                <button onClick={(e) => { e.stopPropagation(); onRename(title); }} className="p-1.5 text-slate-300 hover:text-blue-500 hover:bg-slate-50 rounded-lg transition-colors"><Edit3 size={16} /></button>
+            </div>
+            <div>
+                <h3 className="text-base font-extrabold text-slate-800 mb-0.5 truncate">{title}</h3>
+                <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400">
+                    <span>{count} 項目</span>
+                    {lowStock > 0 && <span className="text-rose-500 flex items-center bg-rose-50 px-1 py-0.5 rounded"><AlertTriangle size={8} className="mr-0.5"/> {lowStock} 缺</span>}
                 </div>
-                <button 
-                    onClick={(e) => { e.stopPropagation(); onRename(title); }}
-                    className="p-2 text-slate-300 hover:text-blue-500 hover:bg-slate-50 rounded-lg transition-colors"
-                >
-                    <Edit3 size={16} />
-                </button>
-            </div>
-            <h3 className="text-lg font-extrabold text-slate-800 mb-1 truncate">{title}</h3>
-            <div className="flex items-center gap-3 text-xs font-bold text-slate-400">
-                <span>{count} 個項目</span>
-                {lowStock > 0 && (
-                    <span className="text-rose-500 flex items-center bg-rose-50 px-1.5 py-0.5 rounded">
-                        <AlertTriangle size={10} className="mr-1"/> {lowStock} 缺
-                    </span>
-                )}
-            </div>
-            <div className="absolute right-3 bottom-3 opacity-0 group-hover:opacity-100 transition-opacity text-slate-300">
-                <ChevronRight size={20} />
             </div>
         </div>
     );
 };
 
-// --- 6. 主視圖 ---
+// --- 6. 輔助函數：判斷大分類歸屬 ---
+const getBigGroup = (modelName) => {
+    const up = modelName.toUpperCase();
+    if (up.includes(' C') || up.includes('MPC') || up.includes('IM C') || up.includes('IMC') || up.includes('彩色')) return 'COLOR';
+    if (up.includes('MP') || up.includes('IM') || up.includes('AFICIO') || up.includes('黑白')) return 'BW';
+    if (up.includes('耗材') || up.includes('碳粉') || up.includes('通用')) return 'COMMON';
+    return 'OTHER';
+};
+
+// --- 7. 主視圖 (三層式架構) ---
 const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteInventory, onRenameGroup, onBack }) => {
-  // 狀態
+  // 導航狀態: null (首頁) -> selectedBigGroup (第二層) -> activeCategory (第三層)
+  const [selectedBigGroup, setSelectedBigGroup] = useState(null); 
   const [activeCategory, setActiveCategory] = useState(null); 
+  
   const [editingItem, setEditingItem] = useState(null);
   const [isAddMode, setIsAddMode] = useState(false);
   const [groupToRename, setGroupToRename] = useState(null);
   const [searchTerm, setSearchTerm] = useState(''); 
 
-  // 資料處理：依 Model 分組 (主分類)
+  // 資料分組
   const groupedInventory = useMemo(() => {
     const groups = {};
     inventory.forEach(item => {
@@ -267,23 +229,36 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
     return groups;
   }, [inventory]);
 
-  const categories = useMemo(() => Object.keys(groupedInventory).sort(), [groupedInventory]);
+  // 大分類清單與數量計算
+  const bigGroupsData = useMemo(() => {
+      const counts = { COLOR: 0, BW: 0, COMMON: 0, OTHER: 0 };
+      Object.keys(groupedInventory).forEach(model => {
+          const bg = getBigGroup(model);
+          counts[bg] += groupedInventory[model].length;
+      });
+      return counts;
+  }, [groupedInventory]);
 
-  // 取得目前分類下的資料，並處理「次分類收攏」邏輯
-  const currentCategoryData = useMemo(() => {
-    if (!activeCategory) return { grouped: {}, ungrouped: [] };
-    
+  // 第二層：取得目前選定大分類下的所有型號資料夾
+  const currentFolders = useMemo(() => {
+      if (!selectedBigGroup) return [];
+      const allModels = Object.keys(groupedInventory).sort();
+      return allModels.filter(model => getBigGroup(model) === selectedBigGroup);
+  }, [selectedBigGroup, groupedInventory]);
+
+  // 第三層：取得目前選定型號下的項目 (含收納)
+  const currentItemsData = useMemo(() => {
+    if (!activeCategory) return { grouped: {}, ungrouped: [], totalCount: 0 };
     let list = groupedInventory[activeCategory] || [];
-    // 搜尋過濾
+    
+    // 搜尋功能
     if (searchTerm) {
         const lower = searchTerm.toLowerCase();
         list = list.filter(i => i.name.toLowerCase().includes(lower) || (i.subGroup && i.subGroup.toLowerCase().includes(lower)));
     }
 
-    // 分離有 SubGroup 和沒有的
     const grouped = {};
     const ungrouped = [];
-
     list.forEach(item => {
         if (item.subGroup) {
             if (!grouped[item.subGroup]) grouped[item.subGroup] = [];
@@ -292,69 +267,58 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
             ungrouped.push(item);
         }
     });
-
     return { grouped, ungrouped, totalCount: list.length };
   }, [activeCategory, groupedInventory, searchTerm]);
 
-  // Handle Functions
+  // 返回鍵邏輯
+  const handleBackNavigation = () => {
+      if (activeCategory) {
+          setActiveCategory(null);
+          setSearchTerm('');
+      } else if (selectedBigGroup) {
+          setSelectedBigGroup(null);
+      } else {
+          onBack();
+      }
+  };
+
+  // 標題顯示邏輯
+  const getHeaderTitle = () => {
+      if (activeCategory) return activeCategory;
+      if (selectedBigGroup === 'COLOR') return '彩色影印機';
+      if (selectedBigGroup === 'BW') return '黑白影印機';
+      if (selectedBigGroup === 'COMMON') return '共用耗材';
+      if (selectedBigGroup === 'OTHER') return '其他周邊';
+      return '庫存管理';
+  };
+
   const handleRestock = (id, max) => {
     const item = inventory.find(i => i.id === id);
     if(item) onUpdateInventory({...item, qty: max});
   };
-
   const handleModalSave = (itemData) => {
-    if (isAddMode) {
-      onAddInventory(itemData);
-      setIsAddMode(false);
-    } else {
-      onUpdateInventory(itemData);
-      setEditingItem(null);
-    }
+    if (isAddMode) { onAddInventory(itemData); setIsAddMode(false); } 
+    else { onUpdateInventory(itemData); setEditingItem(null); }
   };
 
   return (
     <div className="bg-slate-50 min-h-screen pb-24 flex flex-col font-sans">
-       
-       {/* 頂部導覽列 */}
+       {/* 頂部導覽 */}
        <div className="bg-white/95 backdrop-blur px-4 py-3 shadow-sm sticky top-0 z-30 border-b border-slate-100/50">
-         <div className="flex justify-between items-center">
+         <div className="flex justify-between items-center mb-3">
             <div className="flex items-center overflow-hidden">
-              <button 
-                onClick={() => {
-                    if (activeCategory) { setActiveCategory(null); setSearchTerm(''); } 
-                    else onBack(); 
-                }} 
-                className="p-2 -ml-2 text-slate-500 hover:bg-slate-50 rounded-full mr-1 transition-colors"
-              >
-                  <ArrowLeft size={24}/>
-              </button>
-              
+              <button onClick={handleBackNavigation} className="p-2 -ml-2 text-slate-500 hover:bg-slate-50 rounded-full mr-1 transition-colors"><ArrowLeft size={24}/></button>
               <div className="flex flex-col ml-1">
-                  <h2 className="text-xl font-extrabold text-slate-800 tracking-wide truncate max-w-[150px]">
-                      {activeCategory ? activeCategory : '庫存總覽'}
-                  </h2>
-                  {activeCategory && <span className="text-[10px] font-bold text-slate-400">點擊箭頭返回</span>}
+                  <h2 className="text-xl font-extrabold text-slate-800 tracking-wide truncate max-w-[180px]">{getHeaderTitle()}</h2>
+                  {(selectedBigGroup || activeCategory) && <span className="text-[10px] font-bold text-slate-400">點擊箭頭返回上一層</span>}
               </div>
             </div>
-
-            <button 
-                onClick={() => setIsAddMode(true)} 
-                className="flex items-center text-sm font-bold bg-blue-600 text-white px-3 py-2 rounded-xl shadow-lg shadow-blue-200 hover:bg-blue-700 active:scale-95 transition-all"
-            >
-                <Plus size={18} className="mr-1"/>新增
-            </button>
+            <button onClick={() => setIsAddMode(true)} className="flex items-center text-sm font-bold bg-blue-600 text-white px-3 py-2 rounded-xl shadow-lg shadow-blue-200 hover:bg-blue-700 active:scale-95 transition-all"><Plus size={18} className="mr-1"/>新增</button>
          </div>
-
-         {/* 只有在列表項目很多時，才顯示搜尋框 */}
-         {activeCategory && (currentCategoryData.totalCount > 8) && (
-             <div className="mt-3 relative animate-in fade-in slide-in-from-top-1">
+         {activeCategory && (currentItemsData.totalCount > 5) && (
+             <div className="relative animate-in fade-in slide-in-from-top-1">
                 <Search size={18} className="absolute left-3 top-2.5 text-slate-400" />
-                <input 
-                    className="w-full bg-slate-100 border-none rounded-xl py-2 pl-10 pr-4 text-sm outline-none focus:ring-2 focus:ring-blue-100 font-bold text-slate-700 transition-all placeholder-slate-400" 
-                    placeholder={`搜尋 ${activeCategory} ...`}
-                    value={searchTerm} 
-                    onChange={e => setSearchTerm(e.target.value)} 
-                />
+                <input className="w-full bg-slate-100 border-none rounded-xl py-2 pl-10 pr-4 text-sm outline-none focus:ring-2 focus:ring-blue-100 font-bold text-slate-700 transition-all placeholder-slate-400" placeholder={`搜尋 ${activeCategory} ...`} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
              </div>
          )}
       </div>
@@ -362,99 +326,71 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
       {/* 內容區 */}
       <div className="p-4 flex-1">
           
-          {/* 模式 A: 首頁分類總覽 (Grid) */}
-          {!activeCategory && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {categories.length === 0 ? (
-                      <div className="col-span-full text-center text-slate-400 mt-20">
-                          <Box size={48} className="mx-auto mb-3 opacity-20"/>
-                          <p className="font-bold">目前沒有庫存資料</p>
-                      </div>
-                  ) : (
-                      categories.map(cat => {
-                          const items = groupedInventory[cat];
-                          const lowStock = items.filter(i => i.qty === 0).length;
-                          return (
-                              <CategoryCard 
-                                  key={cat} 
-                                  title={cat} 
-                                  count={items.length} 
-                                  lowStock={lowStock} 
-                                  onClick={() => setActiveCategory(cat)}
-                                  onRename={setGroupToRename}
-                              />
-                          )
-                      })
-                  )}
+          {/* Level 1: 四大分類 (參考客戶名冊樣式) */}
+          {!selectedBigGroup && (
+             <div className="space-y-3 animate-in slide-in-from-left-4 duration-300">
+                <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 ml-1">選擇設備類型</div>
+                
+                <button onClick={() => setSelectedBigGroup('COLOR')} className="w-full bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center active:scale-[0.98] transition-all hover:border-purple-200 group">
+                    <div className="bg-purple-50 p-3 rounded-xl mr-4 text-purple-600 border border-purple-100 group-hover:bg-purple-600 group-hover:text-white transition-colors"><Palette size={24}/></div>
+                    <div className="flex-1 text-left"><h3 className="text-lg font-extrabold text-slate-800">彩色影印機</h3><span className="text-xs text-slate-500 font-bold">共 {bigGroupsData.COLOR} 個零件</span></div><ChevronRight className="text-slate-300" />
+                </button>
+
+                <button onClick={() => setSelectedBigGroup('BW')} className="w-full bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center active:scale-[0.98] transition-all hover:border-slate-300 group">
+                    <div className="bg-slate-100 p-3 rounded-xl mr-4 text-slate-600 border border-slate-200 group-hover:bg-slate-700 group-hover:text-white transition-colors"><Printer size={24}/></div>
+                    <div className="flex-1 text-left"><h3 className="text-lg font-extrabold text-slate-800">黑白影印機</h3><span className="text-xs text-slate-500 font-bold">共 {bigGroupsData.BW} 個零件</span></div><ChevronRight className="text-slate-300" />
+                </button>
+
+                <button onClick={() => setSelectedBigGroup('COMMON')} className="w-full bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center active:scale-[0.98] transition-all hover:border-amber-200 group">
+                    <div className="bg-amber-50 p-3 rounded-xl mr-4 text-amber-600 border border-amber-100 group-hover:bg-amber-500 group-hover:text-white transition-colors"><Archive size={24}/></div>
+                    <div className="flex-1 text-left"><h3 className="text-lg font-extrabold text-slate-800">共用耗材</h3><span className="text-xs text-slate-500 font-bold">共 {bigGroupsData.COMMON} 個零件</span></div><ChevronRight className="text-slate-300" />
+                </button>
+
+                <button onClick={() => setSelectedBigGroup('OTHER')} className="w-full bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center active:scale-[0.98] transition-all hover:border-blue-200 group">
+                    <div className="bg-blue-50 p-3 rounded-xl mr-4 text-blue-600 border border-blue-100 group-hover:bg-blue-600 group-hover:text-white transition-colors"><MoreHorizontal size={24}/></div>
+                    <div className="flex-1 text-left"><h3 className="text-lg font-extrabold text-slate-800">其他周邊</h3><span className="text-xs text-slate-500 font-bold">共 {bigGroupsData.OTHER} 個零件</span></div><ChevronRight className="text-slate-300" />
+                </button>
+             </div>
+          )}
+
+          {/* Level 2: 機型資料夾 (Grid) */}
+          {selectedBigGroup && !activeCategory && (
+              <div className="animate-in slide-in-from-right-4 duration-300">
+                  <div className="grid grid-cols-2 gap-3">
+                      {currentFolders.length === 0 ? (
+                          <div className="col-span-full text-center text-slate-400 mt-20"><Box size={48} className="mx-auto mb-3 opacity-20"/><p className="font-bold">此分類下尚無資料</p></div>
+                      ) : (
+                          currentFolders.map(model => {
+                              const items = groupedInventory[model];
+                              const lowStock = items.filter(i => i.qty === 0).length;
+                              return <CategoryCard key={model} title={model} count={items.length} lowStock={lowStock} onClick={() => setActiveCategory(model)} onRename={setGroupToRename} />
+                          })
+                      )}
+                  </div>
               </div>
           )}
 
-          {/* 模式 B: 分類詳細列表 (Accordion + List) */}
+          {/* Level 3: 零件列表 (Accordion + List) */}
           {activeCategory && (
               <div className="space-y-4 animate-in slide-in-from-right-4 duration-300">
-                  
-                  {currentCategoryData.totalCount === 0 && (
-                      <div className="text-center text-slate-400 mt-10">
-                          <p className="font-bold">沒有相關項目</p>
-                      </div>
-                  )}
-
-                  {/* 1. 先顯示有設定「次分類」的群組 (手風琴) */}
-                  {Object.keys(currentCategoryData.grouped).sort().map(subGroupName => (
-                      <AccordionGroup 
-                          key={subGroupName}
-                          groupName={subGroupName}
-                          items={currentCategoryData.grouped[subGroupName]}
-                          onEdit={setEditingItem}
-                          onRestock={handleRestock}
-                      />
+                  {currentItemsData.totalCount === 0 && <div className="text-center text-slate-400 mt-10"><p className="font-bold">沒有相關項目</p></div>}
+                  {Object.keys(currentItemsData.grouped).sort().map(subGroupName => (
+                      <AccordionGroup key={subGroupName} groupName={subGroupName} items={currentItemsData.grouped[subGroupName]} onEdit={setEditingItem} onRestock={handleRestock} />
                   ))}
-
-                  {/* 2. 再顯示沒有次分類的散戶 (一般列表) */}
-                  {currentCategoryData.ungrouped.length > 0 && (
+                  {currentItemsData.ungrouped.length > 0 && (
                       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-                          {Object.keys(currentCategoryData.grouped).length > 0 && (
-                              <div className="bg-slate-50 px-4 py-2 text-xs font-bold text-slate-400 border-b border-slate-100">
-                                  其他未分類項目
-                              </div>
-                          )}
-                          {currentCategoryData.ungrouped.map((item, idx) => (
-                              <InventoryRow 
-                                  key={item.id} 
-                                  item={item} 
-                                  onEdit={setEditingItem} 
-                                  onRestock={handleRestock}
-                                  isLast={idx === currentCategoryData.ungrouped.length - 1}
-                              />
+                          {Object.keys(currentItemsData.grouped).length > 0 && <div className="bg-slate-50 px-4 py-2 text-xs font-bold text-slate-400 border-b border-slate-100">其他未分類項目</div>}
+                          {currentItemsData.ungrouped.map((item, idx) => (
+                              <InventoryRow key={item.id} item={item} onEdit={setEditingItem} onRestock={handleRestock} isLast={idx === currentItemsData.ungrouped.length - 1} />
                           ))}
                       </div>
                   )}
-
-                  <div className="text-center pt-4">
-                      <p className="text-[10px] text-slate-300 font-bold">
-                          共 {currentCategoryData.totalCount} 筆
-                      </p>
-                  </div>
               </div>
           )}
       </div>
 
-      {/* 彈出視窗 */}
-      <EditInventoryModal 
-        isOpen={!!editingItem || isAddMode} 
-        onClose={() => { setEditingItem(null); setIsAddMode(false); }} 
-        onSave={handleModalSave} 
-        onDelete={(id) => { onDeleteInventory(id); setEditingItem(null); }} 
-        initialItem={editingItem} 
-        existingModels={categories} 
-        defaultModel={activeCategory} 
-      />
-      <RenameGroupModal 
-        isOpen={!!groupToRename} 
-        oldName={groupToRename} 
-        onClose={() => setGroupToRename(null)} 
-        onRename={onRenameGroup} 
-      />
+      <EditInventoryModal isOpen={!!editingItem || isAddMode} onClose={() => { setEditingItem(null); setIsAddMode(false); }} onSave={handleModalSave} onDelete={(id) => { onDeleteInventory(id); setEditingItem(null); }} initialItem={editingItem} existingModels={Object.keys(groupedInventory)} defaultModel={activeCategory} />
+      <RenameGroupModal isOpen={!!groupToRename} oldName={groupToRename} onClose={() => setGroupToRename(null)} onRename={onRenameGroup} />
     </div>
   );
 };
