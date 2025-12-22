@@ -52,7 +52,7 @@ const getBigCategoryType = (modelName, item) => {
     return 'OTHER';
 };
 
-// --- 1. 報表視窗 (支援篩選與排序) ---
+// --- 1. 報表視窗 (支援篩選、排序與智慧顯示) ---
 const ReportModal = ({ isOpen, onClose, inventory, modelOrder, subGroupOrder, itemOrder }) => {
   const [copied, setCopied] = useState(false);
   const [onlyMissing, setOnlyMissing] = useState(false);
@@ -119,8 +119,27 @@ const ReportModal = ({ isOpen, onClose, inventory, modelOrder, subGroupOrder, it
                 const isOut = i.qty <= 0;
                 const isLow = i.qty < i.max / 2;
                 const status = isOut ? '❌缺' : (isLow ? '⚠️補' : '✅');
-                const displayName = i.subGroup ? `${i.name} (${i.subGroup})` : i.name;
-                text += `\n${status} ${displayName}: ${i.qty}/${i.max} ${i.unit}`;
+                
+                // --- 智慧顯示邏輯 ---
+                let displayName = i.name;
+                
+                // 1. 如果名稱開頭包含型號 (忽略大小寫)，則移除型號部分
+                // 例如: model="C5000", name="C5000 黑色" -> 顯示 "黑色"
+                if (displayName.toUpperCase().startsWith(model.toUpperCase())) {
+                    displayName = displayName.substring(model.length).trim();
+                    // 移除可能留下的連接符號 (如 - 或空格)
+                    displayName = displayName.replace(/^[-_\s]+/, '');
+                }
+                
+                // 2. 如果次分類 (subGroup) 與型號相同，就不顯示次分類，避免重複
+                const subDisplay = (i.subGroup && i.subGroup.toUpperCase() !== model.toUpperCase()) 
+                                   ? ` (${i.subGroup})` 
+                                   : '';
+
+                // 如果移除完型號後名稱變空了 (例如原本只叫 "C5000")，就保留原名，不然會空白
+                if (!displayName) displayName = i.name;
+
+                text += `\n${status} ${displayName}${subDisplay}: ${i.qty}/${i.max} ${i.unit}`;
             });
         }
     });
@@ -167,7 +186,7 @@ const ReportModal = ({ isOpen, onClose, inventory, modelOrder, subGroupOrder, it
 };
 
 // --- 2. 編輯與新增視窗 ---
-const EditInventoryModal = ({ isOpen, onClose, onSave, onDelete, initialItem, existingModels, defaultModel }) => {
+const EditInventoryModal = ({ isOpen, onClose, onSave, onDelete, initialItem, existingModels, defaultModel, defaultCategoryType }) => {
   const [formData, setFormData] = useState({ name: '', model: '', subGroup: '', qty: 0, max: 5, unit: '個', categoryType: 'OTHER' });
   const [useCustomModel, setUseCustomModel] = useState(false);
   
@@ -178,11 +197,20 @@ const EditInventoryModal = ({ isOpen, onClose, onSave, onDelete, initialItem, ex
         setUseCustomModel(false);
       } else {
         const targetModel = defaultModel || existingModels[0] || '共用耗材';
-        setFormData({ name: '', model: targetModel, subGroup: '', qty: 1, max: 5, unit: '個', categoryType: getBigCategoryType(targetModel, null) });
+        // 智慧預設：如果有傳入目前的大分類 (defaultCategoryType)，就優先使用，否則才自動判斷
+        const initialCategory = defaultCategoryType || getBigCategoryType(targetModel, null);
+
+        setFormData({ 
+            name: '', 
+            model: targetModel, 
+            subGroup: '', 
+            qty: 1, max: 5, unit: '個', 
+            categoryType: initialCategory 
+        });
         setUseCustomModel(defaultModel && !existingModels.includes(defaultModel));
       }
     }
-  }, [isOpen, initialItem, existingModels, defaultModel]);
+  }, [isOpen, initialItem, existingModels, defaultModel, defaultCategoryType]);
 
   if (!isOpen) return null;
   
@@ -248,27 +276,6 @@ const EditInventoryModal = ({ isOpen, onClose, onSave, onDelete, initialItem, ex
         <div className="flex gap-3">
             <button onClick={onClose} className="flex-1 py-3 bg-slate-100 font-bold text-slate-500 rounded-xl hover:bg-slate-200 transition-colors text-base">取消</button>
             <button onClick={() => { if(formData.name && formData.model) onSave(formData); }} className="flex-1 py-3 bg-blue-600 font-bold text-white rounded-xl shadow-lg shadow-blue-200 hover:bg-blue-700 transition-colors active:scale-95 text-base">儲存</button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const RenameModal = ({ isOpen, onClose, onRename, onDelete, oldName, title = "修改名稱" }) => {
-  const [newName, setNewName] = useState(oldName || '');
-  useEffect(() => { setNewName(oldName || ''); }, [oldName]);
-  if (!isOpen) return null;
-  return (
-    <div className="fixed inset-0 bg-black/60 z-[80] flex items-start justify-center pt-24 p-4 animate-in fade-in" onClick={onClose}>
-      <div className="bg-white w-full max-w-xs rounded-2xl p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
-        <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-bold text-slate-800">{title}</h3>
-            {onDelete && <button onClick={onDelete} className="text-xs bg-rose-50 text-rose-500 px-2 py-1 rounded hover:bg-rose-100 font-bold">刪除分類</button>}
-        </div>
-        <input autoFocus className="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 outline-none mb-6 font-bold text-lg text-slate-700" value={newName} onChange={e => setNewName(e.target.value)} />
-        <div className="flex gap-2">
-          <button onClick={onClose} className="flex-1 py-3 bg-slate-100 font-bold text-slate-500 rounded-xl">取消</button>
-          <button onClick={() => { onRename(oldName, newName); onClose(); }} className="flex-1 py-3 bg-blue-600 font-bold text-white rounded-xl shadow-lg">儲存</button>
         </div>
       </div>
     </div>
@@ -733,7 +740,7 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
           </DndContext>
       </div>
 
-      <EditInventoryModal isOpen={!!editingItem || isAddMode} onClose={() => { setEditingItem(null); setIsAddMode(false); }} onSave={handleModalSave} onDelete={(id) => { onDeleteInventory(id); setEditingItem(null); }} initialItem={editingItem} existingModels={Object.keys(groupedInventory)} defaultModel={activeCategory} />
+      <EditInventoryModal isOpen={!!editingItem || isAddMode} onClose={() => { setEditingItem(null); setIsAddMode(false); }} onSave={handleModalSave} onDelete={(id) => { onDeleteInventory(id); setEditingItem(null); }} initialItem={editingItem} existingModels={Object.keys(groupedInventory)} defaultModel={activeCategory} defaultCategoryType={selectedBigGroup} />
       <RenameModal isOpen={!!groupToRename || !!editingBigGroup} title={editingBigGroup ? "修改分類名稱" : "修改型號名稱"} oldName={editingBigGroup ? editingBigGroup.name : groupToRename} onClose={() => { setGroupToRename(null); setEditingBigGroup(null); }} onDelete={editingBigGroup ? () => handleDeleteBigGroup(editingBigGroup.id) : null} onRename={(old, newName) => { if (editingBigGroup) setBigGroupLabels(prev => ({ ...prev, [editingBigGroup.id]: newName })); else onRenameGroup(old, newName); }} />
       <ReportModal isOpen={showReport} onClose={() => setShowReport(false)} inventory={inventory} modelOrder={modelOrder} subGroupOrder={subGroupOrder} itemOrder={itemOrder} />
     </div>
