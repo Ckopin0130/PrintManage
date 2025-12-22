@@ -29,7 +29,7 @@ const ICON_MAP = {
   Droplets, Palette, Printer, Archive, MoreHorizontal, Box, Tag, Settings, FolderPlus
 };
 
-// 預設分類 (初始化用)
+// 預設分類 (初始化用，後續可手動修改)
 const DEFAULT_CATEGORIES = [
   { id: 'cat_toner', name: '碳粉系列', icon: 'Droplets', color: 'text-sky-600', bg: 'bg-sky-100', border: 'border-sky-200' },
   { id: 'cat_color', name: '彩色影印機', icon: 'Palette', color: 'text-purple-600', bg: 'bg-purple-100', border: 'border-purple-200' },
@@ -49,32 +49,21 @@ const migrateCategory = (modelName, item) => {
     return 'cat_other';
 };
 
-// 文字清理 (僅移除重複的型號字串，保持畫面乾淨)
+// 文字清理 (只做最基本的括號移除，不亂切文字)
 const cleanItemName = (modelName, itemName) => {
     if (!modelName || !itemName) return itemName;
     let display = itemName;
     const modelClean = modelName.trim();
-    // 建立安全的 Regex
+    // 移除 "(MP 3352)" 
     const escapedModel = modelClean.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    
-    // 移除 "(Model)" 或 "Model"
     display = display.replace(new RegExp(`\\(${escapedModel}\\)`, 'gi'), '');
     display = display.replace(new RegExp(`${escapedModel}`, 'gi'), '');
-    
-    // 移除拆解後的 token (例如 MP 3352 -> 移除 MP 和 3352)
-    const tokens = modelClean.split(/[\s\-_/]+/).filter(t => t.length > 1); 
-    tokens.sort((a, b) => b.length - a.length); 
-    tokens.forEach(token => {
-        try { display = display.replace(new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), ''); } catch (e) {}
-    });
-    
-    // 移除殘留的空括號與頭尾空格
+    // 移除空的括號
     display = display.replace(/\(\s*\)/g, '');
-    display = display.replace(/^[\s\-_]+|[\s\-_]+$/g, '').trim();
-    return display || itemName; 
+    return display.trim();
 };
 
-// --- 1. 報表視窗 (完全依照手動排序與資料結構) ---
+// --- 1. 報表視窗 (邏輯修正：嚴格依照 UI 排序) ---
 const ReportModal = ({ isOpen, onClose, inventory, categories, modelOrder, itemOrder }) => {
   const [copied, setCopied] = useState(false);
   const [onlyMissing, setOnlyMissing] = useState(false);
@@ -84,13 +73,13 @@ const ReportModal = ({ isOpen, onClose, inventory, categories, modelOrder, itemO
 
     const strItemOrder = itemOrder ? itemOrder.map(String) : [];
 
-    // 1. 資料分組：嚴格依照 categoryId -> model
-    // 不再進行任何「智慧型號提取」，確保報表結構 = 畫面結構
+    // 1. 資料準備：將所有零件依照 categoryId 和 model 分組
     const groupedData = {}; 
 
     inventory.forEach(item => {
-        const catId = item.categoryId || 'cat_other'; 
-        const model = item.model || '未分類';
+        // 這裡使用跟主畫面一模一樣的判斷邏輯，確保分類一致
+        const catId = item.categoryId || migrateCategory(item.model, item);
+        const model = item.model || '未分類'; // 直接使用 model 欄位，不自作聰明
         
         if (!groupedData[catId]) groupedData[catId] = {};
         if (!groupedData[catId][model]) groupedData[catId][model] = [];
@@ -103,24 +92,24 @@ const ReportModal = ({ isOpen, onClose, inventory, categories, modelOrder, itemO
     
     let hasContent = false;
 
-    // Level 1: 遍歷分類 (categories 已經是排序過的)
+    // 2. 依序產生報表
+    // Level 1: 遍歷分類 (categories 陣列本身就是已經排好序的)
     categories.forEach(cat => {
         const modelsObj = groupedData[cat.id];
-        if (!modelsObj) return;
+        if (!modelsObj) return; // 如果該分類沒資料就跳過
+
         const modelsInThisCat = Object.keys(modelsObj);
         if (modelsInThisCat.length === 0) return;
 
-        // Level 2: 排序型號 (使用 modelOrder)
+        // Level 2: 排序型號 (依照 modelOrder)
         modelsInThisCat.sort((a, b) => {
-            if (modelOrder) {
-               const idxA = modelOrder.indexOf(a);
-               const idxB = modelOrder.indexOf(b);
-               // 兩者都有紀錄，照紀錄排
-               if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-               // 只有一個有紀錄，有紀錄的排前面
-               if (idxA !== -1) return -1;
-               if (idxB !== -1) return 1;
-            }
+            const idxA = modelOrder.indexOf(a);
+            const idxB = modelOrder.indexOf(b);
+            // 如果都有紀錄，照紀錄排
+            if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+            // 如果只有一個有紀錄，有紀錄的排前面
+            if (idxA !== -1) return -1;
+            if (idxB !== -1) return 1;
             return a.localeCompare(b);
         });
 
@@ -131,7 +120,7 @@ const ReportModal = ({ isOpen, onClose, inventory, categories, modelOrder, itemO
         modelsInThisCat.forEach((model, modelIndex) => {
             const items = modelsObj[model];
             
-            // Level 4: 排序零件 (使用 itemOrder)
+            // Level 4: 排序零件 (依照 itemOrder)
             items.sort((a, b) => {
                  const idxA = strItemOrder.indexOf(String(a.id));
                  const idxB = strItemOrder.indexOf(String(b.id));
@@ -153,8 +142,8 @@ const ReportModal = ({ isOpen, onClose, inventory, categories, modelOrder, itemO
 
             if (linesForThisModel.length > 0) {
                 hasModelsInThisCat = true;
-                // 排版：第一個機型前空一行，後續機型前空兩行
-                const prefix = modelIndex === 0 ? '\n' : '\n\n'; 
+                // 排版：每個型號前換一行 (包含第一個，讓分類標題跟內容有點距離，更清楚)
+                const prefix = '\n'; 
                 categoryContent += `${prefix}◆ ${model}`; 
                 linesForThisModel.forEach(line => categoryContent += `\n${line}`);
             }
@@ -420,7 +409,6 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
   const [searchTerm, setSearchTerm] = useState(''); 
   const [showReport, setShowReport] = useState(false);
 
-  // 排序 State
   const [modelOrder, setModelOrder] = useState(() => { try { return JSON.parse(localStorage.getItem('invModelOrder')) || []; } catch { return []; } });
   const [itemOrder, setItemOrder] = useState(() => { try { return JSON.parse(localStorage.getItem('invItemOrder')) || []; } catch { return []; } });
 
@@ -428,7 +416,7 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
   useEffect(() => { localStorage.setItem('invModelOrder', JSON.stringify(modelOrder)); }, [modelOrder]);
   useEffect(() => { localStorage.setItem('invItemOrder', JSON.stringify(itemOrder)); }, [itemOrder]);
 
-  // 自動遷移舊資料 (確保每個 item 都有 categoryId)
+  // 自動遷移舊資料
   useEffect(() => {
       let hasChanges = false;
       const newInventory = inventory.map(item => {
@@ -439,8 +427,7 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
           return item;
       });
       if (hasChanges) {
-          // 在此僅作 console 提示，實際應用應調用 onUpdateInventory 更新所有項目
-          // 為避免效能問題，這裡假設 View 層會使用遷移後的資料
+          // 只做資料對齊，不做多餘寫入
       }
   }, [inventory]);
 
@@ -464,7 +451,6 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
           if (!groups[m]) groups[m] = [];
           groups[m].push(item);
       });
-      // 依照 modelOrder 排序
       return Object.keys(groups).sort((a, b) => {
           const idxA = modelOrder.indexOf(a);
           const idxB = modelOrder.indexOf(b);
@@ -516,10 +502,9 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
           const newIdx = categories.findIndex(c => c.id === over.id);
           setCategories(arrayMove(categories, oldIdx, newIdx));
       } else if (!activeModel) {
-          // 排序型號 (Folders)
+          // 排序型號
           setModelOrder(prev => {
              const newOrder = [...prev];
-             // 確保所有當前 folders 都在清單內
              folders.forEach(f => { if(!newOrder.includes(f)) newOrder.push(f); });
              
              const oldIdx = newOrder.indexOf(active.id);
@@ -527,7 +512,7 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
              return arrayMove(newOrder, oldIdx, newIdx);
           });
       } else {
-          // 排序零件 (Items) - 修正邏輯
+          // 排序零件
           const currentIds = currentItems.map(i => String(i.id));
           const oldIdx = currentIds.indexOf(String(active.id));
           const newIdx = currentIds.indexOf(String(over.id));
@@ -536,7 +521,6 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
               const newOrder = arrayMove(currentIds, oldIdx, newIdx);
               setItemOrder(prev => {
                   const prevStrings = prev.map(String);
-                  // 移除當前頁面的 items，然後插入新的順序
                   const otherItems = prevStrings.filter(id => !currentIds.includes(id));
                   return [...otherItems, ...newOrder];
               });
@@ -553,7 +537,7 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
 
   return (
     <div className="bg-slate-50 min-h-screen pb-24 flex flex-col font-sans">
-       {/* 導航列 */}
+       {/* 頂部導航 */}
        <div className="bg-white/95 backdrop-blur px-4 py-3 shadow-sm sticky top-0 z-30 border-b border-slate-100/50">
          <div className="flex justify-between items-center mb-3">
             <div className="flex items-center overflow-hidden flex-1">
@@ -582,7 +566,6 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
 
       <div className="p-4 flex-1">
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-              {/* Level 1: 分類 */}
               {!selectedCatId && !searchTerm && (
                  <div className="space-y-1 animate-in slide-in-from-left-4 duration-300">
                     <SortableContext items={categories.map(c => c.id)} strategy={verticalListSortingStrategy}>
@@ -592,7 +575,6 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
                     </SortableContext>
                  </div>
               )}
-              {/* Level 2: 型號 */}
               {selectedCatId && !activeModel && !searchTerm && (
                   <div className="animate-in slide-in-from-right-4 duration-300 space-y-1">
                       {folders.length === 0 ? (
@@ -610,7 +592,6 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
                       )}
                   </div>
               )}
-              {/* Level 3: 零件 */}
               {(activeModel || searchTerm) && (
                   <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm animate-in slide-in-from-right-4 duration-300">
                        {currentItems.length === 0 ? (
@@ -627,7 +608,6 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
           </DndContext>
       </div>
 
-      {/* 彈出視窗 */}
       <EditInventoryModal isOpen={!!editingItem || isAddMode} onClose={() => { setEditingItem(null); setIsAddMode(false); }} onSave={(data) => { if (isAddMode) onAddInventory(data); else onUpdateInventory(data); setIsAddMode(false); setEditingItem(null); }} onDelete={onDeleteInventory} initialItem={editingItem} categories={categories} defaultCategoryId={selectedCatId} defaultModel={activeModel} />
       <CategoryManagerModal isOpen={isCatManagerOpen} onClose={() => setIsCatManagerOpen(false)} categories={categories} onSaveCategories={setCategories} />
       <ReportModal isOpen={showReport} onClose={() => setShowReport(false)} inventory={inventory} categories={categories} modelOrder={modelOrder} itemOrder={itemOrder} />
