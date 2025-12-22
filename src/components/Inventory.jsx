@@ -42,6 +42,8 @@ const BIG_CATEGORY_CONFIG = {
   OTHER: { icon: MoreHorizontal, color: 'text-blue-600', bg: 'bg-blue-100', border: 'border-blue-200' },
 };
 
+const COMMON_UNITS = ['個', '支', '組', '盒', '瓶', '台', '包', '卷', '張'];
+
 const getBigCategoryType = (modelName, item) => {
     if (item && item.categoryType && BIG_CATEGORY_CONFIG[item.categoryType]) return item.categoryType;
     const up = (modelName || '').toUpperCase();
@@ -52,40 +54,24 @@ const getBigCategoryType = (modelName, item) => {
     return 'OTHER';
 };
 
-// --- 輔助：智慧文字清理 (去除型號名稱) ---
 const cleanItemName = (modelName, itemName) => {
     if (!modelName || !itemName) return itemName;
-    
     let display = itemName;
     const modelClean = modelName.trim();
-
-    // 1. 拆解型號 token 並移除 (例如 "MP C3503" -> 移除 "MP", "C3503")
-    // 忽略過短的 token 避免誤刪
     const tokens = modelClean.split(/[\s\-_/]+/).filter(t => t.length > 1); 
-    
-    // 依長度排序，先移除長的 token
     tokens.sort((a, b) => b.length - a.length);
-
     tokens.forEach(token => {
         try {
-            // Case insensitive replace
             const regex = new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
             display = display.replace(regex, '');
         } catch (e) {}
     });
-
-    // 2. 移除括號及其內容 (如果括號內包含型號相關字)
-    // 簡單起見，如果括號內只剩下空白，就移除
     display = display.replace(/\(\s*\)/g, '');
-
-    // 3. 清理頭尾的特殊符號
     display = display.replace(/^[\s\-_]+|[\s\-_]+$/g, '').trim();
-
-    // 4. 如果刪到什麼都不剩 (例如 "C3503")，回傳原名，否則回傳清理後的結果
     return display || itemName; 
 };
 
-// --- 1. 報表視窗 (修正版：完全依照 UI 層級排序) ---
+// --- 1. 報表視窗 ---
 const ReportModal = ({ isOpen, onClose, inventory, modelOrder, subGroupOrder, itemOrder, categoryOrder }) => {
   const [copied, setCopied] = useState(false);
   const [onlyMissing, setOnlyMissing] = useState(false);
@@ -93,10 +79,7 @@ const ReportModal = ({ isOpen, onClose, inventory, modelOrder, subGroupOrder, it
   const reportText = useMemo(() => {
     if (!inventory || inventory.length === 0) return '無庫存資料';
 
-    // 準備排序用的字串陣列
     const strItemOrder = itemOrder ? itemOrder.map(String) : [];
-
-    // 1. 資料分組 (By Model) 並標記所屬大分類
     const itemsByModel = {}; 
     const modelToCategory = {}; 
 
@@ -109,32 +92,24 @@ const ReportModal = ({ isOpen, onClose, inventory, modelOrder, subGroupOrder, it
         itemsByModel[m].push(item);
     });
 
-    // 2. 準備大分類排序 (Category Order)
     let sortedCategories = [...DEFAULT_CATEGORY_ORDER];
     if (categoryOrder && categoryOrder.length > 0) {
         const usedCategories = new Set(Object.values(modelToCategory));
         sortedCategories = [...categoryOrder];
-        // 補上可能遺漏的分類
         usedCategories.forEach(c => {
             if (!sortedCategories.includes(c)) sortedCategories.push(c);
         });
     }
 
-    let text = `【庫存盤點報表】${new Date().toLocaleDateString()}\n`;
-    if(onlyMissing) text += `(僅顯示需補貨項目)\n`;
-    text += `----------------`;
+    let text = `📅 庫存盤點 ${new Date().toLocaleDateString()}\n`;
+    if(onlyMissing) text += `(僅列出需補貨)\n`;
     
     let hasContent = false;
 
-    // --- 開始依照：大分類 -> 型號 -> 內容 產生報表 ---
-    
-    // Level 1: 遍歷大分類
     sortedCategories.forEach(catType => {
-        // 找出屬於此分類的所有 Model
         let modelsInThisCat = Object.keys(itemsByModel).filter(m => modelToCategory[m] === catType);
         if (modelsInThisCat.length === 0) return;
 
-        // Level 2: 排序此分類下的 Model (依照 modelOrder)
         if (modelOrder && modelOrder.length > 0) {
             modelsInThisCat.sort((a, b) => {
                 const idxA = modelOrder.indexOf(a);
@@ -148,11 +123,8 @@ const ReportModal = ({ isOpen, onClose, inventory, modelOrder, subGroupOrder, it
             modelsInThisCat.sort((a, b) => a.localeCompare(b));
         }
 
-        // Level 3: 遍歷 Model 產生內容
         modelsInThisCat.forEach(model => {
             const items = itemsByModel[model];
-            
-            // 將 Items 分組
             const groupedItems = {}; 
             const ungroupedItems = [];
 
@@ -165,7 +137,6 @@ const ReportModal = ({ isOpen, onClose, inventory, modelOrder, subGroupOrder, it
                 }
             });
 
-            // Level 4: 排序 SubGroup (依照 subGroupOrder)
             let sortedSubGroups = Object.keys(groupedItems);
             const currentSubGroupOrder = subGroupOrder[model] || [];
             sortedSubGroups.sort((a, b) => {
@@ -177,39 +148,30 @@ const ReportModal = ({ isOpen, onClose, inventory, modelOrder, subGroupOrder, it
                 return a.localeCompare(b);
             });
 
-            // Level 5: 排序 Items (依照 itemOrder)
             let finalItemsToPrint = [];
 
-            // 5a. Group 內的 Items
             sortedSubGroups.forEach(subGroup => {
                 let subItems = groupedItems[subGroup];
                 subItems.sort((a, b) => {
                      const idxA = strItemOrder.indexOf(String(a.id));
                      const idxB = strItemOrder.indexOf(String(b.id));
                      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-                     if (idxA !== -1) return -1;
-                     if (idxB !== -1) return 1;
                      return a.name.localeCompare(b.name);
                 });
                 finalItemsToPrint = finalItemsToPrint.concat(subItems);
             });
 
-            // 5b. Ungrouped Items
             ungroupedItems.sort((a, b) => {
                  const idxA = strItemOrder.indexOf(String(a.id));
                  const idxB = strItemOrder.indexOf(String(b.id));
                  if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-                 if (idxA !== -1) return -1;
-                 if (idxB !== -1) return 1;
                  return a.name.localeCompare(b.name);
             });
             finalItemsToPrint = finalItemsToPrint.concat(ungroupedItems);
 
-            // 產生文字行
             let linesForThisModel = [];
             finalItemsToPrint.forEach(item => {
                 if (onlyMissing && item.qty > 0 && item.qty >= item.max / 2) return;
-
                 const isOut = item.qty <= 0;
                 const isLow = item.qty < item.max / 2;
                 const status = isOut ? '❌缺' : (isLow ? '⚠️補' : '✅');
@@ -221,19 +183,18 @@ const ReportModal = ({ isOpen, onClose, inventory, modelOrder, subGroupOrder, it
                          subDisplay = ` (${item.subGroup})`;
                      }
                 }
-                linesForThisModel.push(`${status} ${displayName}${subDisplay}: ${item.qty}/${item.max} ${item.unit}`);
+                linesForThisModel.push(`${status} ${displayName}${subDisplay}: ${item.qty}`);
             });
 
             if (linesForThisModel.length > 0) {
                 hasContent = true;
-                text += `\n\n📌 ${model}`;
+                text += `\n■ ${model}`;
                 linesForThisModel.forEach(line => text += `\n${line}`);
             }
         });
     });
 
-    if (!hasContent) text += `\n\n目前沒有${onlyMissing ? '需補貨' : ''}項目。`;
-    text += `\n\n----------------\n系統自動生成`;
+    if (!hasContent) text += `\n\n目前無${onlyMissing ? '缺貨' : ''}項目。`;
     return text;
   }, [inventory, modelOrder, subGroupOrder, itemOrder, categoryOrder, onlyMissing]);
 
@@ -258,7 +219,7 @@ const ReportModal = ({ isOpen, onClose, inventory, modelOrder, subGroupOrder, it
                     type="checkbox" id="onlyMissing" checked={onlyMissing} onChange={e => setOnlyMissing(e.target.checked)}
                     className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500"
                 />
-                <label htmlFor="onlyMissing" className="text-sm font-bold text-slate-700 cursor-pointer select-none">只顯示需補貨 (缺貨/低庫存)</label>
+                <label htmlFor="onlyMissing" className="text-sm font-bold text-slate-700 cursor-pointer select-none">只顯示需補貨</label>
             </div>
 
             <div className="flex-1 overflow-y-auto bg-slate-50 p-3 rounded-xl border border-slate-200 mb-4 font-mono text-sm leading-relaxed whitespace-pre-wrap text-slate-700 shadow-inner">
@@ -266,7 +227,7 @@ const ReportModal = ({ isOpen, onClose, inventory, modelOrder, subGroupOrder, it
             </div>
             <button onClick={handleCopy} className={`w-full py-3.5 rounded-xl font-bold text-white flex items-center justify-center transition-all ${copied ? 'bg-green-600' : 'bg-blue-600 hover:bg-blue-700'}`}>
                 {copied ? <CheckCircle className="mr-2" size={20}/> : <Copy className="mr-2" size={20}/>}
-                {copied ? '已複製' : '複製文字 (傳送給 LINE)'}
+                {copied ? '已複製' : '複製文字 (LINE)'}
             </button>
         </div>
     </div>
@@ -278,6 +239,13 @@ const EditInventoryModal = ({ isOpen, onClose, onSave, onDelete, initialItem, ex
   const [formData, setFormData] = useState({ name: '', model: '', subGroup: '', qty: 0, max: 5, unit: '個', categoryType: 'OTHER' });
   const [useCustomModel, setUseCustomModel] = useState(false);
   
+  // 保持這個 Helper，雖然有 pb-[50vh]，但主動捲動能提供更好的體驗
+  const handleInputFocus = (e) => {
+    setTimeout(() => {
+        e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 300);
+  };
+
   useEffect(() => {
     if (isOpen) {
       if (initialItem) {
@@ -286,7 +254,6 @@ const EditInventoryModal = ({ isOpen, onClose, onSave, onDelete, initialItem, ex
       } else {
         const targetModel = defaultModel || existingModels[0] || '共用耗材';
         const initialCategory = defaultCategoryType || getBigCategoryType(targetModel, null);
-
         setFormData({ 
             name: '', 
             model: targetModel, 
@@ -302,67 +269,119 @@ const EditInventoryModal = ({ isOpen, onClose, onSave, onDelete, initialItem, ex
   if (!isOpen) return null;
   
   return (
-    <div className="fixed inset-0 bg-black/60 z-[80] flex items-start justify-center pt-12 px-4 animate-in fade-in duration-200 overflow-y-auto" onClick={onClose}>
-      <div className="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl relative mb-10" onClick={e => e.stopPropagation()}>
-        <div className="flex justify-between items-center mb-5 border-b border-gray-100 pb-4">
-           <h3 className="text-xl font-bold text-slate-800">{initialItem ? '編輯項目' : '新增項目'}</h3>
-           {initialItem && <button onClick={() => { if(window.confirm(`確定要刪除「${formData.name}」嗎？`)) onDelete(formData.id); }} className="p-2 bg-rose-50 text-rose-500 rounded-xl hover:bg-rose-100 transition-colors"><Trash2 size={20}/></button>}
-        </div>
-        <div className="space-y-4 mb-6">
-           <div>
-             <label className="text-sm font-bold text-slate-500 block mb-2">歸屬型號</label>
-             {!useCustomModel ? (
-               <div className="flex gap-2">
-                 <select className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none text-slate-800 font-bold text-base" value={formData.model} onChange={e => {const val = e.target.value; setFormData({...formData, model: val, categoryType: getBigCategoryType(val, null)});}}>
-                   {existingModels.map(m => <option key={m} value={m}>{m}</option>)}
-                 </select>
-                 <button onClick={() => {setUseCustomModel(true); setFormData({...formData, model: ''})}} className="bg-blue-50 text-blue-600 px-4 rounded-xl text-sm font-bold whitespace-nowrap">自訂</button>
-               </div>
-             ) : (
-                <div className="space-y-3 animate-in slide-in-from-top-2">
-                  <div className="flex gap-2">
-                    <input autoFocus placeholder="輸入新分類名稱" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none font-bold text-base" value={formData.model} onChange={e => setFormData({...formData, model: e.target.value})} />
-                    <button onClick={() => setUseCustomModel(false)} className="bg-slate-100 text-slate-500 px-4 rounded-xl text-sm font-bold whitespace-nowrap">取消</button>
-                  </div>
-                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                      <label className="text-sm font-bold text-slate-500 block mb-2">此型號屬於？</label>
-                      <div className="flex flex-wrap gap-2">
-                          {Object.keys(BIG_CATEGORY_CONFIG).map(key => (
-                              <button key={key} type="button" onClick={() => setFormData({...formData, categoryType: key})} className={`px-3 py-2 rounded-lg text-sm font-bold border transition-all ${formData.categoryType === key ? 'bg-blue-600 text-white border-blue-600 shadow-md' : 'bg-white text-slate-500 border-slate-200'}`}>
-                                {DEFAULT_BIG_LABELS[key]}
-                              </button>
-                          ))}
-                      </div>
-                  </div>
+    // 修改 1: 外層 fixed 容器負責 overflow-y-auto，以支援內部的大 padding
+    <div className="fixed inset-0 bg-black/60 z-[80] overflow-y-auto animate-in fade-in duration-200" onClick={onClose}>
+      
+      {/* 修改 2: 內部容器 flex 排版，並給予 pb-[50vh] (或 40vh)，確保底部有足夠空間被鍵盤頂起 */}
+      <div className="min-h-full flex items-start justify-center pt-12 px-4 pb-[50vh]">
+        
+        <div className="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl relative" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-5 border-b border-gray-100 pb-4">
+            <h3 className="text-xl font-bold text-slate-800">{initialItem ? '編輯項目' : '新增項目'}</h3>
+            {initialItem && <button onClick={() => { if(window.confirm(`確定要刪除「${formData.name}」嗎？`)) onDelete(formData.id); }} className="p-2 bg-rose-50 text-rose-500 rounded-xl hover:bg-rose-100 transition-colors"><Trash2 size={20}/></button>}
+            </div>
+            
+            <div className="space-y-4 mb-6">
+            <div>
+                <label className="text-sm font-bold text-slate-500 block mb-2">歸屬型號</label>
+                {!useCustomModel ? (
+                <div className="flex gap-2">
+                    {/* 修改 3: 所有 select 強制 text-base 以防止 iOS Zoom */}
+                    <select className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none text-slate-800 font-bold text-base" value={formData.model} onChange={e => {const val = e.target.value; setFormData({...formData, model: val, categoryType: getBigCategoryType(val, null)});}}>
+                    {existingModels.map(m => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                    <button onClick={() => {setUseCustomModel(true); setFormData({...formData, model: ''})}} className="bg-blue-50 text-blue-600 px-4 rounded-xl text-sm font-bold whitespace-nowrap">自訂</button>
                 </div>
-             )}
-           </div>
-           <div>
-               <label className="text-sm font-bold text-slate-500 block mb-2">品名 (零件名稱)</label>
-               <input placeholder="例: 黃色碳粉" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none text-base text-slate-800 font-bold placeholder:font-normal" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
-           </div>
-           <div className="bg-blue-50/50 p-3 rounded-xl border border-blue-100">
-               <label className="text-xs font-bold text-blue-500 block mb-1.5 uppercase tracking-wider flex items-center"><Tag size={14} className="mr-1"/> 次分類 (選填)</label>
-               <input placeholder="例如: C3503 (相同名稱會自動分組)" className="w-full bg-white border border-blue-200 rounded-lg py-2 px-3 outline-none text-base text-slate-800 font-bold placeholder:font-normal placeholder:text-slate-400 focus:ring-2 focus:ring-blue-100" value={formData.subGroup} onChange={e => setFormData({...formData, subGroup: e.target.value})} />
-           </div>
-           <div className="grid grid-cols-3 gap-3">
-              <div className="col-span-1">
-                  <label className="text-xs font-bold text-slate-400 block mb-1.5 text-center">數量</label>
-                  <input type="number" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none text-center font-mono font-bold text-xl text-blue-600" value={formData.qty} onChange={e => setFormData({...formData, qty: Number(e.target.value)})} />
-              </div>
-              <div className="col-span-1">
-                  <label className="text-xs font-bold text-slate-400 block mb-1.5 text-center">應備</label>
-                  <input type="number" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none text-center font-mono font-bold text-base" value={formData.max} onChange={e => setFormData({...formData, max: Number(e.target.value)})} />
-              </div>
-              <div className="col-span-1">
-                  <label className="text-xs font-bold text-slate-400 block mb-1.5 text-center">單位</label>
-                  <input placeholder="個" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none text-center font-bold text-base" value={formData.unit} onChange={e => setFormData({...formData, unit: e.target.value})} />
-              </div>
-           </div>
-        </div>
-        <div className="flex gap-3">
-            <button onClick={onClose} className="flex-1 py-3 bg-slate-100 font-bold text-slate-500 rounded-xl hover:bg-slate-200 transition-colors text-base">取消</button>
-            <button onClick={() => { if(formData.name && formData.model) onSave(formData); }} className="flex-1 py-3 bg-blue-600 font-bold text-white rounded-xl shadow-lg shadow-blue-200 hover:bg-blue-700 transition-colors active:scale-95 text-base">儲存</button>
+                ) : (
+                    <div className="space-y-3 animate-in slide-in-from-top-2">
+                    <div className="flex gap-2">
+                        {/* 修改 4: 所有 input 強制 text-base */}
+                        <input 
+                            autoFocus 
+                            placeholder="輸入新分類名稱" 
+                            className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none font-bold text-base" 
+                            value={formData.model} 
+                            onChange={e => setFormData({...formData, model: e.target.value})}
+                            onFocus={handleInputFocus} 
+                        />
+                        <button onClick={() => setUseCustomModel(false)} className="bg-slate-100 text-slate-500 px-4 rounded-xl text-sm font-bold whitespace-nowrap">取消</button>
+                    </div>
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                        <label className="text-sm font-bold text-slate-500 block mb-2">此型號屬於？</label>
+                        <div className="flex flex-wrap gap-2">
+                            {Object.keys(BIG_CATEGORY_CONFIG).map(key => (
+                                <button key={key} type="button" onClick={() => setFormData({...formData, categoryType: key})} className={`px-3 py-2 rounded-lg text-sm font-bold border transition-all ${formData.categoryType === key ? 'bg-blue-600 text-white border-blue-600 shadow-md' : 'bg-white text-slate-500 border-slate-200'}`}>
+                                    {DEFAULT_BIG_LABELS[key]}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                    </div>
+                )}
+            </div>
+            <div>
+                <label className="text-sm font-bold text-slate-500 block mb-2">品名 (零件名稱)</label>
+                <input 
+                    placeholder="例: 黃色碳粉" 
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none text-base text-slate-800 font-bold placeholder:font-normal" 
+                    value={formData.name} 
+                    onChange={e => setFormData({...formData, name: e.target.value})} 
+                    onFocus={handleInputFocus}
+                />
+            </div>
+            <div className="bg-blue-50/50 p-3 rounded-xl border border-blue-100">
+                <label className="text-xs font-bold text-blue-500 block mb-1.5 uppercase tracking-wider flex items-center"><Tag size={14} className="mr-1"/> 次分類 (選填)</label>
+                <input 
+                    placeholder="例如: C3503" 
+                    className="w-full bg-white border border-blue-200 rounded-lg py-2 px-3 outline-none text-base text-slate-800 font-bold placeholder:font-normal placeholder:text-slate-400 focus:ring-2 focus:ring-blue-100" 
+                    value={formData.subGroup} 
+                    onChange={e => setFormData({...formData, subGroup: e.target.value})} 
+                    onFocus={handleInputFocus}
+                />
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+                <div className="col-span-1">
+                    <label className="text-xs font-bold text-slate-400 block mb-1.5 text-center">數量</label>
+                    {/* 數量字體 text-xl > 16px，安全 */}
+                    <input 
+                        type="number" 
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none text-center font-mono font-bold text-xl text-blue-600" 
+                        value={formData.qty} 
+                        onChange={e => setFormData({...formData, qty: Number(e.target.value)})} 
+                        onFocus={handleInputFocus}
+                    />
+                </div>
+                <div className="col-span-1">
+                    <label className="text-xs font-bold text-slate-400 block mb-1.5 text-center">應備</label>
+                    <input 
+                        type="number" 
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none text-center font-mono font-bold text-base" 
+                        value={formData.max} 
+                        onChange={e => setFormData({...formData, max: Number(e.target.value)})} 
+                        onFocus={handleInputFocus}
+                    />
+                </div>
+                <div className="col-span-1">
+                    <label className="text-xs font-bold text-slate-400 block mb-1.5 text-center">單位</label>
+                    <input 
+                        list="unitOptions"
+                        placeholder="個" 
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none text-center font-bold text-base" 
+                        value={formData.unit} 
+                        onChange={e => setFormData({...formData, unit: e.target.value})} 
+                        onFocus={(e) => { e.target.value = ''; handleInputFocus(e); }} 
+                        onBlur={(e) => { if(!e.target.value) e.target.value = '個'; }} 
+                    />
+                    <datalist id="unitOptions">
+                        {COMMON_UNITS.map(u => <option key={u} value={u} />)}
+                    </datalist>
+                </div>
+            </div>
+            </div>
+            <div className="flex gap-3">
+                <button onClick={onClose} className="flex-1 py-3 bg-slate-100 font-bold text-slate-500 rounded-xl hover:bg-slate-200 transition-colors text-base">取消</button>
+                <button onClick={() => { if(formData.name && formData.model) onSave(formData); }} className="flex-1 py-3 bg-blue-600 font-bold text-white rounded-xl shadow-lg shadow-blue-200 hover:bg-blue-700 transition-colors active:scale-95 text-base">儲存</button>
+            </div>
         </div>
       </div>
     </div>
@@ -372,19 +391,35 @@ const EditInventoryModal = ({ isOpen, onClose, onSave, onDelete, initialItem, ex
 // --- 3. 重新命名/編輯分類視窗 ---
 const RenameModal = ({ isOpen, onClose, onRename, onDelete, oldName, title = "修改名稱" }) => {
   const [newName, setNewName] = useState(oldName || '');
+  
+  const handleInputFocus = (e) => {
+    setTimeout(() => {
+        e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 300);
+  };
+
   useEffect(() => { setNewName(oldName || ''); }, [oldName]);
   if (!isOpen) return null;
   return (
-    <div className="fixed inset-0 bg-black/60 z-[80] flex items-start justify-center pt-24 p-4 animate-in fade-in" onClick={onClose}>
-      <div className="bg-white w-full max-w-xs rounded-2xl p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
-        <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-bold text-slate-800">{title}</h3>
-            {onDelete && <button onClick={onDelete} className="text-xs bg-rose-50 text-rose-500 px-2 py-1 rounded hover:bg-rose-100 font-bold">刪除分類</button>}
-        </div>
-        <input autoFocus className="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 outline-none mb-6 font-bold text-lg text-slate-700" value={newName} onChange={e => setNewName(e.target.value)} />
-        <div className="flex gap-2">
-          <button onClick={onClose} className="flex-1 py-3 bg-slate-100 font-bold text-slate-500 rounded-xl">取消</button>
-          <button onClick={() => { onRename(oldName, newName); onClose(); }} className="flex-1 py-3 bg-blue-600 font-bold text-white rounded-xl shadow-lg">儲存</button>
+    // 同樣套用 fixed + scroll + pb-50vh 策略
+    <div className="fixed inset-0 bg-black/60 z-[80] overflow-y-auto animate-in fade-in" onClick={onClose}>
+      <div className="min-h-full flex items-start justify-center pt-24 p-4 pb-[50vh]">
+        <div className="bg-white w-full max-w-xs rounded-2xl p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-bold text-slate-800">{title}</h3>
+                {onDelete && <button onClick={onDelete} className="text-xs bg-rose-50 text-rose-500 px-2 py-1 rounded hover:bg-rose-100 font-bold">刪除分類</button>}
+            </div>
+            <input 
+                autoFocus 
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 outline-none mb-6 font-bold text-lg text-slate-700" 
+                value={newName} 
+                onChange={e => setNewName(e.target.value)}
+                onFocus={handleInputFocus}
+            />
+            <div className="flex gap-2">
+            <button onClick={onClose} className="flex-1 py-3 bg-slate-100 font-bold text-slate-500 rounded-xl">取消</button>
+            <button onClick={() => { onRename(oldName, newName); onClose(); }} className="flex-1 py-3 bg-blue-600 font-bold text-white rounded-xl shadow-lg">儲存</button>
+            </div>
         </div>
       </div>
     </div>
@@ -467,7 +502,6 @@ const InventoryRow = ({ item, onEdit, onRestock, isLast, dragHandleProps }) => {
 
     return (
         <div className={`flex items-center justify-between py-3 px-4 transition-colors ${rowClass} ${borderClass} group`}>
-            {/* 左側：名稱區 */}
             <div className="flex items-center flex-1 min-w-0 mr-3 cursor-pointer" onClick={() => onEdit(item)}>
                 <div className="flex items-baseline truncate">
                     <span className={`text-base font-bold truncate ${textClass}`}>{item.name}</span>
@@ -476,7 +510,6 @@ const InventoryRow = ({ item, onEdit, onRestock, isLast, dragHandleProps }) => {
                 {isOut && <span className="ml-3 px-2 py-0.5 bg-rose-200 text-rose-700 text-[10px] font-black rounded shrink-0 self-center">缺貨</span>}
             </div>
             
-            {/* 右側：功能區 (把手改到這裡) */}
             <div className="flex items-center gap-3 shrink-0">
                 <div className={`font-mono font-bold text-lg ${isOut ? 'text-rose-600' : 'text-blue-600'}`}>
                     {item.qty} <span className="text-slate-300 text-xs font-bold">/ {item.max}</span>
@@ -486,7 +519,6 @@ const InventoryRow = ({ item, onEdit, onRestock, isLast, dragHandleProps }) => {
                     <button onClick={() => onRestock(item.id, item.max)} className="p-1.5 rounded-lg bg-blue-100 text-blue-600 hover:bg-blue-600 hover:text-white transition-colors shadow-sm active:scale-90"><RotateCcw size={18} /></button>
                 ) : ( <div className="p-1.5 text-emerald-400"><CheckCircle size={20} /></div> )}
 
-                {/* 拖曳把手 */}
                 {dragHandleProps && (
                     <div {...dragHandleProps} className="text-slate-300 cursor-grab active:cursor-grabbing hover:text-slate-500 p-1 pl-2 border-l border-slate-100" onClick={e => e.stopPropagation()}>
                         <GripVertical size={18} />
@@ -503,7 +535,6 @@ const SortableAccordionGroup = ({ id, groupName, items, onEdit, onRestock, itemO
     const [isOpen, setIsOpen] = useState(false); 
     const lowStockCount = items.filter(i => i.qty <= 0).length;
 
-    // 將 itemOrder 轉字串
     const strItemOrder = useMemo(() => itemOrder ? itemOrder.map(String) : [], [itemOrder]);
 
     const sortedItems = useMemo(() => {
@@ -529,7 +560,6 @@ const SortableAccordionGroup = ({ id, groupName, items, onEdit, onRestock, itemO
                           {lowStockCount > 0 && <span className="flex items-center text-xs font-bold text-rose-500 bg-rose-50 px-2 py-0.5 rounded-full"><AlertTriangle size={10} className="mr-1"/> {lowStockCount} 缺</span>}
                           <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md">{items.length} 項</span>
                     </div>
-                    {/* 群組把手 (最右側) */}
                     <div {...attributes} {...listeners} className="text-slate-300 cursor-grab active:cursor-grabbing hover:text-slate-500 p-1 ml-2 border-l border-slate-100"><GripVertical size={18} /></div>
                 </div>
             </div>
@@ -623,7 +653,6 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
       });
   }, [selectedBigGroup, groupedInventory, modelOrder]);
 
-  // itemOrder 轉字串，用於畫面排序
   const strItemOrder = useMemo(() => itemOrder ? itemOrder.map(String) : [], [itemOrder]);
 
   const currentItemsData = useMemo(() => {
@@ -638,7 +667,6 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
     const grouped = {};
     const ungrouped = [];
     
-    // 畫面顯示排序也要轉字串比對
     list.sort((a, b) => {
           const idxA = strItemOrder.indexOf(String(a.id));
           const idxB = strItemOrder.indexOf(String(b.id));
