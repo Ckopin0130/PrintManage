@@ -179,6 +179,7 @@ export default function App() {
 
   // --- 5. 資料庫操作 (CRUD) ---
   
+  // 更新庫存
   const updateInventory = async (item) => {
     setInventory(prev => prev.map(i => i.id === item.id ? item : i));
     if (dbStatus === 'demo' || !user) { showToast('庫存已更新 (離線)'); return; }
@@ -186,6 +187,7 @@ export default function App() {
     catch (e) { console.error(e); showToast('更新失敗', 'error'); }
   };
 
+  // 新增庫存
   const addInventoryItem = async (newItem) => {
     const newId = `p-${Date.now()}`;
     const itemWithId = { ...newItem, id: newId };
@@ -195,6 +197,7 @@ export default function App() {
     catch (e) { console.error(e); showToast('新增失敗', 'error'); }
   };
 
+  // 刪除庫存
   const deleteInventoryItem = async (id) => {
     setInventory(prev => prev.filter(i => i.id !== id));
     if (dbStatus === 'demo' || !user) { showToast('零件已刪除 (離線)'); return; }
@@ -202,6 +205,7 @@ export default function App() {
     catch (e) { console.error(e); showToast('刪除失敗', 'error'); }
   };
 
+  // 重新命名分類
   const renameModelGroup = async (oldModel, newModel) => {
     setInventory(prev => prev.map(item => item.model === oldModel ? { ...item, model: newModel } : item));
     if (dbStatus === 'demo' || !user) { showToast(`分類已更新：${newModel} (離線)`); return; }
@@ -459,7 +463,7 @@ export default function App() {
     });
   };
 
-  // 編輯客戶
+  // 編輯客戶 (相容新舊格式)
   const handleEditSubmit = async (formData) => {
     if (!selectedCustomer) return;
     if (isProcessing) return;
@@ -492,7 +496,7 @@ export default function App() {
     } catch (err) { showToast('更新失敗', 'error'); } finally { setIsProcessing(false); }
   };
 
-  // 新增客戶
+  // 新增客戶 (相容新舊格式)
   const handleAddSubmit = async (formData) => {
     if (isProcessing) return;
     setIsProcessing(true);

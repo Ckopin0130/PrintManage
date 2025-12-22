@@ -52,7 +52,6 @@ const EditCustomerModal = ({ isOpen, onClose, onSave, onDelete, initialItem, cat
             .map(c => c.L2_district)
             .filter(g => g && g.trim() !== '' && g !== '未分區')
       );
-      // 簡單過濾：顯示全部或符合輸入的項目
       return [...allGroups].filter(g => g.includes(inputVal)).sort();
   }, [customers, formData.categoryId, formData.L2_district]);
 
@@ -277,6 +276,7 @@ const CustomerRoster = ({ customers, onAddCustomer, onUpdateCustomer, onDeleteCu
   useEffect(() => { localStorage.setItem('custGroupOrder', JSON.stringify(groupOrder)); }, [groupOrder]);
   useEffect(() => { localStorage.setItem('custOrder', JSON.stringify(customerOrder)); }, [customerOrder]);
 
+  // 自動遷移
   useEffect(() => {
       let hasChanges = false;
       const newCustomers = customers.map(item => {
