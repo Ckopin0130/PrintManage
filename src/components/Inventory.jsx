@@ -52,29 +52,45 @@ const getBigCategoryType = (modelName, item) => {
     return 'OTHER';
 };
 
-// --- 輔助：文字清理 (去除型號名稱) ---
+// --- 輔助：智慧文字清理 (去除型號名稱) ---
 const cleanItemName = (modelName, itemName) => {
     if (!modelName || !itemName) return itemName;
     
     let display = itemName;
     const modelClean = modelName.trim();
-    // 移除空白的型號版本 (例如: "MP C3503" -> "MPC3503") 以便比對
+
+    // 1. 拆解型號 (例如 "MP C3503" -> ["MP", "C3503"])
+    // 過濾掉太短的字 (長度<=1) 避免誤刪
+    const parts = modelClean.split(/[\s-_]+/).filter(p => p.length > 1);
+
+    // 2. 針對每一個部分，嘗試從名稱中移除 (優先移除含有數字的部分，如 C3503)
+    // 我們將 parts 依照長度排序，先刪長的，避免誤刪 (例如先刪 C3503 再刪 MP)
+    parts.sort((a, b) => b.length - a.length);
+
+    parts.forEach(part => {
+        // 只有當這個部分包含數字(像是 C3503, 5000) 或者是明確的型號關鍵字時才刪
+        // 避免刪掉像 "Ink", "Color" 這種通用字，除非它們真的是型號一部分
+        if (/\d/.test(part) || part.length >= 3) {
+            try {
+                const regex = new RegExp(part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+                display = display.replace(regex, '');
+            } catch(e) {}
+        }
+    });
+
+    // 3. 再次嘗試移除完整的無空白型號 (例如 "MPC3503")
     const modelNoSpace = modelClean.replace(/\s+/g, '');
-
-    // 1. 嘗試移除完整型號 (Case insensitive)
-    const regexFull = new RegExp(modelClean.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
-    display = display.replace(regexFull, '');
-
-    // 2. 嘗試移除無空白型號 (Case insensitive)
-    if (modelNoSpace.length > 3) { // 避免太短誤刪
+    if (modelNoSpace.length > 3) {
         const regexNoSpace = new RegExp(modelNoSpace.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
         display = display.replace(regexNoSpace, '');
     }
 
-    // 3. 清理殘留的符號 (開頭的 - _ 空白 等)
+    // 4. 清理殘留的符號 (開頭的 - _ 空白 等)
     display = display.replace(/^[\s\-_]+/, '').trim();
+    // 清理括號殘留 (例如 "()" )
+    display = display.replace(/^\(\s*\)/, '').trim();
 
-    // 4. 如果刪到變空字串 (例如原本名稱就是型號)，回傳原名
+    // 5. 如果刪到變空字串 (例如原本名稱就是型號)，回傳原名
     return display || itemName;
 };
 
@@ -86,10 +102,22 @@ const ReportModal = ({ isOpen, onClose, inventory, modelOrder, subGroupOrder, it
   const reportText = useMemo(() => {
     if (!inventory || inventory.length === 0) return '無庫存資料';
 
-    // A. 準備排序用的字串陣列
-    const strItemOrder = itemOrder ? itemOrder.map(String) : [];
-    const getModelRank = (m) => { const idx = modelOrder.indexOf(m); return idx === -1 ? 9999 : idx; };
-    const getItemRank = (id) => { const idx = strItemOrder.indexOf(String(id)); return idx === -1 ? 9999 : idx; };
+    // A. 建立 Rank Map (加速查找)
+    // 將 itemOrder 轉為 Map: { "itemID": 0, "itemID2": 1, ... }
+    // 這樣我們可以 O(1) 知道每個零件的順序
+    const itemRankMap = new Map();
+    if (itemOrder) {
+        itemOrder.forEach((id, index) => {
+            itemRankMap.set(String(id), index);
+        });
+    }
+
+    const modelRankMap = new Map();
+    if (modelOrder) {
+        modelOrder.forEach((m, index) => {
+            modelRankMap.set(m, index);
+        });
+    }
 
     // B. 資料分組 (By Model)
     const groupsByModel = {};
@@ -101,8 +129,8 @@ const ReportModal = ({ isOpen, onClose, inventory, modelOrder, subGroupOrder, it
 
     // C. 排序 Model
     const sortedModels = Object.keys(groupsByModel).sort((a, b) => {
-        const rankA = getModelRank(a);
-        const rankB = getModelRank(b);
+        const rankA = modelRankMap.has(a) ? modelRankMap.get(a) : 99999;
+        const rankB = modelRankMap.has(b) ? modelRankMap.get(b) : 99999;
         if (rankA !== rankB) return rankA - rankB;
         return a.localeCompare(b);
     });
@@ -117,72 +145,45 @@ const ReportModal = ({ isOpen, onClose, inventory, modelOrder, subGroupOrder, it
     sortedModels.forEach(model => {
         const items = groupsByModel[model];
         
-        // D-1. 在 Model 內部分成 "Grouped" 和 "Ungrouped"
-        const subGroups = {}; // key: subGroupName, value: [items]
-        const ungroupedItems = [];
+        // --- 核心修改：Items 排序邏輯 ---
+        // 直接使用 itemRankMap 進行排序。
+        // 如果這個零件在手動列表裡，就用列表順序。
+        // 如果不在(例如新增的還沒排)，就放到最後，並依名稱排。
+        items.sort((a, b) => {
+            const idA = String(a.id);
+            const idB = String(b.id);
+            const rankA = itemRankMap.has(idA) ? itemRankMap.get(idA) : 99999;
+            const rankB = itemRankMap.has(idB) ? itemRankMap.get(idB) : 99999;
 
-        items.forEach(item => {
-            if (item.subGroup) {
-                if(!subGroups[item.subGroup]) subGroups[item.subGroup] = [];
-                subGroups[item.subGroup].push(item);
-            } else {
-                ungroupedItems.push(item);
-            }
+            if (rankA !== rankB) return rankA - rankB; // 絕對服從手動順序
+            return a.name.localeCompare(b.name);
         });
 
-        // D-2. 準備輸出暫存陣列 (為了過濾 onlyMissing，先收集再串接)
+        // 格式化輸出
         let linesForThisModel = [];
+        items.forEach(item => {
+            // 篩選邏輯
+            if (onlyMissing && item.qty > 0 && item.qty >= item.max / 2) return;
 
-        // 輔助：格式化單行文字
-        const formatLine = (i) => {
-            if (onlyMissing && i.qty > 0 && i.qty >= i.max / 2) return null; // 篩選
-
-            const isOut = i.qty <= 0;
-            const isLow = i.qty < i.max / 2;
+            const isOut = item.qty <= 0;
+            const isLow = item.qty < item.max / 2;
             const status = isOut ? '❌缺' : (isLow ? '⚠️補' : '✅');
             
-            // 強力去除型號文字
-            let displayName = cleanItemName(model, i.name);
+            // 智慧名稱清理
+            let displayName = cleanItemName(model, item.name);
 
-            // 處理次分類顯示 (避免與名稱重複)
+            // 處理次分類顯示
             let subDisplay = '';
-            if (i.subGroup && i.subGroup.toUpperCase() !== model.toUpperCase()) {
-                 if (!displayName.toUpperCase().includes(i.subGroup.toUpperCase())) {
-                     subDisplay = ` (${i.subGroup})`;
+            if (item.subGroup && item.subGroup.toUpperCase() !== model.toUpperCase()) {
+                 // 再次防呆：如果名稱已經包含次分類，就不顯示
+                 if (!displayName.toUpperCase().includes(item.subGroup.toUpperCase())) {
+                     subDisplay = ` (${item.subGroup})`;
                  }
             }
 
-            return `${status} ${displayName}${subDisplay}: ${i.qty}/${i.max} ${i.unit}`;
-        };
-
-        // D-3. 處理 SubGroups (依照 subGroupOrder 排序)
-        const currentSubOrder = subGroupOrder[model] || [];
-        const sortedSubKeys = Object.keys(subGroups).sort((a, b) => {
-            const idxA = currentSubOrder.indexOf(a);
-            const idxB = currentSubOrder.indexOf(b);
-            if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-            if (idxA !== -1) return -1;
-            if (idxB !== -1) return 1;
-            return a.localeCompare(b);
+            linesForThisModel.push(`${status} ${displayName}${subDisplay}: ${item.qty}/${item.max} ${item.unit}`);
         });
 
-        sortedSubKeys.forEach(subKey => {
-            // Group 內的 Items 依照 itemOrder 排序
-            const gItems = subGroups[subKey].sort((a, b) => getItemRank(a.id) - getItemRank(b.id));
-            gItems.forEach(item => {
-                const line = formatLine(item);
-                if (line) linesForThisModel.push(line);
-            });
-        });
-
-        // D-4. 處理 Ungrouped Items (依照 itemOrder 排序)
-        ungroupedItems.sort((a, b) => getItemRank(a.id) - getItemRank(b.id));
-        ungroupedItems.forEach(item => {
-             const line = formatLine(item);
-             if (line) linesForThisModel.push(line);
-        });
-
-        // D-5. 組合 Model 區塊
         if (linesForThisModel.length > 0) {
             hasContent = true;
             text += `\n\n📌 ${model}`;
@@ -425,6 +426,7 @@ const InventoryRow = ({ item, onEdit, onRestock, isLast, dragHandleProps }) => {
 
     return (
         <div className={`flex items-center justify-between py-3 px-4 transition-colors ${rowClass} ${borderClass} group`}>
+            {/* 左側：名稱區 */}
             <div className="flex items-center flex-1 min-w-0 mr-3 cursor-pointer" onClick={() => onEdit(item)}>
                 <div className="flex items-baseline truncate">
                     <span className={`text-base font-bold truncate ${textClass}`}>{item.name}</span>
@@ -433,6 +435,7 @@ const InventoryRow = ({ item, onEdit, onRestock, isLast, dragHandleProps }) => {
                 {isOut && <span className="ml-3 px-2 py-0.5 bg-rose-200 text-rose-700 text-[10px] font-black rounded shrink-0 self-center">缺貨</span>}
             </div>
             
+            {/* 右側：功能區 (把手改到這裡) */}
             <div className="flex items-center gap-3 shrink-0">
                 <div className={`font-mono font-bold text-lg ${isOut ? 'text-rose-600' : 'text-blue-600'}`}>
                     {item.qty} <span className="text-slate-300 text-xs font-bold">/ {item.max}</span>
@@ -442,6 +445,7 @@ const InventoryRow = ({ item, onEdit, onRestock, isLast, dragHandleProps }) => {
                     <button onClick={() => onRestock(item.id, item.max)} className="p-1.5 rounded-lg bg-blue-100 text-blue-600 hover:bg-blue-600 hover:text-white transition-colors shadow-sm active:scale-90"><RotateCcw size={18} /></button>
                 ) : ( <div className="p-1.5 text-emerald-400"><CheckCircle size={20} /></div> )}
 
+                {/* 拖曳把手 */}
                 {dragHandleProps && (
                     <div {...dragHandleProps} className="text-slate-300 cursor-grab active:cursor-grabbing hover:text-slate-500 p-1 pl-2 border-l border-slate-100" onClick={e => e.stopPropagation()}>
                         <GripVertical size={18} />
@@ -593,6 +597,7 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
     const grouped = {};
     const ungrouped = [];
     
+    // 畫面顯示排序也要轉字串比對
     list.sort((a, b) => {
          const idxA = strItemOrder.indexOf(String(a.id));
          const idxB = strItemOrder.indexOf(String(b.id));
@@ -661,6 +666,7 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
     } else {
         setItemOrder(prev => {
             let newOrder = [...prev];
+            // 確保要儲存的是字串型別的 ID
             const allCurrentItems = groupedInventory[activeCategory] || [];
             allCurrentItems.forEach(i => { if(!newOrder.includes(String(i.id))) newOrder.push(String(i.id)); });
             
@@ -699,6 +705,8 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
   };
 
   const handleModalSave = (itemData) => {
+    // 存檔時，如果是新增的項目，ID 是 Firebase 自動生成的字串；如果是舊項目，可能是數字。
+    // 這邊不需要特別轉型，因為 React 狀態會忠實反映資料庫型別。
     if (isAddMode) { onAddInventory(itemData); setIsAddMode(false); } 
     else { onUpdateInventory(itemData); setEditingItem(null); }
   };
