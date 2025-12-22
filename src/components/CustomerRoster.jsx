@@ -33,12 +33,24 @@ const migrateCategory = (item) => {
     return 'cat_other'; 
 };
 
-// --- Edit Modal ---
-const EditCustomerModal = ({ isOpen, onClose, onSave, onDelete, initialItem, categories, defaultCategoryId, defaultGroup }) => {
+// --- Edit Modal (修正：內容過長可捲動，按鈕固定底部) ---
+const EditCustomerModal = ({ isOpen, onClose, onSave, onDelete, initialItem, categories, defaultCategoryId, defaultGroup, customers }) => {
   const [formData, setFormData] = useState({ 
       name: '', L1_group: '', L2_district: '', phone: '', address: '', note: '', categoryId: '', model: ''
   });
   
+  // 自動完成清單
+  const groupSuggestions = useMemo(() => {
+      if (!formData.categoryId || !customers) return [];
+      const groups = new Set(
+          customers
+            .filter(c => (c.categoryId || migrateCategory(c)) === formData.categoryId)
+            .map(c => c.L2_district)
+            .filter(g => g && g.trim() !== '' && g !== '未分區')
+      );
+      return [...groups].sort();
+  }, [customers, formData.categoryId]);
+
   useEffect(() => {
     if (isOpen) {
       if (initialItem) {
@@ -50,7 +62,7 @@ const EditCustomerModal = ({ isOpen, onClose, onSave, onDelete, initialItem, cat
             categoryId: initialItem.categoryId || migrateCategory(initialItem),
             phone: firstPhone,
             model: firstModel,
-            note: initialItem.notes || initialItem.note || '' // Handle both legacy fields
+            note: initialItem.notes || initialItem.note || '' 
         });
       } else {
         const targetCatId = defaultCategoryId || categories[0]?.id || 'cat_other';
@@ -67,29 +79,49 @@ const EditCustomerModal = ({ isOpen, onClose, onSave, onDelete, initialItem, cat
       const catName = selectedCat ? selectedCat.name : '未分類';
       onSave({
           ...initialItem, ...formData,
-          L1_group: catName, // For legacy support
+          L1_group: catName, 
           phones: formData.phone ? [{ label: '公司', number: formData.phone }] : [],
           assets: formData.model ? [{ model: formData.model }] : [],
-          notes: formData.note // Normalize to 'notes'
+          notes: formData.note 
       });
   };
 
   if (!isOpen) return null;
+  
+  // 修正後的 Modal 結構：Flex Col + Overflow Auto
   return (
-    <div className="fixed inset-0 bg-black/60 z-[80] flex items-start justify-center pt-12 px-4 animate-in fade-in" onClick={onClose}>
-      <div className="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl relative mb-10" onClick={e => e.stopPropagation()}>
-        <div className="flex justify-between items-center mb-5 border-b border-gray-100 pb-4">
+    <div className="fixed inset-0 bg-black/60 z-[80] flex items-center justify-center p-4 animate-in fade-in" onClick={onClose}>
+      <div 
+        className="bg-white w-full max-w-sm rounded-2xl shadow-2xl flex flex-col max-h-[85vh]" // 限制最大高度
+        onClick={e => e.stopPropagation()}
+      >
+        {/* 標題區 (固定) */}
+        <div className="flex justify-between items-center p-5 border-b border-gray-100 flex-shrink-0">
            <h3 className="text-xl font-bold text-slate-800">{initialItem ? '編輯客戶' : '新增客戶'}</h3>
            {initialItem && <button onClick={() => { if(window.confirm(`刪除 ${formData.name}？`)) onDelete(initialItem); }} className="p-2 bg-rose-50 text-rose-500 rounded-xl hover:bg-rose-100"><Trash2 size={20}/></button>}
         </div>
-        <div className="space-y-4 mb-6">
+        
+        {/* 內容區 (可捲動) */}
+        <div className="p-6 overflow-y-auto space-y-4 flex-1">
            <div>
               <label className="text-sm font-bold text-slate-500 block mb-2">客戶分類</label>
               <select className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none font-bold text-base" value={formData.categoryId} onChange={e => setFormData({...formData, categoryId: e.target.value})}>
                   {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
            </div>
-           <div><label className="text-sm font-bold text-slate-500 block mb-2">鄉鎮 / 群組</label><input placeholder="屏東市" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none font-bold text-base" value={formData.L2_district} onChange={e => setFormData({...formData, L2_district: e.target.value})} /></div>
+           <div>
+               <label className="text-sm font-bold text-slate-500 block mb-2">鄉鎮 / 群組</label>
+               <input 
+                   list="group-suggestions"
+                   placeholder="選擇或輸入..." 
+                   className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none font-bold text-base" 
+                   value={formData.L2_district} 
+                   onChange={e => setFormData({...formData, L2_district: e.target.value})} 
+               />
+               <datalist id="group-suggestions">
+                   {groupSuggestions.map(group => <option key={group} value={group} />)}
+               </datalist>
+           </div>
            <div><label className="text-sm font-bold text-slate-500 block mb-2">客戶名稱</label><input placeholder="輸入名稱" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none font-bold text-base" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} /></div>
            <div className="grid grid-cols-2 gap-3">
                <div><label className="text-sm font-bold text-slate-500 block mb-2">電話</label><input placeholder="08-xxxxxxx" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none font-mono font-bold text-base" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} /></div>
@@ -98,7 +130,9 @@ const EditCustomerModal = ({ isOpen, onClose, onSave, onDelete, initialItem, cat
            <div><label className="text-sm font-bold text-slate-500 block mb-2">地址</label><input placeholder="輸入地址" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none font-bold text-base" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} /></div>
            <div><label className="text-sm font-bold text-slate-500 block mb-2">備註</label><textarea placeholder="備註..." rows={2} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none font-bold text-base resize-none" value={formData.note} onChange={e => setFormData({...formData, note: e.target.value})} /></div>
         </div>
-        <div className="flex gap-3">
+
+        {/* 按鈕區 (固定在底部) */}
+        <div className="p-5 border-t border-gray-100 flex gap-3 flex-shrink-0 bg-white rounded-b-2xl">
             <button onClick={onClose} className="flex-1 py-3 bg-slate-100 font-bold text-slate-500 rounded-xl">取消</button>
             <button onClick={() => { if(formData.name) handleSave(); }} className="flex-1 py-3 bg-blue-600 font-bold text-white rounded-xl shadow-lg">儲存</button>
         </div>
@@ -117,7 +151,7 @@ const CategoryManagerModal = ({ isOpen, onClose, categories, onSaveCategories })
     if(!isOpen) return null;
     return (
         <div className="fixed inset-0 bg-black/60 z-[90] flex items-center justify-center p-4 animate-in fade-in" onClick={onClose}>
-            <div className="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl flex flex-col max-h-[80vh]" onClick={e => e.stopPropagation()}>
+            <div className="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
                 <h3 className="text-xl font-bold text-slate-800 mb-4 flex items-center"><Settings className="mr-2"/> 管理分類</h3>
                 <div className="flex-1 overflow-y-auto space-y-3 mb-4 pr-1">
                     {localCats.map(cat => (
@@ -144,10 +178,15 @@ const SortableBigCategory = ({ category, count, onClick, isActive }) => {
     const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1, zIndex: isDragging ? 50 : 'auto' };
     const Icon = ICON_MAP[category.icon] || MapPin;
     return (
-        <div ref={setNodeRef} style={style} className={`w-full bg-white p-4 rounded-2xl shadow-sm border flex items-center active:scale-[0.98] transition-all mb-3 relative cursor-pointer ${isActive ? 'border-blue-500' : 'border-slate-100'}`} onClick={onClick}>
-            <div className={`p-3.5 rounded-2xl mr-4 border ${category.bg} ${category.color} ${category.border}`}><Icon size={24}/></div>
-            <div className="flex-1 text-left"><h3 className="text-base font-bold text-slate-700">{category.name}</h3><span className="text-xs font-bold text-slate-400">{count} 戶</span></div>
-            <div {...attributes} {...listeners} style={{ touchAction: 'none' }} className="text-slate-300 p-3" onClick={e => e.stopPropagation()}><GripVertical size={20}/></div>
+        <div ref={setNodeRef} style={style} className={`w-full bg-white p-4 rounded-2xl shadow-sm border flex items-center active:scale-[0.98] transition-all group mb-3 relative cursor-pointer ${isActive ? 'border-blue-500 ring-2 ring-blue-100' : 'border-slate-100 hover:border-blue-200'}`} onClick={onClick}>
+            <div className={`p-3.5 rounded-2xl mr-4 border transition-colors shadow-sm ${category.bg} ${category.color} ${category.border}`}>
+                <Icon size={24} strokeWidth={2.5} />
+            </div>
+            <div className="flex-1 text-left min-w-0">
+                <h3 className="text-base font-bold text-slate-700 truncate mb-0.5">{category.name}</h3>
+                <span className="text-xs font-bold text-slate-400 mt-1 block">共 {count} 戶</span>
+            </div>
+            <div {...attributes} {...listeners} style={{ touchAction: 'none' }} className="text-slate-300 cursor-grab active:cursor-grabbing hover:text-slate-500 p-3" onClick={e => e.stopPropagation()}><GripVertical size={20} /></div>
         </div>
     );
 };
@@ -156,11 +195,19 @@ const SortableGroupRow = ({ id, title, count, onClick }) => {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
     const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1, zIndex: isDragging ? 50 : 'auto' };
     return (
-        <div ref={setNodeRef} style={style} onClick={onClick} className="bg-white p-3.5 rounded-xl border border-slate-100 shadow-sm active:scale-[0.99] transition-all flex items-center justify-between mb-3">
-            <div className="flex items-center flex-1"><div className="p-2.5 rounded-lg mr-3.5 bg-slate-50 text-slate-500"><MapPin size={20}/></div><div><h3 className="text-base font-extrabold text-slate-800">{title}</h3><div className="text-xs font-bold text-slate-400">{count} 戶</div></div></div>
+        <div ref={setNodeRef} style={style} onClick={onClick} className="bg-white p-3.5 rounded-xl border border-slate-100 shadow-[0_1px_3px_rgb(0,0,0,0.02)] active:scale-[0.99] transition-all cursor-pointer flex items-center justify-between mb-3 hover:border-blue-200 hover:shadow-md group">
+            <div className="flex items-center flex-1 min-w-0">
+                <div className={`p-2.5 rounded-lg mr-3.5 shrink-0 bg-slate-50 text-slate-500`}><MapPin size={20} /></div>
+                <div className="min-w-0">
+                    <h3 className="text-base font-extrabold text-slate-800 truncate mb-0.5">{title}</h3>
+                    <div className="flex items-center gap-2 text-xs font-bold text-slate-400">
+                        <span>{count} 戶</span>
+                    </div>
+                </div>
+            </div>
             <div className="flex items-center pl-2 gap-1">
-                <div {...attributes} {...listeners} style={{ touchAction: 'none' }} className="text-slate-300 p-2" onClick={e => e.stopPropagation()}><GripVertical size={20}/></div>
-                <ChevronRight className="text-slate-300"/>
+                <div {...attributes} {...listeners} style={{ touchAction: 'none' }} className="text-slate-300 cursor-grab active:cursor-grabbing hover:text-slate-500 p-2" onClick={e => e.stopPropagation()}><GripVertical size={20} /></div>
+                <ChevronRight className="text-slate-300 group-hover:text-blue-400 transition-colors" size={20} />
             </div>
         </div>
     );
@@ -201,6 +248,18 @@ const CustomerRoster = ({ customers, onAddCustomer, onUpdateCustomer, onDeleteCu
   useEffect(() => { localStorage.setItem('customerCategories', JSON.stringify(categories)); }, [categories]);
   useEffect(() => { localStorage.setItem('custGroupOrder', JSON.stringify(groupOrder)); }, [groupOrder]);
   useEffect(() => { localStorage.setItem('custOrder', JSON.stringify(customerOrder)); }, [customerOrder]);
+
+  // 自動遷移
+  useEffect(() => {
+      let hasChanges = false;
+      const newCustomers = customers.map(item => {
+          if (!item.categoryId) {
+              hasChanges = true;
+              return { ...item, categoryId: migrateCategory(item) };
+          }
+          return item;
+      });
+  }, [customers]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -355,7 +414,7 @@ const CustomerRoster = ({ customers, onAddCustomer, onUpdateCustomer, onDeleteCu
           </DndContext>
       </div>
 
-      <EditCustomerModal isOpen={!!editingItem || isAddMode} onClose={() => { setEditingItem(null); setIsAddMode(false); }} onSave={(data) => { if (isAddMode) onAddCustomer(data); else onUpdateCustomer(data); setIsAddMode(false); setEditingItem(null); }} onDelete={onDeleteCustomer} initialItem={editingItem} categories={categories} defaultCategoryId={selectedCatId} defaultGroup={activeGroup} />
+      <EditCustomerModal isOpen={!!editingItem || isAddMode} onClose={() => { setEditingItem(null); setIsAddMode(false); }} onSave={(data) => { if (isAddMode) onAddCustomer(data); else onUpdateCustomer(data); setIsAddMode(false); setEditingItem(null); }} onDelete={onDeleteCustomer} initialItem={editingItem} categories={categories} defaultCategoryId={selectedCatId} defaultGroup={activeGroup} customers={customers} />
       <CategoryManagerModal isOpen={isCatManagerOpen} onClose={() => setIsCatManagerOpen(false)} categories={categories} onSaveCategories={setCategories} />
     </div>
   );
