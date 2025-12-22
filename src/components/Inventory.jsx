@@ -85,35 +85,38 @@ const cleanItemName = (modelName, itemName) => {
     return display || itemName; 
 };
 
-// --- 1. 報表視窗 (邏輯重寫：完全依照 UI 層級排序) ---
-const ReportModal = ({ isOpen, onClose, inventory, modelOrder, subGroupOrder, itemOrder }) => {
+// --- 1. 報表視窗 (修正版：完全依照 UI 層級排序) ---
+const ReportModal = ({ isOpen, onClose, inventory, modelOrder, subGroupOrder, itemOrder, categoryOrder }) => {
   const [copied, setCopied] = useState(false);
   const [onlyMissing, setOnlyMissing] = useState(false);
 
   const reportText = useMemo(() => {
     if (!inventory || inventory.length === 0) return '無庫存資料';
 
-    // 準備排序用的字串陣列 (Item Order)
+    // 準備排序用的字串陣列
     const strItemOrder = itemOrder ? itemOrder.map(String) : [];
 
-    // 資料分組 (By Model)
+    // 1. 資料分組 (By Model) 並標記所屬大分類
     const itemsByModel = {}; 
+    const modelToCategory = {}; 
+
     inventory.forEach(item => {
         const m = item.model || '未分類';
-        if (!itemsByModel[m]) itemsByModel[m] = [];
+        if (!itemsByModel[m]) {
+            itemsByModel[m] = [];
+            modelToCategory[m] = getBigCategoryType(m, item);
+        }
         itemsByModel[m].push(item);
     });
 
-    // 1. 排序 Model (依照 modelOrder)
-    let sortedModels = Object.keys(itemsByModel);
-    if (modelOrder && modelOrder.length > 0) {
-        sortedModels.sort((a, b) => {
-            const idxA = modelOrder.indexOf(a);
-            const idxB = modelOrder.indexOf(b);
-            if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-            if (idxA !== -1) return -1;
-            if (idxB !== -1) return 1;
-            return a.localeCompare(b);
+    // 2. 準備大分類排序 (Category Order)
+    let sortedCategories = [...DEFAULT_CATEGORY_ORDER];
+    if (categoryOrder && categoryOrder.length > 0) {
+        const usedCategories = new Set(Object.values(modelToCategory));
+        sortedCategories = [...categoryOrder];
+        // 補上可能遺漏的分類
+        usedCategories.forEach(c => {
+            if (!sortedCategories.includes(c)) sortedCategories.push(c);
         });
     }
 
@@ -123,43 +126,76 @@ const ReportModal = ({ isOpen, onClose, inventory, modelOrder, subGroupOrder, it
     
     let hasContent = false;
 
-    // 2. 遍歷 Model 產生內容
-    sortedModels.forEach(model => {
-        const items = itemsByModel[model];
-        
-        // 將 Items 分組：有次分類的 (Grouped) vs 無次分類的 (Ungrouped)
-        const groupedItems = {}; // { "subGroupName": [item, item] }
-        const ungroupedItems = [];
+    // --- 開始依照：大分類 -> 型號 -> 內容 產生報表 ---
+    
+    // Level 1: 遍歷大分類
+    sortedCategories.forEach(catType => {
+        // 找出屬於此分類的所有 Model
+        let modelsInThisCat = Object.keys(itemsByModel).filter(m => modelToCategory[m] === catType);
+        if (modelsInThisCat.length === 0) return;
 
-        items.forEach(item => {
-            if (item.subGroup) {
-                if (!groupedItems[item.subGroup]) groupedItems[item.subGroup] = [];
-                groupedItems[item.subGroup].push(item);
-            } else {
-                ungroupedItems.push(item);
-            }
-        });
+        // Level 2: 排序此分類下的 Model (依照 modelOrder)
+        if (modelOrder && modelOrder.length > 0) {
+            modelsInThisCat.sort((a, b) => {
+                const idxA = modelOrder.indexOf(a);
+                const idxB = modelOrder.indexOf(b);
+                if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+                if (idxA !== -1) return -1;
+                if (idxB !== -1) return 1;
+                return a.localeCompare(b);
+            });
+        } else {
+            modelsInThisCat.sort((a, b) => a.localeCompare(b));
+        }
 
-        // 3. 排序 SubGroup Keys (依照 subGroupOrder)
-        let sortedSubGroups = Object.keys(groupedItems);
-        const currentSubGroupOrder = subGroupOrder[model] || [];
-        sortedSubGroups.sort((a, b) => {
-            const idxA = currentSubGroupOrder.indexOf(a);
-            const idxB = currentSubGroupOrder.indexOf(b);
-            if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-            if (idxA !== -1) return -1;
-            if (idxB !== -1) return 1;
-            return a.localeCompare(b);
-        });
+        // Level 3: 遍歷 Model 產生內容
+        modelsInThisCat.forEach(model => {
+            const items = itemsByModel[model];
+            
+            // 將 Items 分組
+            const groupedItems = {}; 
+            const ungroupedItems = [];
 
-        // 4. 建立最終列印清單 (按照 UI 顯示順序：先 Groups，再 Ungrouped)
-        let finalItemsToPrint = [];
+            items.forEach(item => {
+                if (item.subGroup) {
+                    if (!groupedItems[item.subGroup]) groupedItems[item.subGroup] = [];
+                    groupedItems[item.subGroup].push(item);
+                } else {
+                    ungroupedItems.push(item);
+                }
+            });
 
-        // 4a. 加入排序後的 Groups 內的 Items
-        sortedSubGroups.forEach(subGroup => {
-            let subItems = groupedItems[subGroup];
-            // 在 Group 內部依照 itemOrder 排序 Items
-            subItems.sort((a, b) => {
+            // Level 4: 排序 SubGroup (依照 subGroupOrder)
+            let sortedSubGroups = Object.keys(groupedItems);
+            const currentSubGroupOrder = subGroupOrder[model] || [];
+            sortedSubGroups.sort((a, b) => {
+                const idxA = currentSubGroupOrder.indexOf(a);
+                const idxB = currentSubGroupOrder.indexOf(b);
+                if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+                if (idxA !== -1) return -1;
+                if (idxB !== -1) return 1;
+                return a.localeCompare(b);
+            });
+
+            // Level 5: 排序 Items (依照 itemOrder)
+            let finalItemsToPrint = [];
+
+            // 5a. Group 內的 Items
+            sortedSubGroups.forEach(subGroup => {
+                let subItems = groupedItems[subGroup];
+                subItems.sort((a, b) => {
+                     const idxA = strItemOrder.indexOf(String(a.id));
+                     const idxB = strItemOrder.indexOf(String(b.id));
+                     if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+                     if (idxA !== -1) return -1;
+                     if (idxB !== -1) return 1;
+                     return a.name.localeCompare(b.name);
+                });
+                finalItemsToPrint = finalItemsToPrint.concat(subItems);
+            });
+
+            // 5b. Ungrouped Items
+            ungroupedItems.sort((a, b) => {
                  const idxA = strItemOrder.indexOf(String(a.id));
                  const idxB = strItemOrder.indexOf(String(b.id));
                  if (idxA !== -1 && idxB !== -1) return idxA - idxB;
@@ -167,55 +203,39 @@ const ReportModal = ({ isOpen, onClose, inventory, modelOrder, subGroupOrder, it
                  if (idxB !== -1) return 1;
                  return a.name.localeCompare(b.name);
             });
-            finalItemsToPrint = finalItemsToPrint.concat(subItems);
-        });
+            finalItemsToPrint = finalItemsToPrint.concat(ungroupedItems);
 
-        // 4b. 加入排序後的 Ungrouped Items
-        ungroupedItems.sort((a, b) => {
-             const idxA = strItemOrder.indexOf(String(a.id));
-             const idxB = strItemOrder.indexOf(String(b.id));
-             if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-             if (idxA !== -1) return -1;
-             if (idxB !== -1) return 1;
-             return a.name.localeCompare(b.name);
-        });
-        finalItemsToPrint = finalItemsToPrint.concat(ungroupedItems);
+            // 產生文字行
+            let linesForThisModel = [];
+            finalItemsToPrint.forEach(item => {
+                if (onlyMissing && item.qty > 0 && item.qty >= item.max / 2) return;
 
-        // 5. 格式化輸出文字
-        let linesForThisModel = [];
-        finalItemsToPrint.forEach(item => {
-            // 篩選缺貨
-            if (onlyMissing && item.qty > 0 && item.qty >= item.max / 2) return;
+                const isOut = item.qty <= 0;
+                const isLow = item.qty < item.max / 2;
+                const status = isOut ? '❌缺' : (isLow ? '⚠️補' : '✅');
+                
+                let displayName = cleanItemName(model, item.name);
+                let subDisplay = '';
+                if (item.subGroup && item.subGroup.toUpperCase() !== model.toUpperCase()) {
+                     if (!displayName.toUpperCase().includes(item.subGroup.toUpperCase())) {
+                         subDisplay = ` (${item.subGroup})`;
+                     }
+                }
+                linesForThisModel.push(`${status} ${displayName}${subDisplay}: ${item.qty}/${item.max} ${item.unit}`);
+            });
 
-            const isOut = item.qty <= 0;
-            const isLow = item.qty < item.max / 2;
-            const status = isOut ? '❌缺' : (isLow ? '⚠️補' : '✅');
-            
-            // --- 顯示名稱簡化 ---
-            let displayName = cleanItemName(model, item.name);
-            
-            // 處理次分類顯示 (如果名稱已經包含次分類，就不重複顯示)
-            let subDisplay = '';
-            if (item.subGroup && item.subGroup.toUpperCase() !== model.toUpperCase()) {
-                 if (!displayName.toUpperCase().includes(item.subGroup.toUpperCase())) {
-                     subDisplay = ` (${item.subGroup})`;
-                 }
+            if (linesForThisModel.length > 0) {
+                hasContent = true;
+                text += `\n\n📌 ${model}`;
+                linesForThisModel.forEach(line => text += `\n${line}`);
             }
-
-            linesForThisModel.push(`${status} ${displayName}${subDisplay}: ${item.qty}/${item.max} ${item.unit}`);
         });
-
-        if (linesForThisModel.length > 0) {
-            hasContent = true;
-            text += `\n\n📌 ${model}`;
-            linesForThisModel.forEach(line => text += `\n${line}`);
-        }
     });
 
     if (!hasContent) text += `\n\n目前沒有${onlyMissing ? '需補貨' : ''}項目。`;
     text += `\n\n----------------\n系統自動生成`;
     return text;
-  }, [inventory, modelOrder, subGroupOrder, itemOrder, onlyMissing]);
+  }, [inventory, modelOrder, subGroupOrder, itemOrder, categoryOrder, onlyMissing]);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(reportText);
@@ -506,8 +526,8 @@ const SortableAccordionGroup = ({ id, groupName, items, onEdit, onRestock, itemO
                 </div>
                 <div className="flex items-center gap-2">
                     <div className="flex items-center gap-3 cursor-pointer" onClick={() => setIsOpen(!isOpen)}>
-                         {lowStockCount > 0 && <span className="flex items-center text-xs font-bold text-rose-500 bg-rose-50 px-2 py-0.5 rounded-full"><AlertTriangle size={10} className="mr-1"/> {lowStockCount} 缺</span>}
-                         <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md">{items.length} 項</span>
+                          {lowStockCount > 0 && <span className="flex items-center text-xs font-bold text-rose-500 bg-rose-50 px-2 py-0.5 rounded-full"><AlertTriangle size={10} className="mr-1"/> {lowStockCount} 缺</span>}
+                          <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md">{items.length} 項</span>
                     </div>
                     {/* 群組把手 (最右側) */}
                     <div {...attributes} {...listeners} className="text-slate-300 cursor-grab active:cursor-grabbing hover:text-slate-500 p-1 ml-2 border-l border-slate-100"><GripVertical size={18} /></div>
@@ -620,12 +640,12 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
     
     // 畫面顯示排序也要轉字串比對
     list.sort((a, b) => {
-         const idxA = strItemOrder.indexOf(String(a.id));
-         const idxB = strItemOrder.indexOf(String(b.id));
-         if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-         if (idxA !== -1) return -1;
-         if (idxB !== -1) return 1;
-         return a.name.localeCompare(b.name);
+          const idxA = strItemOrder.indexOf(String(a.id));
+          const idxB = strItemOrder.indexOf(String(b.id));
+          if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+          if (idxA !== -1) return -1;
+          if (idxB !== -1) return 1;
+          return a.name.localeCompare(b.name);
     });
 
     list.forEach(item => {
@@ -845,7 +865,15 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
 
       <EditInventoryModal isOpen={!!editingItem || isAddMode} onClose={() => { setEditingItem(null); setIsAddMode(false); }} onSave={handleModalSave} onDelete={(id) => { onDeleteInventory(id); setEditingItem(null); }} initialItem={editingItem} existingModels={Object.keys(groupedInventory)} defaultModel={activeCategory} defaultCategoryType={selectedBigGroup} />
       <RenameModal isOpen={!!groupToRename || !!editingBigGroup} title={editingBigGroup ? "修改分類名稱" : "修改型號名稱"} oldName={editingBigGroup ? editingBigGroup.name : groupToRename} onClose={() => { setGroupToRename(null); setEditingBigGroup(null); }} onDelete={editingBigGroup ? () => handleDeleteBigGroup(editingBigGroup.id) : null} onRename={(old, newName) => { if (editingBigGroup) setBigGroupLabels(prev => ({ ...prev, [editingBigGroup.id]: newName })); else onRenameGroup(old, newName); }} />
-      <ReportModal isOpen={showReport} onClose={() => setShowReport(false)} inventory={inventory} modelOrder={modelOrder} subGroupOrder={subGroupOrder} itemOrder={itemOrder} />
+      <ReportModal 
+          isOpen={showReport} 
+          onClose={() => setShowReport(false)} 
+          inventory={inventory} 
+          modelOrder={modelOrder} 
+          subGroupOrder={subGroupOrder} 
+          itemOrder={itemOrder}
+          categoryOrder={categoryOrder} 
+      />
     </div>
   );
 };
