@@ -70,7 +70,7 @@ const cleanItemName = (modelName, itemName) => {
     return display || itemName; 
 };
 
-// --- 1. 報表視窗 (完全依照分類ID + 智慧分組) ---
+// --- 1. 報表視窗 (完全依照分類ID + 智慧分組 + 修正排序) ---
 const ReportModal = ({ isOpen, onClose, inventory, categories, modelOrder, itemOrder }) => {
   const [copied, setCopied] = useState(false);
   const [onlyMissing, setOnlyMissing] = useState(false);
@@ -141,11 +141,15 @@ const ReportModal = ({ isOpen, onClose, inventory, categories, modelOrder, itemO
         // Level 3: 機型迴圈
         modelsInThisCat.forEach((model, modelIndex) => {
             const items = modelsObj[model];
-            // Items 排序
+            // Items 排序 (這裡必須與主畫面使用相同的邏輯)
             items.sort((a, b) => {
                  const idxA = strItemOrder.indexOf(String(a.id));
                  const idxB = strItemOrder.indexOf(String(b.id));
+                 // 如果兩者都有排序紀錄，照紀錄
                  if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+                 // 如果只有一個有紀錄，有紀錄的排前面 (讓新加入的排後面，或依照名稱)
+                 if (idxA !== -1) return -1;
+                 if (idxB !== -1) return 1;
                  return a.name.localeCompare(b.name);
             });
 
@@ -212,13 +216,11 @@ const ReportModal = ({ isOpen, onClose, inventory, categories, modelOrder, itemO
   );
 };
 
-// --- 2. 新增與編輯項目視窗 (邏輯更新) ---
+// --- 2. 新增與編輯項目視窗 ---
 const EditInventoryModal = ({ isOpen, onClose, onSave, onDelete, initialItem, categories, defaultCategoryId, defaultModel }) => {
   const [formData, setFormData] = useState({ name: '', model: '', subGroup: '', qty: 0, max: 5, unit: '個', categoryId: '' });
   const [useCustomModel, setUseCustomModel] = useState(false);
-  const [existingModelsInCat, setExistingModelsInCat] = useState([]);
-
-  // 初始化表單
+  
   useEffect(() => {
     if (isOpen) {
       if (initialItem) {
@@ -246,7 +248,7 @@ const EditInventoryModal = ({ isOpen, onClose, onSave, onDelete, initialItem, ca
         </div>
         
         <div className="space-y-4 mb-6">
-           {/* 1. 選擇分類 (最重要) */}
+           {/* 1. 選擇分類 */}
            <div>
               <label className="text-sm font-bold text-slate-500 block mb-2">所屬分類</label>
               <select 
@@ -456,7 +458,7 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
   useEffect(() => { localStorage.setItem('invModelOrder', JSON.stringify(modelOrder)); }, [modelOrder]);
   useEffect(() => { localStorage.setItem('invItemOrder', JSON.stringify(itemOrder)); }, [itemOrder]);
 
-  // --- 自動遷移舊資料 (這是重點) ---
+  // --- 自動遷移舊資料 ---
   useEffect(() => {
       let hasChanges = false;
       const newInventory = inventory.map(item => {
@@ -467,14 +469,10 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
           return item;
       });
       if (hasChanges) {
-          // 這裡需要 parent component 支援批量更新，或是我們假設這只是顯示上的修正
-          // 為了安全起見，如果發現有舊資料，我們就在這裡觸發一次保存
-          console.log('Migrating inventory data...');
-          newInventory.forEach(item => {
-              if(!item.categoryId) onUpdateInventory(item);
-          });
+          // 只在記憶體中顯示正確的分類，若需寫回 DB，請在 parent 層處理
+          // 這裡我們暫時只確保顯示正確
       }
-  }, [inventory]); // Run once mostly
+  }, [inventory]); 
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -551,22 +549,30 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
           // 排序型號
           setModelOrder(prev => {
              const newOrder = [...prev];
-             // 確保所有當前 folders 都在 order 中
              folders.forEach(f => { if(!newOrder.includes(f)) newOrder.push(f); });
              const oldIdx = newOrder.indexOf(active.id);
              const newIdx = newOrder.indexOf(over.id);
              return arrayMove(newOrder, oldIdx, newIdx);
           });
       } else {
-          // 排序零件
-          setItemOrder(prev => {
-             const newOrder = [...prev];
-             const oldIdx = newOrder.indexOf(String(active.id));
-             const newIdx = newOrder.indexOf(String(over.id));
-             // 如果 id 不在紀錄中，加進去 (雖然 sort 已經處理，但拖曳需要)
-             if (oldIdx === -1 || newIdx === -1) return prev; 
-             return arrayMove(newOrder, oldIdx, newIdx);
-          });
+          // 排序零件 (Level 3) - 修正邏輯
+          // 取得目前畫面上的所有 ID 列表
+          const currentIds = currentItems.map(i => String(i.id));
+          const oldIdx = currentIds.indexOf(String(active.id));
+          const newIdx = currentIds.indexOf(String(over.id));
+          
+          if (oldIdx !== -1 && newIdx !== -1) {
+              // 在「目前畫面列表」中移動
+              const newOrder = arrayMove(currentIds, oldIdx, newIdx);
+              
+              // 更新到全域的 itemOrder
+              setItemOrder(prev => {
+                  const prevStrings = prev.map(String);
+                  // 移除舊的(避免重複)，然後加入新的
+                  const otherItems = prevStrings.filter(id => !currentIds.includes(id));
+                  return [...otherItems, ...newOrder];
+              });
+          }
       }
   };
 
