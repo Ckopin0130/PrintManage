@@ -179,7 +179,6 @@ export default function App() {
 
   // --- 5. 資料庫操作 (CRUD) ---
   
-  // 更新庫存
   const updateInventory = async (item) => {
     setInventory(prev => prev.map(i => i.id === item.id ? item : i));
     if (dbStatus === 'demo' || !user) { showToast('庫存已更新 (離線)'); return; }
@@ -187,7 +186,6 @@ export default function App() {
     catch (e) { console.error(e); showToast('更新失敗', 'error'); }
   };
 
-  // 新增庫存
   const addInventoryItem = async (newItem) => {
     const newId = `p-${Date.now()}`;
     const itemWithId = { ...newItem, id: newId };
@@ -197,7 +195,6 @@ export default function App() {
     catch (e) { console.error(e); showToast('新增失敗', 'error'); }
   };
 
-  // 刪除庫存
   const deleteInventoryItem = async (id) => {
     setInventory(prev => prev.filter(i => i.id !== id));
     if (dbStatus === 'demo' || !user) { showToast('零件已刪除 (離線)'); return; }
@@ -205,7 +202,6 @@ export default function App() {
     catch (e) { console.error(e); showToast('刪除失敗', 'error'); }
   };
 
-  // 重新命名分類
   const renameModelGroup = async (oldModel, newModel) => {
     setInventory(prev => prev.map(item => item.model === oldModel ? { ...item, model: newModel } : item));
     if (dbStatus === 'demo' || !user) { showToast(`分類已更新：${newModel} (離線)`); return; }
@@ -216,6 +212,142 @@ export default function App() {
       itemsToUpdate.forEach(item => { const ref = doc(db, 'inventory', item.id); batch.update(ref, { model: newModel }); });
       await batch.commit(); showToast(`分類已更新：${newModel}`);
     } catch (e) { console.error(e); showToast('更新失敗', 'error'); }
+  };
+
+  // --- 6. 備份與還原功能 (已補回) ---
+
+  // 從資料物件還原到 Firestore
+  const restoreDataToFirestore = async (data) => {
+    if (!data) throw new Error("無資料");
+    setIsProcessing(true);
+    
+    // 更新本地 State
+    if (data.customers) setCustomers(data.customers);
+    if (data.inventory) setInventory(data.inventory);
+    if (data.records) setRecords(data.records);
+
+    if (dbStatus !== 'demo' && user) {
+        try {
+            const batch = writeBatch(db); 
+            let count = 0; 
+            // 簡單的 Batch 限制處理 (Firebase 限制一次 500 筆)
+            const safeBatchSet = (ref, val) => { 
+                if (count < 480) { batch.set(ref, val); count++; } 
+            };
+
+            if (data.customers) data.customers.forEach(c => safeBatchSet(doc(db, 'customers', c.customerID), c));
+            if (data.inventory) data.inventory.forEach(i => safeBatchSet(doc(db, 'inventory', i.id), i));
+            if (data.records) data.records.forEach(r => safeBatchSet(doc(db, 'records', r.id), r));
+            
+            await batch.commit(); 
+            showToast('資料還原成功！');
+        } catch (e) {
+            console.error("還原失敗", e);
+            showToast('還原部分失敗，請檢查 Log', 'error');
+        }
+    } else { 
+        showToast('已匯入預覽 (離線模式)'); 
+    }
+    setIsProcessing(false);
+  };
+
+  // 匯出 JSON
+  const handleExportData = () => {
+    const dataStr = JSON.stringify({ customers, records, inventory }, null, 2);
+    const blob = new Blob([dataStr], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `backup_${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast('資料已匯出');
+  };
+
+  // 匯入 JSON
+  const handleImportData = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const data = JSON.parse(event.target.result);
+        await restoreDataToFirestore(data);
+      } catch (err) { 
+        console.error(err);
+        showToast('檔案格式錯誤', 'error'); 
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  // 讀取雲端備份列表
+  const fetchCloudBackups = async () => {
+    if (dbStatus === 'demo') return;
+    try {
+      const listRef = ref(storage, 'backups/');
+      const res = await listAll(listRef);
+      const backups = await Promise.all(res.items.map(async (itemRef) => {
+        try {
+            const metadata = await getMetadata(itemRef);
+            return {
+              name: itemRef.name,
+              time: new Date(metadata.timeCreated).toLocaleString(),
+              fullPath: itemRef.fullPath,
+              size: (metadata.size / 1024).toFixed(2) + ' KB'
+            };
+        } catch (e) { return null; }
+      }));
+      setCloudBackups(backups.filter(b => b).sort((a, b) => new Date(b.time) - new Date(a.time)));
+    } catch (error) { console.error("List backups failed", error); }
+  };
+
+  // 建立雲端備份
+  const handleCreateCloudBackup = async () => {
+    if (dbStatus === 'demo') return showToast('演示模式無法備份', 'error');
+    setIsProcessing(true);
+    try {
+      const dataStr = JSON.stringify({ customers, records, inventory });
+      const fileName = `backup_${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+      const backupRef = ref(storage, `backups/${fileName}`);
+      await uploadString(backupRef, dataStr);
+      showToast('雲端備份建立成功');
+      fetchCloudBackups();
+    } catch (error) { 
+        console.error(error);
+        showToast('備份失敗', 'error'); 
+    } finally { setIsProcessing(false); }
+  };
+
+  // 從雲端還原
+  const handleRestoreFromCloud = async (backupItem) => {
+      if (!window.confirm(`確定要從「${backupItem.time}」還原資料嗎？目前的資料將被覆蓋。`)) return;
+      setIsProcessing(true);
+      try {
+          const backupRef = ref(storage, backupItem.fullPath);
+          const url = await getDownloadURL(backupRef);
+          const response = await fetch(url);
+          const data = await response.json();
+          await restoreDataToFirestore(data);
+      } catch (error) {
+          console.error("Restore failed", error);
+          showToast('還原失敗', 'error');
+          setIsProcessing(false);
+      }
+  };
+
+  // 刪除雲端備份
+  const handleDeleteCloudBackup = async (backupItem) => {
+      if (!window.confirm('確定要刪除此備份檔嗎？')) return;
+      try {
+          const backupRef = ref(storage, backupItem.fullPath);
+          await deleteObject(backupRef);
+          showToast('備份檔已刪除');
+          setCloudBackups(prev => prev.filter(b => b.name !== backupItem.name));
+      } catch (error) {
+          showToast('刪除失敗', 'error');
+      }
   };
 
   // 重置資料
@@ -327,18 +459,16 @@ export default function App() {
     });
   };
 
-  // 編輯客戶 (相容新舊格式)
+  // 編輯客戶
   const handleEditSubmit = async (formData) => {
     if (!selectedCustomer) return;
     if (isProcessing) return;
     setIsProcessing(true);
 
-    // 處理電話格式相容性
     let updatedPhones = formData.phones;
     if (!updatedPhones && (formData.phoneNumber || formData.phone)) {
         updatedPhones = [{ label: formData.phoneLabel || '公司', number: formData.phoneNumber || formData.phone }];
     }
-    // 處理設備格式相容性
     let updatedAssets = formData.assets;
     if (!updatedAssets && formData.model) {
         updatedAssets = [{ model: formData.model }];
@@ -346,7 +476,7 @@ export default function App() {
 
     const updatedEntry = {
       ...selectedCustomer,
-      ...formData, // 直接覆蓋新欄位
+      ...formData,
       phones: updatedPhones || selectedCustomer.phones || [],
       assets: updatedAssets || selectedCustomer.assets || [],
       notes: formData.notes || formData.note || selectedCustomer.notes || ''
@@ -362,19 +492,16 @@ export default function App() {
     } catch (err) { showToast('更新失敗', 'error'); } finally { setIsProcessing(false); }
   };
 
-  // 新增客戶 (相容新舊格式)
+  // 新增客戶
   const handleAddSubmit = async (formData) => {
     if (isProcessing) return;
     setIsProcessing(true);
     const newId = `cust-${Date.now()}`;
 
-    // 處理電話格式
     let phones = formData.phones;
     if (!phones && (formData.phoneNumber || formData.phone)) {
         phones = [{ label: formData.phoneLabel || '公司', number: formData.phoneNumber || formData.phone }];
     }
-    
-    // 處理設備格式
     let assets = formData.assets;
     if (!assets && formData.model) {
         assets = [{ model: formData.model }];
@@ -390,7 +517,7 @@ export default function App() {
       phones: phones || [],
       assets: assets || [], 
       notes: formData.notes || formData.note || '', 
-      categoryId: formData.categoryId || '', // 新增支援 CategoryID
+      categoryId: formData.categoryId || '', 
       serviceCount: 0
     };
 
@@ -401,31 +528,9 @@ export default function App() {
             await setDoc(doc(db, 'customers', newId), newEntry);
         }
         showToast('新增成功');
-        // 新增後跳轉邏輯
         setSelectedCustomer(newEntry); setCurrentView('detail');
     } catch (err) { showToast('新增失敗', 'error'); } finally { setIsProcessing(false); }
   };
-
-  // 雲端備份與還原... (省略與之前相同部分以節省篇幅，核心邏輯未變)
-  const restoreDataToFirestore = async (data) => {
-    if (!data) throw new Error("無資料");
-    if (data.customers) setCustomers(data.customers);
-    if (data.inventory) setInventory(data.inventory);
-    if (data.records) setRecords(data.records);
-    if (dbStatus !== 'demo' && user) {
-        const batch = writeBatch(db); let count = 0; const safeBatchSet = (ref, val) => { if (count < 480) { batch.set(ref, val); count++; } };
-        if (data.customers) data.customers.forEach(c => safeBatchSet(doc(db, 'customers', c.customerID), c));
-        if (data.inventory) data.inventory.forEach(i => safeBatchSet(doc(db, 'inventory', i.id), i));
-        if (data.records) data.records.forEach(r => safeBatchSet(doc(db, 'records', r.id), r));
-        await batch.commit(); showToast('還原成功！');
-    } else { showToast('已匯入預覽 (離線模式)'); }
-  };
-  const handleExportData = () => { /* ... export logic ... */ };
-  const handleImportData = (e) => { /* ... import logic ... */ };
-  const fetchCloudBackups = async () => { /* ... fetch logic ... */ };
-  const handleCreateCloudBackup = async () => { /* ... create logic ... */ };
-  const handleRestoreFromCloud = async (item) => { /* ... restore logic ... */ };
-  const handleDeleteCloudBackup = async (item) => { /* ... delete logic ... */ };
 
   return (
     <div className="max-w-md mx-auto bg-gray-100 min-h-screen font-sans text-gray-900 shadow-2xl relative overflow-hidden">
@@ -444,14 +549,13 @@ export default function App() {
         />
       )}
 
-      {/* 🔴 重點修正：傳遞 onBack 與正確的回呼函數給 CustomerRoster */}
       {currentView === 'roster' && (
         <CustomerRoster 
           customers={customers} 
           onAddCustomer={handleAddSubmit}
           onUpdateCustomer={handleEditSubmit}
           onDeleteCustomer={(item) => handleDeleteCustomer(null, item)}
-          onBack={() => { setCurrentView('dashboard'); setActiveTab('dashboard'); }} // 加上這行解決上一頁無效
+          onBack={() => { setCurrentView('dashboard'); setActiveTab('dashboard'); }} 
           setCurrentView={setCurrentView} 
           setSelectedCustomer={setSelectedCustomer}
           setTargetCustomer={setTargetCustomer}
@@ -477,7 +581,6 @@ export default function App() {
         />
       )}
 
-      {/* 舊的 CustomerForm (保留給 Detail 頁面的編輯功能用) */}
       {(currentView === 'add' || (currentView === 'edit' && selectedCustomer)) && (
         <CustomerForm 
           mode={currentView === 'add' ? 'add' : 'edit'}
