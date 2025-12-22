@@ -60,15 +60,15 @@ const cleanItemName = (modelName, itemName) => {
     const modelClean = modelName.trim();
 
     // 1. 強力移除 "(ModelName)" 這種格式
-    // 將型號轉為正則表達式安全字串
     const escapedModel = modelClean.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    
     // 移除 "(MP C5000)" 或 "MP C5000"
     display = display.replace(new RegExp(`\\(${escapedModel}\\)`, 'gi'), '');
     display = display.replace(new RegExp(`${escapedModel}`, 'gi'), '');
 
-    // 2. 拆解型號 token 並移除剩餘的片段 (例如 "MP" 或 "C5000")
+    // 2. 拆解型號 token 並移除
     const tokens = modelClean.split(/[\s\-_/]+/).filter(t => t.length > 1); 
-    tokens.sort((a, b) => b.length - a.length); // 先移除長的
+    tokens.sort((a, b) => b.length - a.length); 
 
     tokens.forEach(token => {
         try {
@@ -86,7 +86,7 @@ const cleanItemName = (modelName, itemName) => {
     return display || itemName; 
 };
 
-// --- 1. 報表視窗 (修正版：緊湊排版 + 型號歸類) ---
+// --- 1. 報表視窗 (修正版：智慧分組 + 無縮排 + 緊湊模式) ---
 const ReportModal = ({ isOpen, onClose, inventory, modelOrder, subGroupOrder, itemOrder, categoryOrder }) => {
   const [copied, setCopied] = useState(false);
   const [onlyMissing, setOnlyMissing] = useState(false);
@@ -96,17 +96,41 @@ const ReportModal = ({ isOpen, onClose, inventory, modelOrder, subGroupOrder, it
 
     const strItemOrder = itemOrder ? itemOrder.map(String) : [];
 
-    // 1. 資料處理
+    // 1. 資料處理 (包含智慧分組邏輯)
     const itemsByModel = {}; 
     const modelToCategory = {}; 
 
     inventory.forEach(item => {
-        const m = item.model || '未分類';
-        if (!itemsByModel[m]) {
-            itemsByModel[m] = [];
-            modelToCategory[m] = getBigCategoryType(m, item);
+        // --- 智慧判斷顯示用的 Model 名稱 ---
+        // 優先順序: 
+        // 1. 如果原始型號是統稱 (如: 碳粉系列)，則嘗試從 SubGroup 或 Name 提取真實機型
+        // 2. 否則直接使用原始型號
+        
+        let originalModel = item.model || '未分類';
+        let displayModel = originalModel;
+        
+        // 判斷是否為「統稱型」型號
+        const isGenericModel = ['碳粉系列', '碳粉', 'TONER', '共用耗材', 'COMMON'].some(k => originalModel.includes(k));
+
+        if (isGenericModel) {
+            if (item.subGroup && item.subGroup.trim()) {
+                displayModel = item.subGroup.trim();
+            } else {
+                // 嘗試從名稱提取括號內容，例如 "黑色 (MP 3352)" -> "MP 3352"
+                const match = item.name.match(/[\(（](.+?)[\)）]/);
+                if (match && match[1] && match[1].length > 1) {
+                     displayModel = match[1].trim();
+                }
+            }
         }
-        itemsByModel[m].push(item);
+
+        if (!itemsByModel[displayModel]) {
+            itemsByModel[displayModel] = [];
+            // 分類判斷仍依據「原始 model」或「categoryType」，確保碳粉仍留在碳粉區
+            // 若原始分類不明，才用提取出的型號去猜
+            modelToCategory[displayModel] = getBigCategoryType(item.model || displayModel, item);
+        }
+        itemsByModel[displayModel].push(item);
     });
 
     // 2. 大分類排序
@@ -121,8 +145,8 @@ const ReportModal = ({ isOpen, onClose, inventory, modelOrder, subGroupOrder, it
 
     // --- 產生報表 ---
     let text = `【庫存盤點報表】${new Date().toLocaleDateString()}\n`;
-    if(onlyMissing) text += `(僅顯示需補貨項目)\n`;
-    text += `----------------`;
+    if(onlyMissing) text += `(僅顯示需補貨)\n`;
+    text += `----------------`; 
     
     let hasContent = false;
 
@@ -132,18 +156,17 @@ const ReportModal = ({ isOpen, onClose, inventory, modelOrder, subGroupOrder, it
         if (modelsInThisCat.length === 0) return;
 
         // Level 2: 機型排序
-        if (modelOrder && modelOrder.length > 0) {
-            modelsInThisCat.sort((a, b) => {
-                const idxA = modelOrder.indexOf(a);
-                const idxB = modelOrder.indexOf(b);
-                if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-                if (idxA !== -1) return -1;
-                if (idxB !== -1) return 1;
-                return a.localeCompare(b);
-            });
-        } else {
-            modelsInThisCat.sort((a, b) => a.localeCompare(b));
-        }
+        modelsInThisCat.sort((a, b) => {
+            // 嘗試依照手動排序 (如果提取出的型號剛好有在排序清單內)
+            if (modelOrder) {
+               const idxA = modelOrder.indexOf(a);
+               const idxB = modelOrder.indexOf(b);
+               if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+               if (idxA !== -1) return -1;
+               if (idxB !== -1) return 1;
+            }
+            return a.localeCompare(b);
+        });
 
         let categoryContent = '';
         let hasModelsInThisCat = false;
@@ -152,77 +175,33 @@ const ReportModal = ({ isOpen, onClose, inventory, modelOrder, subGroupOrder, it
         modelsInThisCat.forEach((model, modelIndex) => {
             const items = itemsByModel[model];
             
-            // Items 分組
-            const groupedItems = {}; 
-            const ungroupedItems = [];
-            items.forEach(item => {
-                if (item.subGroup) {
-                    if (!groupedItems[item.subGroup]) groupedItems[item.subGroup] = [];
-                    groupedItems[item.subGroup].push(item);
-                } else {
-                    ungroupedItems.push(item);
-                }
-            });
-
             // Items 排序
-            let sortedSubGroups = Object.keys(groupedItems);
-            const currentSubGroupOrder = subGroupOrder[model] || [];
-            sortedSubGroups.sort((a, b) => {
-                const idxA = currentSubGroupOrder.indexOf(a);
-                const idxB = currentSubGroupOrder.indexOf(b);
-                if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-                return a.localeCompare(b);
-            });
-
-            let finalItemsToPrint = [];
-            sortedSubGroups.forEach(subGroup => {
-                let subItems = groupedItems[subGroup];
-                subItems.sort((a, b) => {
-                     const idxA = strItemOrder.indexOf(String(a.id));
-                     const idxB = strItemOrder.indexOf(String(b.id));
-                     if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-                     return a.name.localeCompare(b.name);
-                });
-                finalItemsToPrint = finalItemsToPrint.concat(subItems);
-            });
-
-            ungroupedItems.sort((a, b) => {
+            items.sort((a, b) => {
                  const idxA = strItemOrder.indexOf(String(a.id));
                  const idxB = strItemOrder.indexOf(String(b.id));
                  if (idxA !== -1 && idxB !== -1) return idxA - idxB;
                  return a.name.localeCompare(b.name);
             });
-            finalItemsToPrint = finalItemsToPrint.concat(ungroupedItems);
 
             // 產生 Items 文字行
             let linesForThisModel = [];
-            finalItemsToPrint.forEach(item => {
+            items.forEach(item => {
                 const isFull = item.qty >= item.max;
                 if (onlyMissing && isFull) return;
 
                 const icon = isFull ? '🔹' : '🔸';
                 // 清理名稱：移除型號括號
                 let displayName = cleanItemName(model, item.name);
-                let subDisplay = '';
                 
-                if (item.subGroup && item.subGroup.toUpperCase() !== model.toUpperCase()) {
-                     if (!displayName.toUpperCase().includes(item.subGroup.toUpperCase())) {
-                         subDisplay = ` (${item.subGroup})`;
-                     }
-                }
-                
-                linesForThisModel.push(`    ${icon}${displayName}${subDisplay}: ${item.qty}/${item.max} ${item.unit}`);
+                // 完全無空格格式
+                linesForThisModel.push(`${icon}${displayName}: ${item.qty}/${item.max} ${item.unit}`);
             });
 
             if (linesForThisModel.length > 0) {
                 hasModelsInThisCat = true;
-                
-                // --- 排版關鍵：控制換行 ---
-                // 如果是該分類的第一個型號，前面用單次換行 \n
-                // 如果是後續型號，前面用兩次換行 \n\n (把不同機型隔開)
-                const prefix = modelIndex === 0 ? '\n' : '\n\n';
-                
-                categoryContent += `${prefix}  ◆ ${model}`; 
+                // 每個機型標題前換一行 (除了第一個)
+                const prefix = modelIndex === 0 ? '\n' : '\n'; 
+                categoryContent += `${prefix}◆ ${model}`; 
                 linesForThisModel.forEach(line => categoryContent += `\n${line}`);
             }
         });
@@ -235,7 +214,7 @@ const ReportModal = ({ isOpen, onClose, inventory, modelOrder, subGroupOrder, it
                if (savedLabels && savedLabels[catType]) catName = savedLabels[catType];
             } catch(e) {}
             
-            // 大分類標題前兩行空白，與上方區隔
+            // 大分類標題 (上方留一行空)
             text += `\n\n📦 ${catName}`;
             text += categoryContent;
         }
