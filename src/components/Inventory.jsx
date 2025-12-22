@@ -59,35 +59,33 @@ const cleanItemName = (modelName, itemName) => {
     let display = itemName;
     const modelClean = modelName.trim();
 
-    // 策略 A: 拆解型號 token 並移除 (例如 "MP C3503" -> 移除 "MP", "C3503")
-    const tokens = modelClean.split(/[\s-_/]+/).filter(t => t.length > 1); // 忽略單字母
+    // 1. 拆解型號 token 並移除 (例如 "MP C3503" -> 移除 "MP", "C3503")
+    // 忽略過短的 token 避免誤刪
+    const tokens = modelClean.split(/[\s\-_/]+/).filter(t => t.length > 1); 
     
-    // 依長度排序，先移除長的 token，避免誤刪
+    // 依長度排序，先移除長的 token
     tokens.sort((a, b) => b.length - a.length);
 
     tokens.forEach(token => {
-        // 使用 Regex 進行不分大小寫的移除
         try {
+            // Case insensitive replace
             const regex = new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
             display = display.replace(regex, '');
-        } catch (e) {
-            // fallback if regex fails
-        }
+        } catch (e) {}
     });
 
-    // 策略 B: 移除括號內的內容，如果括號內只剩下空白
+    // 2. 移除括號及其內容 (如果括號內包含型號相關字)
+    // 簡單起見，如果括號內只剩下空白，就移除
     display = display.replace(/\(\s*\)/g, '');
 
-    // 策略 C: 清理頭尾的特殊符號
-    display = display.replace(/^[\s-_]+|[\s-_]+$/g, '').trim();
+    // 3. 清理頭尾的特殊符號
+    display = display.replace(/^[\s\-_]+|[\s\-_]+$/g, '').trim();
 
-    // 如果刪到什麼都不剩，代表原本名稱就只是型號，這時候回傳原名或保留一個通用名稱比較好
-    // 但依照需求 "不要在各顏色前面又多個型號"，如果只剩空白，我們回傳原始的後綴可能更好，但在這裡我們先回傳清理後的結果
-    // 讓上層邏輯決定如果為空該怎麼辦
-    return display; 
+    // 4. 如果刪到什麼都不剩 (例如 "C3503")，回傳原名，否則回傳清理後的結果
+    return display || itemName; 
 };
 
-// --- 1. 報表視窗 (邏輯重寫) ---
+// --- 1. 報表視窗 (邏輯重寫：完全依照 UI 層級排序) ---
 const ReportModal = ({ isOpen, onClose, inventory, modelOrder, subGroupOrder, itemOrder }) => {
   const [copied, setCopied] = useState(false);
   const [onlyMissing, setOnlyMissing] = useState(false);
@@ -95,24 +93,23 @@ const ReportModal = ({ isOpen, onClose, inventory, modelOrder, subGroupOrder, it
   const reportText = useMemo(() => {
     if (!inventory || inventory.length === 0) return '無庫存資料';
 
-    // 1. 準備快速查找 Map (ID -> Item)
-    const inventoryMap = new Map(inventory.map(item => [String(item.id), item]));
-    
-    // 2. 準備 Model 內的 Item 列表 (尚未排序)
-    const itemsByModel = {}; // { "C3503": [item1, item2], ... }
+    // 準備排序用的字串陣列 (Item Order)
+    const strItemOrder = itemOrder ? itemOrder.map(String) : [];
+
+    // 資料分組 (By Model)
+    const itemsByModel = {}; 
     inventory.forEach(item => {
         const m = item.model || '未分類';
         if (!itemsByModel[m]) itemsByModel[m] = [];
         itemsByModel[m].push(item);
     });
 
-    // 3. 決定 Model 的顯示順序
+    // 1. 排序 Model (依照 modelOrder)
     let sortedModels = Object.keys(itemsByModel);
     if (modelOrder && modelOrder.length > 0) {
         sortedModels.sort((a, b) => {
             const idxA = modelOrder.indexOf(a);
             const idxB = modelOrder.indexOf(b);
-            // 有在排序列表的排前面
             if (idxA !== -1 && idxB !== -1) return idxA - idxB;
             if (idxA !== -1) return -1;
             if (idxB !== -1) return 1;
@@ -126,47 +123,67 @@ const ReportModal = ({ isOpen, onClose, inventory, modelOrder, subGroupOrder, it
     
     let hasContent = false;
 
-    // 4. 產生報表內容
+    // 2. 遍歷 Model 產生內容
     sortedModels.forEach(model => {
-        let items = itemsByModel[model];
-
-        // --- 關鍵修正：排序邏輯 ---
-        // 我們必須讓 items 的順序 完全符合 itemOrder (使用者手動拖曳的結果)
-        // 同時也要考慮 subGroupOrder (如果有的話)
+        const items = itemsByModel[model];
         
-        if (itemOrder && itemOrder.length > 0) {
-            // 建立 itemOrder 的索引 Map，加速比對
-            const itemRankMap = new Map(itemOrder.map((id, index) => [String(id), index]));
-            
-            items.sort((a, b) => {
-                const rankA = itemRankMap.has(String(a.id)) ? itemRankMap.get(String(a.id)) : 999999;
-                const rankB = itemRankMap.has(String(b.id)) ? itemRankMap.get(String(b.id)) : 999999;
-                
-                if (rankA !== rankB) return rankA - rankB;
-                // 如果都不在手動排序清單中，回退到預設排序
-                return a.name.localeCompare(b.name); 
-            });
-        } else {
-             // 如果沒有 itemOrder，嘗試使用 subGroupOrder 輔助排序
-             const currentSubGroupOrder = subGroupOrder[model] || [];
-             items.sort((a, b) => {
-                 const subA = a.subGroup || '其他';
-                 const subB = b.subGroup || '其他';
-                 if (subA !== subB) {
-                     const idxA = currentSubGroupOrder.indexOf(subA);
-                     const idxB = currentSubGroupOrder.indexOf(subB);
-                     if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-                     if (idxA !== -1) return -1;
-                     if (idxB !== -1) return 1;
-                     return subA.localeCompare(subB);
-                 }
+        // 將 Items 分組：有次分類的 (Grouped) vs 無次分類的 (Ungrouped)
+        const groupedItems = {}; // { "subGroupName": [item, item] }
+        const ungroupedItems = [];
+
+        items.forEach(item => {
+            if (item.subGroup) {
+                if (!groupedItems[item.subGroup]) groupedItems[item.subGroup] = [];
+                groupedItems[item.subGroup].push(item);
+            } else {
+                ungroupedItems.push(item);
+            }
+        });
+
+        // 3. 排序 SubGroup Keys (依照 subGroupOrder)
+        let sortedSubGroups = Object.keys(groupedItems);
+        const currentSubGroupOrder = subGroupOrder[model] || [];
+        sortedSubGroups.sort((a, b) => {
+            const idxA = currentSubGroupOrder.indexOf(a);
+            const idxB = currentSubGroupOrder.indexOf(b);
+            if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+            if (idxA !== -1) return -1;
+            if (idxB !== -1) return 1;
+            return a.localeCompare(b);
+        });
+
+        // 4. 建立最終列印清單 (按照 UI 顯示順序：先 Groups，再 Ungrouped)
+        let finalItemsToPrint = [];
+
+        // 4a. 加入排序後的 Groups 內的 Items
+        sortedSubGroups.forEach(subGroup => {
+            let subItems = groupedItems[subGroup];
+            // 在 Group 內部依照 itemOrder 排序 Items
+            subItems.sort((a, b) => {
+                 const idxA = strItemOrder.indexOf(String(a.id));
+                 const idxB = strItemOrder.indexOf(String(b.id));
+                 if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+                 if (idxA !== -1) return -1;
+                 if (idxB !== -1) return 1;
                  return a.name.localeCompare(b.name);
-             });
-        }
+            });
+            finalItemsToPrint = finalItemsToPrint.concat(subItems);
+        });
+
+        // 4b. 加入排序後的 Ungrouped Items
+        ungroupedItems.sort((a, b) => {
+             const idxA = strItemOrder.indexOf(String(a.id));
+             const idxB = strItemOrder.indexOf(String(b.id));
+             if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+             if (idxA !== -1) return -1;
+             if (idxB !== -1) return 1;
+             return a.name.localeCompare(b.name);
+        });
+        finalItemsToPrint = finalItemsToPrint.concat(ungroupedItems);
 
         // 5. 格式化輸出文字
         let linesForThisModel = [];
-        items.forEach(item => {
+        finalItemsToPrint.forEach(item => {
             // 篩選缺貨
             if (onlyMissing && item.qty > 0 && item.qty >= item.max / 2) return;
 
@@ -174,14 +191,10 @@ const ReportModal = ({ isOpen, onClose, inventory, modelOrder, subGroupOrder, it
             const isLow = item.qty < item.max / 2;
             const status = isOut ? '❌缺' : (isLow ? '⚠️補' : '✅');
             
-            // --- 關鍵修正：顯示名稱簡化 ---
-            // 使用 cleanItemName 移除型號
+            // --- 顯示名稱簡化 ---
             let displayName = cleanItemName(model, item.name);
             
-            // 如果清理完變空字串 (例如原本名稱就是型號)，則恢復顯示原名，避免空白
-            if (!displayName) displayName = item.name;
-
-            // 處理次分類 (如果名稱已經包含次分類，就不重複顯示)
+            // 處理次分類顯示 (如果名稱已經包含次分類，就不重複顯示)
             let subDisplay = '';
             if (item.subGroup && item.subGroup.toUpperCase() !== model.toUpperCase()) {
                  if (!displayName.toUpperCase().includes(item.subGroup.toUpperCase())) {
@@ -674,7 +687,6 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
     } else {
         setItemOrder(prev => {
             let newOrder = [...prev];
-            // 確保要儲存的是字串型別的 ID
             const allCurrentItems = groupedInventory[activeCategory] || [];
             allCurrentItems.forEach(i => { if(!newOrder.includes(String(i.id))) newOrder.push(String(i.id)); });
             
