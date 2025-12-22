@@ -86,7 +86,7 @@ const cleanItemName = (modelName, itemName) => {
     return display || itemName; 
 };
 
-// --- 1. 報表視窗 (修正版：智慧分組 + 無縮排 + 緊湊模式) ---
+// --- 1. 報表視窗 (修正版：先分分類再分機型，避免碳粉被吸走) ---
 const ReportModal = ({ isOpen, onClose, inventory, modelOrder, subGroupOrder, itemOrder, categoryOrder }) => {
   const [copied, setCopied] = useState(false);
   const [onlyMissing, setOnlyMissing] = useState(false);
@@ -96,21 +96,21 @@ const ReportModal = ({ isOpen, onClose, inventory, modelOrder, subGroupOrder, it
 
     const strItemOrder = itemOrder ? itemOrder.map(String) : [];
 
-    // 1. 資料處理 (包含智慧分組邏輯)
-    const itemsByModel = {}; 
-    const modelToCategory = {}; 
+    // 1. 資料處理：先歸類到 Category，再歸類到 Model
+    // 結構: { [Category]: { [DisplayModel]: [Items...] } }
+    const groupedData = {}; 
 
     inventory.forEach(item => {
-        // --- 智慧判斷顯示用的 Model 名稱 ---
-        // 優先順序: 
-        // 1. 如果原始型號是統稱 (如: 碳粉系列)，則嘗試從 SubGroup 或 Name 提取真實機型
-        // 2. 否則直接使用原始型號
+        // A. 確定大分類 (這是最重要的，確保碳粉留在碳粉區)
+        const category = getBigCategoryType(item.model, item);
         
+        // B. 確定顯示用的型號 (Smart Extract)
+        // 只有當原始型號是「統稱」(如: 碳粉系列) 時，才去名稱內挖寶
+        // 這樣可以避免把原本就設定好的 MP 3352 (零件) 改名
         let originalModel = item.model || '未分類';
         let displayModel = originalModel;
         
-        // 判斷是否為「統稱型」型號
-        const isGenericModel = ['碳粉系列', '碳粉', 'TONER', '共用耗材', 'COMMON'].some(k => originalModel.includes(k));
+        const isGenericModel = ['碳粉系列', '碳粉', 'TONER', '共用耗材', 'COMMON'].some(k => originalModel.toUpperCase().includes(k));
 
         if (isGenericModel) {
             if (item.subGroup && item.subGroup.trim()) {
@@ -124,19 +124,16 @@ const ReportModal = ({ isOpen, onClose, inventory, modelOrder, subGroupOrder, it
             }
         }
 
-        if (!itemsByModel[displayModel]) {
-            itemsByModel[displayModel] = [];
-            // 分類判斷仍依據「原始 model」或「categoryType」，確保碳粉仍留在碳粉區
-            // 若原始分類不明，才用提取出的型號去猜
-            modelToCategory[displayModel] = getBigCategoryType(item.model || displayModel, item);
-        }
-        itemsByModel[displayModel].push(item);
+        // C. 放入結構
+        if (!groupedData[category]) groupedData[category] = {};
+        if (!groupedData[category][displayModel]) groupedData[category][displayModel] = [];
+        groupedData[category][displayModel].push(item);
     });
 
-    // 2. 大分類排序
+    // 2. 決定大分類的顯示順序
     let sortedCategories = [...DEFAULT_CATEGORY_ORDER];
     if (categoryOrder && categoryOrder.length > 0) {
-        const usedCategories = new Set(Object.values(modelToCategory));
+        const usedCategories = Object.keys(groupedData);
         sortedCategories = [...categoryOrder];
         usedCategories.forEach(c => {
             if (!sortedCategories.includes(c)) sortedCategories.push(c);
@@ -150,9 +147,12 @@ const ReportModal = ({ isOpen, onClose, inventory, modelOrder, subGroupOrder, it
     
     let hasContent = false;
 
-    // Level 1: 大分類
+    // Level 1: 大分類迴圈
     sortedCategories.forEach(catType => {
-        let modelsInThisCat = Object.keys(itemsByModel).filter(m => modelToCategory[m] === catType);
+        const modelsObj = groupedData[catType];
+        if (!modelsObj) return;
+
+        const modelsInThisCat = Object.keys(modelsObj);
         if (modelsInThisCat.length === 0) return;
 
         // Level 2: 機型排序
@@ -173,7 +173,7 @@ const ReportModal = ({ isOpen, onClose, inventory, modelOrder, subGroupOrder, it
 
         // Level 3: 機型迴圈
         modelsInThisCat.forEach((model, modelIndex) => {
-            const items = itemsByModel[model];
+            const items = modelsObj[model];
             
             // Items 排序
             items.sort((a, b) => {
@@ -190,7 +190,7 @@ const ReportModal = ({ isOpen, onClose, inventory, modelOrder, subGroupOrder, it
                 if (onlyMissing && isFull) return;
 
                 const icon = isFull ? '🔹' : '🔸';
-                // 清理名稱：移除型號括號
+                // 清理名稱：移除型號括號 (傳入 displayModel 讓它知道要切什麼)
                 let displayName = cleanItemName(model, item.name);
                 
                 // 完全無空格格式
@@ -199,8 +199,8 @@ const ReportModal = ({ isOpen, onClose, inventory, modelOrder, subGroupOrder, it
 
             if (linesForThisModel.length > 0) {
                 hasModelsInThisCat = true;
-                // 每個機型標題前換一行 (除了第一個)
-                const prefix = modelIndex === 0 ? '\n' : '\n'; 
+                // [排版修正] 第一個機型前只換一行，後續機型前換兩行
+                const prefix = modelIndex === 0 ? '\n' : '\n\n'; 
                 categoryContent += `${prefix}◆ ${model}`; 
                 linesForThisModel.forEach(line => categoryContent += `\n${line}`);
             }
