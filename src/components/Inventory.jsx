@@ -157,21 +157,26 @@ const ReportModal = ({ isOpen, onClose, inventory, categories, modelOrder, itemO
   );
 };
 
-// --- Edit Modal (修正：內容可捲動 + 自動完成) ---
+// --- Edit Modal (修正：自訂下拉選單) ---
 const EditInventoryModal = ({ isOpen, onClose, onSave, onDelete, initialItem, categories, defaultCategoryId, defaultModel, inventory }) => {
   const [formData, setFormData] = useState({ name: '', model: '', subGroup: '', qty: 0, max: 5, unit: '個', categoryId: '' });
   
-  // 自動完成清單
+  // 自訂下拉選單狀態
+  const [showModelSuggestions, setShowModelSuggestions] = useState(false);
+
+  // 計算建議清單
   const modelSuggestions = useMemo(() => {
       if (!formData.categoryId || !inventory) return [];
+      const inputVal = formData.model || '';
       const models = new Set(
           inventory
             .filter(i => (i.categoryId || migrateCategory(i.model, i)) === formData.categoryId)
             .map(i => i.model)
             .filter(m => m && m.trim() !== '' && m !== '未分類')
       );
-      return [...models].sort();
-  }, [inventory, formData.categoryId]);
+      // 過濾並排序
+      return [...models].filter(m => m.includes(inputVal)).sort();
+  }, [inventory, formData.categoryId, formData.model]);
 
   useEffect(() => {
     if (isOpen) {
@@ -188,25 +193,23 @@ const EditInventoryModal = ({ isOpen, onClose, onSave, onDelete, initialItem, ca
             qty: 1, max: 5, unit: '個', categoryId: targetCatId 
         });
       }
+      setShowModelSuggestions(false);
     }
   }, [isOpen, initialItem, categories, defaultCategoryId, defaultModel]);
 
   if (!isOpen) return null;
   
-  // 修正後的 Modal 結構
   return (
     <div className="fixed inset-0 bg-black/60 z-[80] flex items-center justify-center p-4 animate-in fade-in" onClick={onClose}>
       <div 
         className="bg-white w-full max-w-sm rounded-2xl shadow-2xl flex flex-col max-h-[85vh]"
-        onClick={e => e.stopPropagation()}
+        onClick={e => { e.stopPropagation(); setShowModelSuggestions(false); }}
       >
-        {/* 標題區 */}
         <div className="flex justify-between items-center p-5 border-b border-gray-100 flex-shrink-0">
            <h3 className="text-xl font-bold text-slate-800">{initialItem ? '編輯項目' : '新增項目'}</h3>
            {initialItem && <button onClick={() => { if(window.confirm(`確定要刪除「${formData.name}」嗎？`)) onDelete(formData.id); }} className="p-2 bg-rose-50 text-rose-500 rounded-xl hover:bg-rose-100 transition-colors"><Trash2 size={20}/></button>}
         </div>
         
-        {/* 內容區 (可捲動) */}
         <div className="p-6 overflow-y-auto space-y-4 flex-1">
            <div>
               <label className="text-sm font-bold text-slate-500 block mb-2">所屬分類</label>
@@ -214,20 +217,46 @@ const EditInventoryModal = ({ isOpen, onClose, onSave, onDelete, initialItem, ca
                   {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
            </div>
-           <div>
+           
+           {/* 自訂下拉選單區域 */}
+           <div className="relative">
              <label className="text-sm font-bold text-slate-500 block mb-2">歸屬型號 (資料夾名稱)</label>
-             <input 
-                 list="model-suggestions"
-                 placeholder="輸入或選擇..." 
-                 className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none font-bold text-base" 
-                 value={formData.model} 
-                 onChange={e => setFormData({...formData, model: e.target.value})} 
-             />
-             <datalist id="model-suggestions">
-                 {modelSuggestions.map(m => <option key={m} value={m} />)}
-             </datalist>
+             <div className="relative">
+                 <input 
+                     className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none font-bold text-base" 
+                     placeholder="輸入或從下方選擇..."
+                     value={formData.model} 
+                     onChange={e => {
+                         setFormData({...formData, model: e.target.value});
+                         setShowModelSuggestions(true);
+                     }}
+                     onFocus={() => setShowModelSuggestions(true)}
+                     onClick={(e) => { e.stopPropagation(); setShowModelSuggestions(true); }}
+                 />
+                 <div className="absolute right-3 top-3.5 text-slate-400 pointer-events-none"><ChevronDown size={16}/></div>
+             </div>
+             
+             {/* 懸浮選單 */}
+             {showModelSuggestions && modelSuggestions.length > 0 && (
+                 <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-40 overflow-y-auto animate-in fade-in slide-in-from-top-1">
+                     {modelSuggestions.map(m => (
+                         <div 
+                             key={m}
+                             className="p-3 hover:bg-blue-50 cursor-pointer text-slate-700 font-bold border-b border-slate-50 last:border-0"
+                             onClick={(e) => {
+                                 e.stopPropagation();
+                                 setFormData({...formData, model: m});
+                                 setShowModelSuggestions(false);
+                             }}
+                         >
+                             {m}
+                         </div>
+                     ))}
+                 </div>
+             )}
              <p className="text-xs text-slate-400 mt-1">相同型號的零件會自動歸類在同一個資料夾中。</p>
            </div>
+
            <div><label className="text-sm font-bold text-slate-500 block mb-2">品名</label><input placeholder="例: 黃色碳粉" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none text-base text-slate-800 font-bold placeholder:font-normal" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} /></div>
            <div className="grid grid-cols-3 gap-3">
               <div className="col-span-1"><label className="text-xs font-bold text-slate-400 block mb-1.5 text-center">數量</label><input type="number" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none text-center font-mono font-bold text-xl text-blue-600" value={formData.qty} onChange={e => setFormData({...formData, qty: Number(e.target.value)})} /></div>
@@ -236,7 +265,6 @@ const EditInventoryModal = ({ isOpen, onClose, onSave, onDelete, initialItem, ca
            </div>
         </div>
 
-        {/* 按鈕區 (固定) */}
         <div className="p-5 border-t border-gray-100 flex gap-3 flex-shrink-0 bg-white rounded-b-2xl">
             <button onClick={onClose} className="flex-1 py-3 bg-slate-100 font-bold text-slate-500 rounded-xl hover:bg-slate-200 transition-colors text-base">取消</button>
             <button onClick={() => { if(formData.name && formData.model) onSave(formData); }} className="flex-1 py-3 bg-blue-600 font-bold text-white rounded-xl shadow-lg shadow-blue-200 hover:bg-blue-700 transition-colors active:scale-95 text-base">儲存</button>

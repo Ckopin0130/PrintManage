@@ -1,9 +1,9 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   ArrowLeft, Plus, Search, ChevronRight, Edit3, 
   Trash2, Box, Users, MapPin, Phone, MessageCircle,
   GripVertical, Settings, User, FileText, CheckCircle, Navigation,
-  Building2, School, Tent, AlertTriangle, X
+  Building2, School, Tent, AlertTriangle, X, ChevronDown
 } from 'lucide-react';
 import {
   DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, TouchSensor
@@ -33,23 +33,28 @@ const migrateCategory = (item) => {
     return 'cat_other'; 
 };
 
-// --- Edit Modal (修正：內容過長可捲動，按鈕固定底部) ---
+// --- Edit Modal (修正：自訂下拉選單) ---
 const EditCustomerModal = ({ isOpen, onClose, onSave, onDelete, initialItem, categories, defaultCategoryId, defaultGroup, customers }) => {
   const [formData, setFormData] = useState({ 
       name: '', L1_group: '', L2_district: '', phone: '', address: '', note: '', categoryId: '', model: ''
   });
   
-  // 自動完成清單
+  // 自訂下拉選單狀態
+  const [showGroupSuggestions, setShowGroupSuggestions] = useState(false);
+  
+  // 計算現有的群組建議清單 (並過濾)
   const groupSuggestions = useMemo(() => {
       if (!formData.categoryId || !customers) return [];
-      const groups = new Set(
+      const inputVal = formData.L2_district || '';
+      const allGroups = new Set(
           customers
             .filter(c => (c.categoryId || migrateCategory(c)) === formData.categoryId)
             .map(c => c.L2_district)
             .filter(g => g && g.trim() !== '' && g !== '未分區')
       );
-      return [...groups].sort();
-  }, [customers, formData.categoryId]);
+      // 簡單過濾：顯示全部或符合輸入的項目
+      return [...allGroups].filter(g => g.includes(inputVal)).sort();
+  }, [customers, formData.categoryId, formData.L2_district]);
 
   useEffect(() => {
     if (isOpen) {
@@ -71,6 +76,7 @@ const EditCustomerModal = ({ isOpen, onClose, onSave, onDelete, initialItem, cat
             categoryId: targetCatId, model: ''
         });
       }
+      setShowGroupSuggestions(false);
     }
   }, [isOpen, initialItem, categories, defaultCategoryId, defaultGroup]);
 
@@ -88,20 +94,17 @@ const EditCustomerModal = ({ isOpen, onClose, onSave, onDelete, initialItem, cat
 
   if (!isOpen) return null;
   
-  // 修正後的 Modal 結構：Flex Col + Overflow Auto
   return (
     <div className="fixed inset-0 bg-black/60 z-[80] flex items-center justify-center p-4 animate-in fade-in" onClick={onClose}>
       <div 
-        className="bg-white w-full max-w-sm rounded-2xl shadow-2xl flex flex-col max-h-[85vh]" // 限制最大高度
-        onClick={e => e.stopPropagation()}
+        className="bg-white w-full max-w-sm rounded-2xl shadow-2xl flex flex-col max-h-[85vh]"
+        onClick={e => { e.stopPropagation(); setShowGroupSuggestions(false); }} // 點擊背景關閉選單
       >
-        {/* 標題區 (固定) */}
         <div className="flex justify-between items-center p-5 border-b border-gray-100 flex-shrink-0">
            <h3 className="text-xl font-bold text-slate-800">{initialItem ? '編輯客戶' : '新增客戶'}</h3>
            {initialItem && <button onClick={() => { if(window.confirm(`刪除 ${formData.name}？`)) onDelete(initialItem); }} className="p-2 bg-rose-50 text-rose-500 rounded-xl hover:bg-rose-100"><Trash2 size={20}/></button>}
         </div>
         
-        {/* 內容區 (可捲動) */}
         <div className="p-6 overflow-y-auto space-y-4 flex-1">
            <div>
               <label className="text-sm font-bold text-slate-500 block mb-2">客戶分類</label>
@@ -109,19 +112,45 @@ const EditCustomerModal = ({ isOpen, onClose, onSave, onDelete, initialItem, cat
                   {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
            </div>
-           <div>
+           
+           {/* 自訂下拉選單區域 */}
+           <div className="relative">
                <label className="text-sm font-bold text-slate-500 block mb-2">鄉鎮 / 群組</label>
-               <input 
-                   list="group-suggestions"
-                   placeholder="選擇或輸入..." 
-                   className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none font-bold text-base" 
-                   value={formData.L2_district} 
-                   onChange={e => setFormData({...formData, L2_district: e.target.value})} 
-               />
-               <datalist id="group-suggestions">
-                   {groupSuggestions.map(group => <option key={group} value={group} />)}
-               </datalist>
+               <div className="relative">
+                   <input 
+                       className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none font-bold text-base" 
+                       placeholder="輸入或從下方選擇..."
+                       value={formData.L2_district} 
+                       onChange={e => {
+                           setFormData({...formData, L2_district: e.target.value});
+                           setShowGroupSuggestions(true);
+                       }}
+                       onFocus={() => setShowGroupSuggestions(true)}
+                       onClick={(e) => { e.stopPropagation(); setShowGroupSuggestions(true); }} // 點擊時強制顯示
+                   />
+                   <div className="absolute right-3 top-3.5 text-slate-400 pointer-events-none"><ChevronDown size={16}/></div>
+               </div>
+               
+               {/* 懸浮選單 */}
+               {showGroupSuggestions && groupSuggestions.length > 0 && (
+                   <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-40 overflow-y-auto animate-in fade-in slide-in-from-top-1">
+                       {groupSuggestions.map(group => (
+                           <div 
+                               key={group}
+                               className="p-3 hover:bg-blue-50 cursor-pointer text-slate-700 font-bold border-b border-slate-50 last:border-0"
+                               onClick={(e) => {
+                                   e.stopPropagation();
+                                   setFormData({...formData, L2_district: group});
+                                   setShowGroupSuggestions(false);
+                               }}
+                           >
+                               {group}
+                           </div>
+                       ))}
+                   </div>
+               )}
            </div>
+
            <div><label className="text-sm font-bold text-slate-500 block mb-2">客戶名稱</label><input placeholder="輸入名稱" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none font-bold text-base" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} /></div>
            <div className="grid grid-cols-2 gap-3">
                <div><label className="text-sm font-bold text-slate-500 block mb-2">電話</label><input placeholder="08-xxxxxxx" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none font-mono font-bold text-base" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} /></div>
@@ -131,7 +160,6 @@ const EditCustomerModal = ({ isOpen, onClose, onSave, onDelete, initialItem, cat
            <div><label className="text-sm font-bold text-slate-500 block mb-2">備註</label><textarea placeholder="備註..." rows={2} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none font-bold text-base resize-none" value={formData.note} onChange={e => setFormData({...formData, note: e.target.value})} /></div>
         </div>
 
-        {/* 按鈕區 (固定在底部) */}
         <div className="p-5 border-t border-gray-100 flex gap-3 flex-shrink-0 bg-white rounded-b-2xl">
             <button onClick={onClose} className="flex-1 py-3 bg-slate-100 font-bold text-slate-500 rounded-xl">取消</button>
             <button onClick={() => { if(formData.name) handleSave(); }} className="flex-1 py-3 bg-blue-600 font-bold text-white rounded-xl shadow-lg">儲存</button>
@@ -147,7 +175,7 @@ const CategoryManagerModal = ({ isOpen, onClose, categories, onSaveCategories })
     useEffect(() => { setLocalCats(categories); }, [categories, isOpen]);
     const handleAdd = () => setLocalCats([...localCats, { id: `cat_${Date.now()}`, name: '新分類', icon: 'MapPin', color: 'text-slate-600', bg: 'bg-slate-100', border: 'border-slate-200' }]);
     const handleChange = (id, val) => setLocalCats(localCats.map(c => c.id === id ? { ...c, name: val } : c));
-    const handleDelete = (id) => { if(window.confirm('刪除分類？')) setLocalCats(localCats.filter(c => c.id !== id)); };
+    const handleDelete = (id) => { if(window.confirm('確定刪除？')) setLocalCats(localCats.filter(c => c.id !== id)); };
     if(!isOpen) return null;
     return (
         <div className="fixed inset-0 bg-black/60 z-[90] flex items-center justify-center p-4 animate-in fade-in" onClick={onClose}>
@@ -249,7 +277,6 @@ const CustomerRoster = ({ customers, onAddCustomer, onUpdateCustomer, onDeleteCu
   useEffect(() => { localStorage.setItem('custGroupOrder', JSON.stringify(groupOrder)); }, [groupOrder]);
   useEffect(() => { localStorage.setItem('custOrder', JSON.stringify(customerOrder)); }, [customerOrder]);
 
-  // 自動遷移
   useEffect(() => {
       let hasChanges = false;
       const newCustomers = customers.map(item => {
