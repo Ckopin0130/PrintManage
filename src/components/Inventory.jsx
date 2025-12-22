@@ -42,7 +42,8 @@ const BIG_CATEGORY_CONFIG = {
   OTHER: { icon: MoreHorizontal, color: 'text-blue-600', bg: 'bg-blue-100', border: 'border-blue-200' },
 };
 
-const COMMON_UNITS = ['個', '支', '組', '盒', '瓶', '台', '包', '卷', '張'];
+// 修改：移除 卷, 張, 台；新增 片
+const COMMON_UNITS = ['個', '支', '組', '盒', '瓶', '包', '片'];
 
 const getBigCategoryType = (modelName, item) => {
     if (item && item.categoryType && BIG_CATEGORY_CONFIG[item.categoryType]) return item.categoryType;
@@ -71,7 +72,7 @@ const cleanItemName = (modelName, itemName) => {
     return display || itemName; 
 };
 
-// --- 1. 報表視窗 ---
+// --- 1. 報表視窗 (LINE 優化版) ---
 const ReportModal = ({ isOpen, onClose, inventory, modelOrder, subGroupOrder, itemOrder, categoryOrder }) => {
   const [copied, setCopied] = useState(false);
   const [onlyMissing, setOnlyMissing] = useState(false);
@@ -80,36 +81,45 @@ const ReportModal = ({ isOpen, onClose, inventory, modelOrder, subGroupOrder, it
     if (!inventory || inventory.length === 0) return '無庫存資料';
 
     const strItemOrder = itemOrder ? itemOrder.map(String) : [];
-    const itemsByModel = {}; 
-    const modelToCategory = {}; 
+    
+    // 1. 資料分組結構：Category -> Model -> Items
+    const dataTree = {}; // { 'TONER': { 'MP3054': [item1, item2] } }
 
     inventory.forEach(item => {
-        const m = item.model || '未分類';
-        if (!itemsByModel[m]) {
-            itemsByModel[m] = [];
-            modelToCategory[m] = getBigCategoryType(m, item);
-        }
-        itemsByModel[m].push(item);
+        const model = item.model || '未分類';
+        const category = getBigCategoryType(model, item);
+        
+        if (!dataTree[category]) dataTree[category] = {};
+        if (!dataTree[category][model]) dataTree[category][model] = [];
+        
+        dataTree[category][model].push(item);
     });
 
+    // 2. 決定大分類順序
     let sortedCategories = [...DEFAULT_CATEGORY_ORDER];
     if (categoryOrder && categoryOrder.length > 0) {
-        const usedCategories = new Set(Object.values(modelToCategory));
+        const usedCategories = Object.keys(dataTree);
         sortedCategories = [...categoryOrder];
         usedCategories.forEach(c => {
             if (!sortedCategories.includes(c)) sortedCategories.push(c);
         });
     }
 
+    // 3. 構建文字
     let text = `📅 庫存盤點 ${new Date().toLocaleDateString()}\n`;
+    text += `━━━━━━━━━━━━━━━\n`; // 分隔線
     if(onlyMissing) text += `(僅列出需補貨)\n`;
     
     let hasContent = false;
 
     sortedCategories.forEach(catType => {
-        let modelsInThisCat = Object.keys(itemsByModel).filter(m => modelToCategory[m] === catType);
+        const modelsMap = dataTree[catType];
+        if (!modelsMap) return;
+
+        let modelsInThisCat = Object.keys(modelsMap);
         if (modelsInThisCat.length === 0) return;
 
+        // 型號排序
         if (modelOrder && modelOrder.length > 0) {
             modelsInThisCat.sort((a, b) => {
                 const idxA = modelOrder.indexOf(a);
@@ -123,80 +133,50 @@ const ReportModal = ({ isOpen, onClose, inventory, modelOrder, subGroupOrder, it
             modelsInThisCat.sort((a, b) => a.localeCompare(b));
         }
 
+        let categoryText = '';
+        let hasModelInThisCat = false;
+
         modelsInThisCat.forEach(model => {
-            const items = itemsByModel[model];
-            const groupedItems = {}; 
-            const ungroupedItems = [];
-
-            items.forEach(item => {
-                if (item.subGroup) {
-                    if (!groupedItems[item.subGroup]) groupedItems[item.subGroup] = [];
-                    groupedItems[item.subGroup].push(item);
-                } else {
-                    ungroupedItems.push(item);
-                }
-            });
-
-            let sortedSubGroups = Object.keys(groupedItems);
-            const currentSubGroupOrder = subGroupOrder[model] || [];
-            sortedSubGroups.sort((a, b) => {
-                const idxA = currentSubGroupOrder.indexOf(a);
-                const idxB = currentSubGroupOrder.indexOf(b);
-                if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-                if (idxA !== -1) return -1;
-                if (idxB !== -1) return 1;
-                return a.localeCompare(b);
-            });
-
-            let finalItemsToPrint = [];
-
-            sortedSubGroups.forEach(subGroup => {
-                let subItems = groupedItems[subGroup];
-                subItems.sort((a, b) => {
-                     const idxA = strItemOrder.indexOf(String(a.id));
-                     const idxB = strItemOrder.indexOf(String(b.id));
-                     if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-                     return a.name.localeCompare(b.name);
-                });
-                finalItemsToPrint = finalItemsToPrint.concat(subItems);
-            });
-
-            ungroupedItems.sort((a, b) => {
+            const items = modelsMap[model];
+            
+            // 項目排序
+            items.sort((a, b) => {
                  const idxA = strItemOrder.indexOf(String(a.id));
                  const idxB = strItemOrder.indexOf(String(b.id));
                  if (idxA !== -1 && idxB !== -1) return idxA - idxB;
                  return a.name.localeCompare(b.name);
             });
-            finalItemsToPrint = finalItemsToPrint.concat(ungroupedItems);
 
-            let linesForThisModel = [];
-            finalItemsToPrint.forEach(item => {
+            // 過濾與格式化項目
+            const itemStrings = [];
+            items.forEach(item => {
+                // 補貨判斷
                 if (onlyMissing && item.qty > 0 && item.qty >= item.max / 2) return;
-                const isOut = item.qty <= 0;
-                const isLow = item.qty < item.max / 2;
-                const status = isOut ? '❌缺' : (isLow ? '⚠️補' : '✅');
                 
                 let displayName = cleanItemName(model, item.name);
-                let subDisplay = '';
-                if (item.subGroup && item.subGroup.toUpperCase() !== model.toUpperCase()) {
-                     if (!displayName.toUpperCase().includes(item.subGroup.toUpperCase())) {
-                         subDisplay = ` (${item.subGroup})`;
-                     }
-                }
-                linesForThisModel.push(`${status} ${displayName}${subDisplay}: ${item.qty}`);
+                // 格式：品名:現有/車載量 (例：黑:0/5)
+                // 這裡的 max 現在代表車載量
+                itemStrings.push(`${displayName}:${item.qty}/${item.max}`);
             });
 
-            if (linesForThisModel.length > 0) {
-                hasContent = true;
-                text += `\n■ ${model}`;
-                linesForThisModel.forEach(line => text += `\n${line}`);
+            if (itemStrings.length > 0) {
+                hasModelInThisCat = true;
+                // 格式：· 型號 (項目1、項目2...)
+                categoryText += `· ${model} (${itemStrings.join('、')})\n`;
             }
         });
+
+        if (hasModelInThisCat) {
+            hasContent = true;
+            // 大分類標頭
+            text += `■ ${DEFAULT_BIG_LABELS[catType] || catType}\n`;
+            text += categoryText;
+        }
     });
 
-    if (!hasContent) text += `\n\n目前無${onlyMissing ? '缺貨' : ''}項目。`;
+    if (!hasContent) text += `\n目前無${onlyMissing ? '缺貨' : ''}項目。`;
     return text;
-  }, [inventory, modelOrder, subGroupOrder, itemOrder, categoryOrder, onlyMissing]);
+  }, [inventory, modelOrder, itemOrder, categoryOrder, onlyMissing]);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(reportText);
@@ -236,7 +216,8 @@ const ReportModal = ({ isOpen, onClose, inventory, modelOrder, subGroupOrder, it
 
 // --- 2. 編輯與新增視窗 ---
 const EditInventoryModal = ({ isOpen, onClose, onSave, onDelete, initialItem, existingModels, defaultModel, defaultCategoryType }) => {
-  const [formData, setFormData] = useState({ name: '', model: '', subGroup: '', qty: 0, max: 5, unit: '個', categoryType: 'OTHER' });
+  // max 改名為車載量，預設值改為 1
+  const [formData, setFormData] = useState({ name: '', model: '', subGroup: '', qty: 0, max: 1, unit: '個', categoryType: 'OTHER' });
   const [useCustomModel, setUseCustomModel] = useState(false);
   
   const handleInputFocus = (e) => {
@@ -257,13 +238,24 @@ const EditInventoryModal = ({ isOpen, onClose, onSave, onDelete, initialItem, ex
             name: '', 
             model: targetModel, 
             subGroup: '', 
-            qty: 1, max: 5, unit: '個', 
+            qty: 1, 
+            max: 1, // 預設車載量為 1
+            unit: '個', 
             categoryType: initialCategory 
         });
         setUseCustomModel(defaultModel && !existingModels.includes(defaultModel));
       }
     }
   }, [isOpen, initialItem, existingModels, defaultModel, defaultCategoryType]);
+
+  // 通用的數字輸入處理，允許空字串
+  const handleNumberChange = (field, value) => {
+    if (value === '') {
+        setFormData({ ...formData, [field]: '' });
+    } else {
+        setFormData({ ...formData, [field]: Number(value) });
+    }
+  };
 
   if (!isOpen) return null;
   
@@ -339,22 +331,22 @@ const EditInventoryModal = ({ isOpen, onClose, onSave, onDelete, initialItem, ex
                         type="number" 
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none text-center font-mono font-bold text-xl text-blue-600" 
                         value={formData.qty} 
-                        onChange={e => setFormData({...formData, qty: Number(e.target.value)})} 
+                        onChange={e => handleNumberChange('qty', e.target.value)} 
                         onFocus={handleInputFocus}
                     />
                 </div>
                 <div className="col-span-1">
-                    <label className="text-xs font-bold text-slate-400 block mb-1.5 text-center">應備</label>
+                    {/* 標籤從「應備」改為「車載量」 */}
+                    <label className="text-xs font-bold text-slate-400 block mb-1.5 text-center">車載量</label>
                     <input 
                         type="number" 
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none text-center font-mono font-bold text-base" 
                         value={formData.max} 
-                        onChange={e => setFormData({...formData, max: Number(e.target.value)})} 
+                        onChange={e => handleNumberChange('max', e.target.value)} 
                         onFocus={handleInputFocus}
                     />
                 </div>
                 
-                {/* 單位輸入框：改回標準輸入，移除下拉邏輯 */}
                 <div className="col-span-1">
                     <label className="text-xs font-bold text-slate-400 block mb-1.5 text-center">單位</label>
                     <input 
@@ -367,7 +359,7 @@ const EditInventoryModal = ({ isOpen, onClose, onSave, onDelete, initialItem, ex
                 </div>
             </div>
 
-            {/* 新增：快速單位選擇按鈕 (Chips) */}
+            {/* 快速單位選擇按鈕 (Chips) */}
             <div>
                  <label className="text-xs font-bold text-slate-400 block mb-2">快速選擇單位</label>
                  <div className="flex flex-wrap gap-2">
@@ -391,7 +383,15 @@ const EditInventoryModal = ({ isOpen, onClose, onSave, onDelete, initialItem, ex
             </div>
             <div className="flex gap-3">
                 <button onClick={onClose} className="flex-1 py-3 bg-slate-100 font-bold text-slate-500 rounded-xl hover:bg-slate-200 transition-colors text-base">取消</button>
-                <button onClick={() => { if(formData.name && formData.model) onSave(formData); }} className="flex-1 py-3 bg-blue-600 font-bold text-white rounded-xl shadow-lg shadow-blue-200 hover:bg-blue-700 transition-colors active:scale-95 text-base">儲存</button>
+                <button onClick={() => { 
+                    // 儲存前確保數字不是空字串，如果是空字串轉為 0
+                    const finalData = {
+                        ...formData,
+                        qty: formData.qty === '' ? 0 : formData.qty,
+                        max: formData.max === '' ? 1 : formData.max
+                    };
+                    if(finalData.name && finalData.model) onSave(finalData); 
+                }} className="flex-1 py-3 bg-blue-600 font-bold text-white rounded-xl shadow-lg shadow-blue-200 hover:bg-blue-700 transition-colors active:scale-95 text-base">儲存</button>
             </div>
         </div>
       </div>
@@ -436,7 +436,7 @@ const RenameModal = ({ isOpen, onClose, onRename, onDelete, oldName, title = "�
   );
 };
 
-// --- Sortable Components ---
+// --- Sortable Components (No Changes Needed) ---
 
 const SortableBigCategory = ({ category, count, onClick, onEditLabel }) => {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: category.id });
