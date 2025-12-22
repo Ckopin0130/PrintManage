@@ -52,38 +52,41 @@ const getBigCategoryType = (modelName, item) => {
     return 'OTHER';
 };
 
-// --- 輔助：智慧文字清理 (去除型號名稱，讓報表更乾淨) ---
+// --- 輔助：智慧文字清理 (去除型號名稱與括號，讓報表更乾淨) ---
 const cleanItemName = (modelName, itemName) => {
     if (!modelName || !itemName) return itemName;
     
     let display = itemName;
     const modelClean = modelName.trim();
 
-    // 1. 拆解型號 token 並移除 (例如 "MP C3503" -> 移除 "MP", "C3503")
+    // 1. 強力移除 "(ModelName)" 這種格式
+    // 將型號轉為正則表達式安全字串
+    const escapedModel = modelClean.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    // 移除 "(MP C5000)" 或 "MP C5000"
+    display = display.replace(new RegExp(`\\(${escapedModel}\\)`, 'gi'), '');
+    display = display.replace(new RegExp(`${escapedModel}`, 'gi'), '');
+
+    // 2. 拆解型號 token 並移除剩餘的片段 (例如 "MP" 或 "C5000")
     const tokens = modelClean.split(/[\s\-_/]+/).filter(t => t.length > 1); 
-    
-    // 依長度排序，先移除長的 token，避免誤刪
-    tokens.sort((a, b) => b.length - a.length);
+    tokens.sort((a, b) => b.length - a.length); // 先移除長的
 
     tokens.forEach(token => {
         try {
-            // Case insensitive replace
             const regex = new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
             display = display.replace(regex, '');
         } catch (e) {}
     });
 
-    // 2. 移除括號及其內容 (如果括號內只剩下空白)
+    // 3. 移除空的括號 "()"
     display = display.replace(/\(\s*\)/g, '');
 
-    // 3. 清理頭尾的特殊符號
+    // 4. 清理頭尾的特殊符號
     display = display.replace(/^[\s\-_]+|[\s\-_]+$/g, '').trim();
 
-    // 4. 如果刪到什麼都不剩，回傳原名，否則回傳清理後的結果
     return display || itemName; 
 };
 
-// --- 1. 報表視窗 (修正完整版：依照手動排序 + 新符號層級) ---
+// --- 1. 報表視窗 (修正版：緊湊排版 + 型號歸類) ---
 const ReportModal = ({ isOpen, onClose, inventory, modelOrder, subGroupOrder, itemOrder, categoryOrder }) => {
   const [copied, setCopied] = useState(false);
   const [onlyMissing, setOnlyMissing] = useState(false);
@@ -91,10 +94,9 @@ const ReportModal = ({ isOpen, onClose, inventory, modelOrder, subGroupOrder, it
   const reportText = useMemo(() => {
     if (!inventory || inventory.length === 0) return '無庫存資料';
 
-    // 準備排序用的字串陣列 (確保 ID 比對型態正確)
     const strItemOrder = itemOrder ? itemOrder.map(String) : [];
 
-    // 1. 資料前處理：將零件歸類到 Model，並標記 Model 所屬的大分類
+    // 1. 資料處理
     const itemsByModel = {}; 
     const modelToCategory = {}; 
 
@@ -107,60 +109,52 @@ const ReportModal = ({ isOpen, onClose, inventory, modelOrder, subGroupOrder, it
         itemsByModel[m].push(item);
     });
 
-    // 2. 決定大分類的顯示順序 (依照 categoryOrder)
+    // 2. 大分類排序
     let sortedCategories = [...DEFAULT_CATEGORY_ORDER];
     if (categoryOrder && categoryOrder.length > 0) {
         const usedCategories = new Set(Object.values(modelToCategory));
-        sortedCategories = [...categoryOrder]; // 使用手動排序的順序
-        
-        // 防呆：補上可能被遺漏但在資料中存在的分類
+        sortedCategories = [...categoryOrder];
         usedCategories.forEach(c => {
             if (!sortedCategories.includes(c)) sortedCategories.push(c);
         });
     }
 
-    // --- 開始產生報表文字 ---
+    // --- 產生報表 ---
     let text = `【庫存盤點報表】${new Date().toLocaleDateString()}\n`;
     if(onlyMissing) text += `(僅顯示需補貨項目)\n`;
     text += `----------------`;
     
     let hasContent = false;
 
-    // Level 1: 遍歷「大分類」
+    // Level 1: 大分類
     sortedCategories.forEach(catType => {
-        // 找出屬於此分類的所有 Model
         let modelsInThisCat = Object.keys(itemsByModel).filter(m => modelToCategory[m] === catType);
         if (modelsInThisCat.length === 0) return;
 
-        // Level 2: 排序此分類下的「機型」 (依照 modelOrder)
+        // Level 2: 機型排序
         if (modelOrder && modelOrder.length > 0) {
             modelsInThisCat.sort((a, b) => {
                 const idxA = modelOrder.indexOf(a);
                 const idxB = modelOrder.indexOf(b);
-                // 兩者都有排序紀錄，照順序
                 if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-                // 有紀錄的排前面
                 if (idxA !== -1) return -1;
                 if (idxB !== -1) return 1;
-                // 都沒紀錄，照字母
                 return a.localeCompare(b);
             });
         } else {
             modelsInThisCat.sort((a, b) => a.localeCompare(b));
         }
 
-        // 用來暫存這個大分類下的文字內容，確保有內容才印標題
         let categoryContent = '';
         let hasModelsInThisCat = false;
 
-        // Level 3: 遍歷「機型」產生內容
-        modelsInThisCat.forEach(model => {
+        // Level 3: 機型迴圈
+        modelsInThisCat.forEach((model, modelIndex) => {
             const items = itemsByModel[model];
             
-            // 將 Items 分組 (處理 SubGroup)
+            // Items 分組
             const groupedItems = {}; 
             const ungroupedItems = [];
-
             items.forEach(item => {
                 if (item.subGroup) {
                     if (!groupedItems[item.subGroup]) groupedItems[item.subGroup] = [];
@@ -170,7 +164,7 @@ const ReportModal = ({ isOpen, onClose, inventory, modelOrder, subGroupOrder, it
                 }
             });
 
-            // Level 4: 排序 SubGroup (依照 subGroupOrder)
+            // Items 排序
             let sortedSubGroups = Object.keys(groupedItems);
             const currentSubGroupOrder = subGroupOrder[model] || [];
             sortedSubGroups.sort((a, b) => {
@@ -180,10 +174,7 @@ const ReportModal = ({ isOpen, onClose, inventory, modelOrder, subGroupOrder, it
                 return a.localeCompare(b);
             });
 
-            // Level 5: 排序 Items (依照 itemOrder)
             let finalItemsToPrint = [];
-
-            // 5a. 加入有分組的 Items
             sortedSubGroups.forEach(subGroup => {
                 let subItems = groupedItems[subGroup];
                 subItems.sort((a, b) => {
@@ -195,7 +186,6 @@ const ReportModal = ({ isOpen, onClose, inventory, modelOrder, subGroupOrder, it
                 finalItemsToPrint = finalItemsToPrint.concat(subItems);
             });
 
-            // 5b. 加入未分組的 Items
             ungroupedItems.sort((a, b) => {
                  const idxA = strItemOrder.indexOf(String(a.id));
                  const idxB = strItemOrder.indexOf(String(b.id));
@@ -204,55 +194,48 @@ const ReportModal = ({ isOpen, onClose, inventory, modelOrder, subGroupOrder, it
             });
             finalItemsToPrint = finalItemsToPrint.concat(ungroupedItems);
 
-            // Level 6: 產生每一行的文字
+            // 產生 Items 文字行
             let linesForThisModel = [];
             finalItemsToPrint.forEach(item => {
-                // 判斷庫存狀態
-                const isFull = item.qty >= item.max; // 只要達到應備量就算充足
-                
-                // 篩選邏輯：如果勾選「只顯示需補貨」，且庫存充足，則跳過
+                const isFull = item.qty >= item.max;
                 if (onlyMissing && isFull) return;
 
-                // 狀態圖示
                 const icon = isFull ? '🔹' : '🔸';
-                
-                // 名稱清理 (移除重複的型號字眼)
+                // 清理名稱：移除型號括號
                 let displayName = cleanItemName(model, item.name);
-                
-                // 次分類顯示 (如果名稱內沒包含次分類，才顯示在括號)
                 let subDisplay = '';
+                
                 if (item.subGroup && item.subGroup.toUpperCase() !== model.toUpperCase()) {
                      if (!displayName.toUpperCase().includes(item.subGroup.toUpperCase())) {
                          subDisplay = ` (${item.subGroup})`;
                      }
                 }
                 
-                // 格式：[縮排] 🔸 品名: 數量/應備 單位
                 linesForThisModel.push(`    ${icon}${displayName}${subDisplay}: ${item.qty}/${item.max} ${item.unit}`);
             });
 
-            // 如果該 Model 有內容要顯示
             if (linesForThisModel.length > 0) {
                 hasModelsInThisCat = true;
-                // 機型標題 (縮排 2 格 + ◆)
-                categoryContent += `\n\n  ◆ ${model}`; 
-                // 項目內容
+                
+                // --- 排版關鍵：控制換行 ---
+                // 如果是該分類的第一個型號，前面用單次換行 \n
+                // 如果是後續型號，前面用兩次換行 \n\n (把不同機型隔開)
+                const prefix = modelIndex === 0 ? '\n' : '\n\n';
+                
+                categoryContent += `${prefix}  ◆ ${model}`; 
                 linesForThisModel.forEach(line => categoryContent += `\n${line}`);
             }
         });
 
-        // 如果這個大分類下有任何 Model 被印出，才印出大分類標題
         if (hasModelsInThisCat) {
             hasContent = true;
-            // 取得大分類的中文名稱 (例如: TONER -> 碳粉系列)
-            // 這裡嘗試從 localStorage 或預設值抓取最新的 Label
             let catName = DEFAULT_BIG_LABELS[catType] || catType;
             try {
                const savedLabels = JSON.parse(localStorage.getItem('inventoryBigLabels'));
                if (savedLabels && savedLabels[catType]) catName = savedLabels[catType];
             } catch(e) {}
             
-            // 大分類標題 (📦 + 名稱)
+            // 大分類標題前兩行空白，與上方區隔
             text += `\n\n📦 ${catName}`;
             text += categoryContent;
         }
