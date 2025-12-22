@@ -42,7 +42,7 @@ const BIG_CATEGORY_CONFIG = {
   OTHER: { icon: MoreHorizontal, color: 'text-blue-600', bg: 'bg-blue-100', border: 'border-blue-200' },
 };
 
-// 單位列表：移除卷、張、台，新增片
+// 單位列表
 const COMMON_UNITS = ['個', '支', '組', '盒', '瓶', '包', '片'];
 
 const getBigCategoryType = (modelName, item) => {
@@ -55,6 +55,7 @@ const getBigCategoryType = (modelName, item) => {
     return 'OTHER';
 };
 
+// 輔助函數：保留以備不時之需，但在本次報表需求中不使用
 const cleanItemName = (modelName, itemName) => {
     if (!modelName || !itemName) return itemName;
     let display = itemName;
@@ -72,7 +73,7 @@ const cleanItemName = (modelName, itemName) => {
     return display || itemName; 
 };
 
-// --- 1. 報表視窗 (格式修正版) ---
+// --- 1. 報表視窗 (LINE 專用格式版) ---
 const ReportModal = ({ isOpen, onClose, inventory, modelOrder, subGroupOrder, itemOrder, categoryOrder }) => {
   const [copied, setCopied] = useState(false);
   const [onlyMissing, setOnlyMissing] = useState(false);
@@ -107,12 +108,12 @@ const ReportModal = ({ isOpen, onClose, inventory, modelOrder, subGroupOrder, it
 
     // 3. 構建報表文字
     const today = new Date();
-    // 強制格式 YYYY/MM/DD
     const dateStr = `${today.getFullYear()}/${String(today.getMonth() + 1).padStart(2, '0')}/${String(today.getDate()).padStart(2, '0')}`;
     
+    // 標題格式：【庫存盤點報表】YYYY/MM/DD
     let text = `【庫存盤點報表】${dateStr}\n`;
     text += `----------------\n`; // 分隔線
-    if(onlyMissing) text += `(僅列出需補貨)\n`;
+    if(onlyMissing) text += `(僅列出需補貨)\n\n`;
     
     let hasContent = false;
 
@@ -154,36 +155,34 @@ const ReportModal = ({ isOpen, onClose, inventory, modelOrder, subGroupOrder, it
             // 產生項目字串陣列
             const itemStrings = [];
             items.forEach(item => {
-                // 補貨過濾: 若只顯示缺貨，且庫存充足 (這裡邏輯寬鬆一點，有庫存且 >= 車載量則隱藏)
-                // 用戶定義：低於應備量(max) 顯示 x，否則 v
+                // 補貨過濾
                 if (onlyMissing && item.qty >= item.max) return;
                 
-                // 狀態判斷
+                // 狀態圖示：🔹 充足 / 🔸缺 不足
                 const isSufficient = item.qty >= item.max;
-                const statusIcon = isSufficient ? 'v' : 'x';
+                const statusIcon = isSufficient ? '🔹' : '🔸缺'; 
                 
-                let displayName = cleanItemName(model, item.name);
-                // 格式：v 黑色: 1/1 支
+                // 直接顯示原始名稱 (不使用 cleanItemName)
+                const displayName = item.name;
+
+                // 格式：圖示 品名: 現有/車載 單位
                 itemStrings.push(`${statusIcon} ${displayName}: ${item.qty}/${item.max} ${item.unit}`);
             });
 
             if (itemStrings.length > 0) {
                 hasModel = true;
-                // 碳粉系列特殊縮進
-                if (catType === 'TONER') {
-                    categoryContent += `📌 ${model}\n`;
-                    // 使用全形空白縮排，LINE 顯示較整齊
-                    itemStrings.forEach(str => categoryContent += `　${str}\n`);
-                } else {
-                    // 其他系列維持一行 (緊湊模式)
-                    categoryContent += `📌 ${model} (${itemStrings.join('、')})\n`;
-                }
+                // 機型標題：◆ MP 3352
+                categoryContent += `◆ ${model}\n`;
+                // 零件清單：列在型號標題下一行，每個零件換行
+                itemStrings.forEach(str => categoryContent += `${str}\n`);
+                // 每個機型結束後，插入一個空行
+                categoryContent += `\n`;
             }
         });
 
         if (hasModel) {
             hasContent = true;
-            // 加上大分類標題以示區隔，讓報表更有結構
+            // 大分類標題
             text += `■ ${DEFAULT_BIG_LABELS[catType] || catType}\n`;
             text += categoryContent;
         }
@@ -253,7 +252,7 @@ const EditInventoryModal = ({ isOpen, onClose, onSave, onDelete, initialItem, ex
             model: targetModel, 
             subGroup: '', 
             qty: 1, 
-            max: 1, // 預設車載量改為 1
+            max: 1, 
             unit: '個', 
             categoryType: initialCategory 
         });
@@ -262,7 +261,6 @@ const EditInventoryModal = ({ isOpen, onClose, onSave, onDelete, initialItem, ex
     }
   }, [isOpen, initialItem, existingModels, defaultModel, defaultCategoryType]);
 
-  // 數字輸入處理：允許空字串，解決無法刪除 0 的問題
   const handleNumberChange = (field, value) => {
     if (value === '') {
         setFormData({ ...formData, [field]: '' });
