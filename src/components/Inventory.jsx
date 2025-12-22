@@ -1,9 +1,9 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   ArrowLeft, Plus, Search, ChevronRight, ChevronDown, Edit3, 
   RotateCcw, CheckCircle, Trash2, AlertTriangle, Box, Tag, 
-  Printer, Palette, Archive, MoreHorizontal, Droplets, SortAsc, 
-  GripVertical, FileText, Copy, RefreshCw, X
+  Printer, Palette, Archive, MoreHorizontal, Droplets, GripVertical, 
+  FileText, Copy, RefreshCw, X
 } from 'lucide-react';
 import {
   DndContext, 
@@ -238,7 +238,6 @@ const ReportModal = ({ isOpen, onClose, inventory, modelOrder, subGroupOrder, it
 const EditInventoryModal = ({ isOpen, onClose, onSave, onDelete, initialItem, existingModels, defaultModel, defaultCategoryType }) => {
   const [formData, setFormData] = useState({ name: '', model: '', subGroup: '', qty: 0, max: 5, unit: '個', categoryType: 'OTHER' });
   const [useCustomModel, setUseCustomModel] = useState(false);
-  const [showUnitOptions, setShowUnitOptions] = useState(false); // 新增：控制單位選單顯示
   
   const handleInputFocus = (e) => {
     setTimeout(() => {
@@ -248,7 +247,6 @@ const EditInventoryModal = ({ isOpen, onClose, onSave, onDelete, initialItem, ex
 
   useEffect(() => {
     if (isOpen) {
-      setShowUnitOptions(false); // 重置選單狀態
       if (initialItem) {
         setFormData({ ...initialItem, subGroup: initialItem.subGroup || '', categoryType: getBigCategoryType(initialItem.model, initialItem) });
         setUseCustomModel(false);
@@ -272,14 +270,14 @@ const EditInventoryModal = ({ isOpen, onClose, onSave, onDelete, initialItem, ex
   return (
     <div className="fixed inset-0 bg-black/60 z-[80] overflow-y-auto animate-in fade-in duration-200" onClick={onClose}>
       <div className="min-h-full flex items-start justify-center pt-12 px-4 pb-[50vh]">
-        <div className="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl relative" onClick={e => { e.stopPropagation(); setShowUnitOptions(false); }}>
+        <div className="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl relative" onClick={e => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-5 border-b border-gray-100 pb-4">
             <h3 className="text-xl font-bold text-slate-800">{initialItem ? '編輯項目' : '新增項目'}</h3>
             {initialItem && <button onClick={() => { if(window.confirm(`確定要刪除「${formData.name}」嗎？`)) onDelete(formData.id); }} className="p-2 bg-rose-50 text-rose-500 rounded-xl hover:bg-rose-100 transition-colors"><Trash2 size={20}/></button>}
             </div>
             
             <div className="space-y-4 mb-6">
-            <div onClick={e => e.stopPropagation()}>
+            <div>
                 <label className="text-sm font-bold text-slate-500 block mb-2">歸屬型號</label>
                 {!useCustomModel ? (
                 <div className="flex gap-2">
@@ -314,7 +312,7 @@ const EditInventoryModal = ({ isOpen, onClose, onSave, onDelete, initialItem, ex
                     </div>
                 )}
             </div>
-            <div onClick={e => e.stopPropagation()}>
+            <div>
                 <label className="text-sm font-bold text-slate-500 block mb-2">品名 (零件名稱)</label>
                 <input 
                     placeholder="例: 黃色碳粉" 
@@ -324,7 +322,7 @@ const EditInventoryModal = ({ isOpen, onClose, onSave, onDelete, initialItem, ex
                     onFocus={handleInputFocus}
                 />
             </div>
-            <div className="bg-blue-50/50 p-3 rounded-xl border border-blue-100" onClick={e => e.stopPropagation()}>
+            <div className="bg-blue-50/50 p-3 rounded-xl border border-blue-100">
                 <label className="text-xs font-bold text-blue-500 block mb-1.5 uppercase tracking-wider flex items-center"><Tag size={14} className="mr-1"/> 次分類 (選填)</label>
                 <input 
                     placeholder="例如: C3503" 
@@ -335,7 +333,7 @@ const EditInventoryModal = ({ isOpen, onClose, onSave, onDelete, initialItem, ex
                 />
             </div>
             <div className="grid grid-cols-3 gap-3">
-                <div className="col-span-1" onClick={e => e.stopPropagation()}>
+                <div className="col-span-1">
                     <label className="text-xs font-bold text-slate-400 block mb-1.5 text-center">數量</label>
                     <input 
                         type="number" 
@@ -345,7 +343,7 @@ const EditInventoryModal = ({ isOpen, onClose, onSave, onDelete, initialItem, ex
                         onFocus={handleInputFocus}
                     />
                 </div>
-                <div className="col-span-1" onClick={e => e.stopPropagation()}>
+                <div className="col-span-1">
                     <label className="text-xs font-bold text-slate-400 block mb-1.5 text-center">應備</label>
                     <input 
                         type="number" 
@@ -356,35 +354,40 @@ const EditInventoryModal = ({ isOpen, onClose, onSave, onDelete, initialItem, ex
                     />
                 </div>
                 
-                {/* 修改：使用 relative div 包裹 input 與自定義 absolute dropdown */}
-                <div className="col-span-1 relative" onClick={e => e.stopPropagation()}>
+                {/* 單位輸入框：改回標準輸入，移除下拉邏輯 */}
+                <div className="col-span-1">
                     <label className="text-xs font-bold text-slate-400 block mb-1.5 text-center">單位</label>
                     <input 
                         placeholder="個" 
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none text-center font-bold text-base" 
                         value={formData.unit} 
                         onChange={e => setFormData({...formData, unit: e.target.value})} 
-                        onFocus={(e) => { setShowUnitOptions(true); handleInputFocus(e); }}
-                        // onBlur 不直接關閉，因為要讓下方選單的 onClick 可以觸發。點擊外部會由最外層的 onClick 關閉。
+                        onFocus={handleInputFocus}
                     />
-                    {showUnitOptions && (
-                        <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-48 overflow-y-auto animate-in fade-in slide-in-from-top-1">
-                            {COMMON_UNITS.map(u => (
-                                <div 
-                                    key={u} 
-                                    className="py-2.5 px-2 text-center text-slate-700 font-bold text-sm hover:bg-blue-50 active:bg-blue-100 cursor-pointer border-b border-slate-50 last:border-0"
-                                    onClick={() => {
-                                        setFormData({...formData, unit: u});
-                                        setShowUnitOptions(false);
-                                    }}
-                                >
-                                    {u}
-                                </div>
-                            ))}
-                        </div>
-                    )}
                 </div>
             </div>
+
+            {/* 新增：快速單位選擇按鈕 (Chips) */}
+            <div>
+                 <label className="text-xs font-bold text-slate-400 block mb-2">快速選擇單位</label>
+                 <div className="flex flex-wrap gap-2">
+                    {COMMON_UNITS.map(u => (
+                        <button 
+                            key={u}
+                            type="button" 
+                            onClick={() => setFormData({...formData, unit: u})}
+                            className={`px-3 py-2 rounded-lg text-sm font-bold border transition-all ${
+                                formData.unit === u 
+                                ? 'bg-blue-600 text-white border-blue-600 shadow-md transform scale-105' 
+                                : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                            }`}
+                        >
+                            {u}
+                        </button>
+                    ))}
+                 </div>
+            </div>
+
             </div>
             <div className="flex gap-3">
                 <button onClick={onClose} className="flex-1 py-3 bg-slate-100 font-bold text-slate-500 rounded-xl hover:bg-slate-200 transition-colors text-base">取消</button>
