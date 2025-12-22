@@ -35,11 +35,11 @@ const DEFAULT_BIG_LABELS = {
 };
 
 const BIG_CATEGORY_CONFIG = {
-  TONER: { icon: Droplets, color: 'bg-sky-100 text-sky-600 border-sky-200' },
-  COLOR: { icon: Palette, color: 'bg-purple-100 text-purple-600 border-purple-200' },
-  BW: { icon: Printer, color: 'bg-zinc-100 text-zinc-600 border-zinc-200' },
-  COMMON: { icon: Archive, color: 'bg-orange-100 text-orange-600 border-orange-200' },
-  OTHER: { icon: MoreHorizontal, color: 'bg-blue-100 text-blue-600 border-blue-200' },
+  TONER: { icon: Droplets, color: 'text-sky-600', bg: 'bg-sky-100', border: 'border-sky-200' },
+  COLOR: { icon: Palette, color: 'text-purple-600', bg: 'bg-purple-100', border: 'border-purple-200' },
+  BW: { icon: Printer, color: 'text-zinc-600', bg: 'bg-zinc-100', border: 'border-zinc-200' },
+  COMMON: { icon: Archive, color: 'text-orange-600', bg: 'bg-orange-100', border: 'border-orange-200' },
+  OTHER: { icon: MoreHorizontal, color: 'text-blue-600', bg: 'bg-blue-100', border: 'border-blue-200' },
 };
 
 const getBigCategoryType = (modelName, item) => {
@@ -53,14 +53,13 @@ const getBigCategoryType = (modelName, item) => {
 };
 
 // --- 1. 報表視窗 (支援篩選與排序) ---
-const ReportModal = ({ isOpen, onClose, inventory, modelOrder, subGroupOrder }) => {
+const ReportModal = ({ isOpen, onClose, inventory, modelOrder, subGroupOrder, itemOrder }) => {
   const [copied, setCopied] = useState(false);
-  const [onlyMissing, setOnlyMissing] = useState(false); // 新增：只顯示缺貨開關
+  const [onlyMissing, setOnlyMissing] = useState(false);
 
   const reportText = useMemo(() => {
     if (!inventory || inventory.length === 0) return '無庫存資料';
 
-    // 1. 資料分組
     const groups = {};
     inventory.forEach(item => {
         const m = item.model || '未分類';
@@ -68,10 +67,8 @@ const ReportModal = ({ isOpen, onClose, inventory, modelOrder, subGroupOrder }) 
         groups[m].push(item);
     });
 
-    // 2. 決定型號順序 (依照 modelOrder)
     let sortedModels = Object.keys(groups);
     if (modelOrder && modelOrder.length > 0) {
-        // 將有在排序列表中的型號排在前面，未在列表中的排在後面
         sortedModels.sort((a, b) => {
             const idxA = modelOrder.indexOf(a);
             const idxB = modelOrder.indexOf(b);
@@ -90,9 +87,8 @@ const ReportModal = ({ isOpen, onClose, inventory, modelOrder, subGroupOrder }) 
 
     sortedModels.forEach(model => {
         let items = groups[model];
-
-        // 3. 排序零件 (依照 subGroupOrder)
         const currentSubGroupOrder = subGroupOrder[model] || [];
+        
         items.sort((a, b) => {
              const subA = a.subGroup || '其他';
              const subB = b.subGroup || '其他';
@@ -104,10 +100,14 @@ const ReportModal = ({ isOpen, onClose, inventory, modelOrder, subGroupOrder }) 
                  if (idxB !== -1) return 1;
                  return subA.localeCompare(subB);
              }
+             const iIdxA = itemOrder.indexOf(a.id);
+             const iIdxB = itemOrder.indexOf(b.id);
+             if (iIdxA !== -1 && iIdxB !== -1) return iIdxA - iIdxB;
+             if (iIdxA !== -1) return -1;
+             if (iIdxB !== -1) return 1;
              return a.name.localeCompare(b.name);
         });
 
-        // 4. 篩選缺貨
         if (onlyMissing) {
             items = items.filter(i => i.qty <= 0 || i.qty < i.max / 2);
         }
@@ -128,7 +128,7 @@ const ReportModal = ({ isOpen, onClose, inventory, modelOrder, subGroupOrder }) 
     if (!hasContent) text += `\n\n目前沒有${onlyMissing ? '需補貨' : ''}項目。`;
     text += `\n\n----------------\n系統自動生成`;
     return text;
-  }, [inventory, modelOrder, subGroupOrder, onlyMissing]);
+  }, [inventory, modelOrder, subGroupOrder, itemOrder, onlyMissing]);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(reportText);
@@ -146,18 +146,12 @@ const ReportModal = ({ isOpen, onClose, inventory, modelOrder, subGroupOrder }) 
                 <button onClick={onClose} className="p-1.5 bg-gray-100 rounded-full text-gray-500 hover:bg-gray-200"><X size={20} /></button> 
             </div>
             
-            {/* 篩選開關 */}
             <div className="flex items-center gap-2 mb-3 bg-slate-50 p-2 rounded-lg border border-slate-200">
                 <input 
-                    type="checkbox" 
-                    id="onlyMissing" 
-                    checked={onlyMissing} 
-                    onChange={e => setOnlyMissing(e.target.checked)}
+                    type="checkbox" id="onlyMissing" checked={onlyMissing} onChange={e => setOnlyMissing(e.target.checked)}
                     className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500"
                 />
-                <label htmlFor="onlyMissing" className="text-sm font-bold text-slate-700 cursor-pointer select-none">
-                    只顯示需補貨 (缺貨/低庫存)
-                </label>
+                <label htmlFor="onlyMissing" className="text-sm font-bold text-slate-700 cursor-pointer select-none">只顯示需補貨 (缺貨/低庫存)</label>
             </div>
 
             <div className="flex-1 overflow-y-auto bg-slate-50 p-3 rounded-xl border border-slate-200 mb-4 font-mono text-sm leading-relaxed whitespace-pre-wrap text-slate-700 shadow-inner">
@@ -220,7 +214,7 @@ const EditInventoryModal = ({ isOpen, onClose, onSave, onDelete, initialItem, ex
                       <div className="flex flex-wrap gap-2">
                           {Object.keys(BIG_CATEGORY_CONFIG).map(key => (
                               <button key={key} type="button" onClick={() => setFormData({...formData, categoryType: key})} className={`px-3 py-2 rounded-lg text-sm font-bold border transition-all ${formData.categoryType === key ? 'bg-blue-600 text-white border-blue-600 shadow-md' : 'bg-white text-slate-500 border-slate-200'}`}>
-                                {BIG_CATEGORY_CONFIG[key].label}
+                                {DEFAULT_BIG_LABELS[key]}
                               </button>
                           ))}
                       </div>
@@ -283,17 +277,19 @@ const RenameModal = ({ isOpen, onClose, onRename, onDelete, oldName, title = "�
 
 // --- Sortable Components ---
 
-// Level 1 Item
 const SortableBigCategory = ({ category, count, onClick, onEditLabel }) => {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: category.id });
     const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1, zIndex: isDragging ? 50 : 'auto', touchAction: 'none' };
     const Icon = category.icon;
+    
     return (
         <div ref={setNodeRef} style={style} className="w-full bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center active:scale-[0.98] transition-all hover:border-blue-200 group mb-3 relative" onClick={onClick}>
-            <div className={`p-3.5 rounded-xl mr-4 border transition-colors shadow-sm ${category.color}`}><Icon size={24} strokeWidth={2.5} /></div>
+            <div className={`p-3.5 rounded-2xl mr-4 border transition-colors shadow-sm ${category.bg} ${category.color} ${category.border}`}>
+                <Icon size={24} strokeWidth={2.5} />
+            </div>
             <div className="flex-1 text-left min-w-0">
-                <h3 className="text-lg font-bold text-slate-700 truncate mb-0.5">{category.label}</h3>
-                <span className="text-sm text-slate-500 font-bold">共 {count} 個項目</span>
+                <h3 className="text-base font-bold text-slate-700 truncate mb-0.5">{category.label}</h3>
+                <span className="text-xs font-bold text-slate-400 mt-1 block">共 {count} 個項目</span>
             </div>
             <div className="flex items-center gap-1 ml-2">
                 <button onClick={(e) => { e.stopPropagation(); onEditLabel(category.id, category.label); }} className="p-3 text-slate-300 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"><Edit3 size={18} /></button>
@@ -303,7 +299,6 @@ const SortableBigCategory = ({ category, count, onClick, onEditLabel }) => {
     );
 };
 
-// Level 2 Item
 const SortableModelRow = ({ id, title, count, lowStock, onClick, onRename, categoryType }) => {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
     const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1, zIndex: isDragging ? 50 : 'auto', touchAction: 'none' };
@@ -331,48 +326,37 @@ const SortableModelRow = ({ id, title, count, lowStock, onClick, onRename, categ
     );
 };
 
-// Level 3 Item Group
-const SortableAccordionGroup = ({ id, groupName, items, onEdit, onRestock }) => {
-    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+const SortableItemRow = ({ item, onEdit, onRestock, isLast }) => {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
     const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1, zIndex: isDragging ? 50 : 'auto', touchAction: 'none' };
-    const [isOpen, setIsOpen] = useState(false); // 預設收攏
-    const lowStockCount = items.filter(i => i.qty <= 0).length;
-
+    
     return (
-        <div ref={setNodeRef} style={style} className="border border-slate-200 bg-white rounded-xl overflow-hidden shadow-sm mb-3">
-            <div className={`flex justify-between items-center px-4 py-3 select-none transition-colors ${isOpen ? 'bg-slate-50 border-b border-slate-100' : 'bg-white hover:bg-slate-50'}`}>
-                <div className="flex items-center gap-2 flex-1 cursor-pointer" onClick={() => setIsOpen(!isOpen)}>
-                    {isOpen ? <ChevronDown size={18} className="text-slate-400"/> : <ChevronRight size={18} className="text-slate-400"/>}
-                    <span className="text-base font-extrabold text-slate-800">{groupName}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-3 cursor-pointer" onClick={() => setIsOpen(!isOpen)}>
-                         {lowStockCount > 0 && <span className="flex items-center text-xs font-bold text-rose-500 bg-rose-50 px-2 py-0.5 rounded-full"><AlertTriangle size={10} className="mr-1"/> {lowStockCount} 缺</span>}
-                         <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md">{items.length} 項</span>
-                    </div>
-                    <div {...attributes} {...listeners} className="text-slate-300 cursor-grab active:cursor-grabbing hover:text-slate-500 p-1 ml-2"><GripVertical size={18} /></div>
-                </div>
-            </div>
-            {isOpen && (
-                <div className="bg-white">
-                    {items.map((item, idx) => (
-                        <InventoryRow key={item.id} item={item} onEdit={onEdit} onRestock={onRestock} isLast={idx === items.length - 1} />
-                    ))}
-                </div>
-            )}
+        <div ref={setNodeRef} style={style} className="touch-manipulation">
+             <InventoryRow 
+                item={item} 
+                onEdit={onEdit} 
+                onRestock={onRestock} 
+                isLast={isLast} 
+                dragHandleProps={{...attributes, ...listeners}}
+             />
         </div>
     );
 };
 
-const InventoryRow = ({ item, onEdit, onRestock, isLast }) => {
+const InventoryRow = ({ item, onEdit, onRestock, isLast, dragHandleProps }) => {
     const isOut = item.qty <= 0;
     const rowClass = isOut ? "bg-rose-50/60" : "bg-white hover:bg-slate-50";
     const textClass = isOut ? "text-rose-700" : "text-slate-700";
     const borderClass = isLast ? "" : "border-b border-slate-100";
 
     return (
-        <div className={`flex items-center justify-between py-3 px-4 transition-colors ${rowClass} ${borderClass}`}>
+        <div className={`flex items-center justify-between py-3 px-4 transition-colors ${rowClass} ${borderClass} group`}>
             <div className="flex items-center flex-1 min-w-0 mr-3 cursor-pointer" onClick={() => onEdit(item)}>
+                {dragHandleProps && (
+                    <div {...dragHandleProps} className="text-slate-200 cursor-grab active:cursor-grabbing hover:text-slate-400 mr-2 -ml-1 p-1" onClick={e => e.stopPropagation()}>
+                        <GripVertical size={16} />
+                    </div>
+                )}
                 <div className="flex items-baseline truncate">
                     <span className={`text-base font-bold truncate ${textClass}`}>{item.name}</span>
                     <span className="text-sm text-slate-400 ml-1.5 shrink-0">({item.unit})</span>
@@ -391,6 +375,51 @@ const InventoryRow = ({ item, onEdit, onRestock, isLast }) => {
     );
 };
 
+const SortableAccordionGroup = ({ id, groupName, items, onEdit, onRestock, itemOrder }) => {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+    const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1, zIndex: isDragging ? 50 : 'auto', touchAction: 'none' };
+    const [isOpen, setIsOpen] = useState(false); 
+    const lowStockCount = items.filter(i => i.qty <= 0).length;
+
+    const sortedItems = useMemo(() => {
+        return [...items].sort((a, b) => {
+             const idxA = itemOrder.indexOf(a.id);
+             const idxB = itemOrder.indexOf(b.id);
+             if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+             if (idxA !== -1) return -1;
+             if (idxB !== -1) return 1;
+             return a.name.localeCompare(b.name);
+        });
+    }, [items, itemOrder]);
+
+    return (
+        <div ref={setNodeRef} style={style} className="border border-slate-200 bg-white rounded-xl overflow-hidden shadow-sm mb-3">
+            <div className={`flex justify-between items-center px-4 py-3 select-none transition-colors ${isOpen ? 'bg-slate-50 border-b border-slate-100' : 'bg-white hover:bg-slate-50'}`}>
+                <div className="flex items-center gap-2 flex-1 cursor-pointer" onClick={() => setIsOpen(!isOpen)}>
+                    {isOpen ? <ChevronDown size={18} className="text-slate-400"/> : <ChevronRight size={18} className="text-slate-400"/>}
+                    <span className="text-base font-extrabold text-slate-800">{groupName}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-3 cursor-pointer" onClick={() => setIsOpen(!isOpen)}>
+                         {lowStockCount > 0 && <span className="flex items-center text-xs font-bold text-rose-500 bg-rose-50 px-2 py-0.5 rounded-full"><AlertTriangle size={10} className="mr-1"/> {lowStockCount} 缺</span>}
+                         <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md">{items.length} 項</span>
+                    </div>
+                    <div {...attributes} {...listeners} className="text-slate-300 cursor-grab active:cursor-grabbing hover:text-slate-500 p-1 ml-2"><GripVertical size={18} /></div>
+                </div>
+            </div>
+            {isOpen && (
+                 <div className="bg-white">
+                    <SortableContext items={sortedItems.map(i => i.id)} strategy={verticalListSortingStrategy}>
+                        {sortedItems.map((item, idx) => (
+                            <SortableItemRow key={item.id} item={item} onEdit={onEdit} onRestock={onRestock} isLast={idx === sortedItems.length - 1} />
+                        ))}
+                    </SortableContext>
+                 </div>
+            )}
+        </div>
+    );
+};
+
 // --- Main Component ---
 const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteInventory, onRenameGroup, onBack }) => {
   const [selectedBigGroup, setSelectedBigGroup] = useState(null); 
@@ -402,26 +431,27 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
   const [showReport, setShowReport] = useState(false);
   const [editingBigGroup, setEditingBigGroup] = useState(null);
 
-  // --- 狀態持久化與排序 ---
   const [bigGroupLabels, setBigGroupLabels] = useState(() => {
     try { return JSON.parse(localStorage.getItem('inventoryBigLabels')) || DEFAULT_BIG_LABELS; } catch { return DEFAULT_BIG_LABELS; }
   });
   const [categoryOrder, setCategoryOrder] = useState(() => {
     try { return JSON.parse(localStorage.getItem('inventoryLevel1Order')) || DEFAULT_CATEGORY_ORDER; } catch { return DEFAULT_CATEGORY_ORDER; }
   });
-  // Level 2 排序狀態 (List of Strings)
   const [modelOrder, setModelOrder] = useState(() => {
     try { return JSON.parse(localStorage.getItem('inventoryModelOrder')) || []; } catch { return []; }
   });
-  // Level 3 排序狀態 (Map: ModelName -> List of SubGroupNames)
   const [subGroupOrder, setSubGroupOrder] = useState(() => {
     try { return JSON.parse(localStorage.getItem('inventorySubGroupOrder')) || {}; } catch { return {}; }
+  });
+  const [itemOrder, setItemOrder] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('inventoryItemOrder')) || []; } catch { return []; }
   });
 
   useEffect(() => { localStorage.setItem('inventoryBigLabels', JSON.stringify(bigGroupLabels)); }, [bigGroupLabels]);
   useEffect(() => { localStorage.setItem('inventoryLevel1Order', JSON.stringify(categoryOrder)); }, [categoryOrder]);
   useEffect(() => { localStorage.setItem('inventoryModelOrder', JSON.stringify(modelOrder)); }, [modelOrder]);
   useEffect(() => { localStorage.setItem('inventorySubGroupOrder', JSON.stringify(subGroupOrder)); }, [subGroupOrder]);
+  useEffect(() => { localStorage.setItem('inventoryItemOrder', JSON.stringify(itemOrder)); }, [itemOrder]);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -429,7 +459,6 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
     useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } })
   );
 
-  // --- 資料運算 ---
   const groupedInventory = useMemo(() => {
     const groups = {};
     inventory.forEach(item => {
@@ -451,7 +480,6 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
       return counts;
   }, [groupedInventory]);
 
-  // Level 2 Data (Models) - 應用排序
   const currentFolders = useMemo(() => {
       if (!selectedBigGroup) return [];
       const allModels = Object.keys(groupedInventory);
@@ -459,19 +487,16 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
           const sampleItem = groupedInventory[model][0];
           return getBigCategoryType(model, sampleItem) === selectedBigGroup;
       });
-      
-      // 排序邏輯：存在的依 order 排，不存在的排後面
       return filtered.sort((a, b) => {
           const idxA = modelOrder.indexOf(a);
           const idxB = modelOrder.indexOf(b);
           if (idxA !== -1 && idxB !== -1) return idxA - idxB;
           if (idxA !== -1) return -1;
           if (idxB !== -1) return 1;
-          return a.localeCompare(b); // 預設字母排序
+          return a.localeCompare(b);
       });
   }, [selectedBigGroup, groupedInventory, modelOrder]);
 
-  // Level 3 Data (Items/Groups) - 應用排序
   const currentItemsData = useMemo(() => {
     if (!activeCategory) return { grouped: {}, ungrouped: [], totalCount: 0, sortedGroupKeys: [] };
     let list = groupedInventory[activeCategory] || [];
@@ -483,6 +508,16 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
 
     const grouped = {};
     const ungrouped = [];
+    
+    list.sort((a, b) => {
+         const idxA = itemOrder.indexOf(a.id);
+         const idxB = itemOrder.indexOf(b.id);
+         if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+         if (idxA !== -1) return -1;
+         if (idxB !== -1) return 1;
+         return a.name.localeCompare(b.name);
+    });
+
     list.forEach(item => {
         if (item.subGroup) {
             if (!grouped[item.subGroup]) grouped[item.subGroup] = [];
@@ -492,7 +527,6 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
         }
     });
 
-    // 決定群組顯示順序
     let groupKeys = Object.keys(grouped);
     const orderForThisModel = subGroupOrder[activeCategory] || [];
     groupKeys.sort((a, b) => {
@@ -505,52 +539,57 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
     });
 
     return { grouped, ungrouped, totalCount: list.length, sortedGroupKeys: groupKeys };
-  }, [activeCategory, groupedInventory, searchTerm, subGroupOrder]);
+  }, [activeCategory, groupedInventory, searchTerm, subGroupOrder, itemOrder]);
 
-  // --- 拖曳處理 ---
   const handleDragEnd = (event) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
 
     if (!selectedBigGroup) {
-        // Level 1 排序
-        setCategoryOrder(items => arrayMove(items, items.indexOf(active.id), items.indexOf(over.id)));
-    } else if (!activeCategory) {
-        // Level 2 排序 (Model)
+        if (DEFAULT_CATEGORY_ORDER.includes(active.id)) {
+            setCategoryOrder(items => arrayMove(items, items.indexOf(active.id), items.indexOf(over.id)));
+        }
+        return;
+    } 
+
+    if (!activeCategory) {
         setModelOrder(prev => {
-            const currentList = currentFolders; // 當前顯示的列表
-            const oldIdx = currentList.indexOf(active.id);
-            const newIdx = currentList.indexOf(over.id);
-            // 建立新的完整順序 (包含沒顯示的)
+            const currentList = currentFolders; 
             const newOrder = [...prev];
-            // 確保目前的項目都在 order 列表中 (初始化)
             currentList.forEach(m => { if(!newOrder.includes(m)) newOrder.push(m); });
-            // 移動
             const globalOldIdx = newOrder.indexOf(active.id);
-            // 計算目標位置：我們需要找到 over 項目在 global 中的位置
             const globalOverIdx = newOrder.indexOf(over.id);
             return arrayMove(newOrder, globalOldIdx, globalOverIdx);
         });
-    } else {
-        // Level 3 排序 (SubGroup)
+        return;
+    }
+
+    if (currentItemsData.sortedGroupKeys.includes(active.id)) {
         setSubGroupOrder(prev => {
             const prevOrder = prev[activeCategory] || [];
             const currentKeys = currentItemsData.sortedGroupKeys;
-            
-            // 確保所有 key 都在 order 中
             let newModelOrder = [...prevOrder];
             currentKeys.forEach(k => { if(!newModelOrder.includes(k)) newModelOrder.push(k); });
-            
             const oldIdx = newModelOrder.indexOf(active.id);
             const newIdx = newModelOrder.indexOf(over.id);
+            return { ...prev, [activeCategory]: arrayMove(newModelOrder, oldIdx, newIdx) };
+        });
+    } else {
+        setItemOrder(prev => {
+            let newOrder = [...prev];
+            const allCurrentItems = groupedInventory[activeCategory] || [];
+            allCurrentItems.forEach(i => { if(!newOrder.includes(i.id)) newOrder.push(i.id); });
             
-            const updatedList = arrayMove(newModelOrder, oldIdx, newIdx);
-            return { ...prev, [activeCategory]: updatedList };
+            const oldIdx = newOrder.indexOf(active.id);
+            const newIdx = newOrder.indexOf(over.id);
+            if (oldIdx !== -1 && newIdx !== -1) {
+                return arrayMove(newOrder, oldIdx, newIdx);
+            }
+            return prev;
         });
     }
   };
 
-  // --- 其他操作 ---
   const handleSelectBigGroup = (groupId) => {
     setSelectedBigGroup(groupId);
     const allModels = Object.keys(groupedInventory);
@@ -592,6 +631,7 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
       setBigGroupLabels(DEFAULT_BIG_LABELS);
       setModelOrder([]);
       setSubGroupOrder({});
+      setItemOrder([]);
   };
 
   return (
@@ -622,7 +662,6 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
 
       <div className="p-4 flex-1">
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-              {/* Level 1: 大分類 */}
               {!selectedBigGroup && (
                  <div className="space-y-1 animate-in slide-in-from-left-4 duration-300">
                     <SortableContext items={categoryOrder} strategy={verticalListSortingStrategy}>
@@ -640,7 +679,6 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
                  </div>
               )}
 
-              {/* Level 2: 型號列表 (Sortable) */}
               {selectedBigGroup && !activeCategory && (
                   <div className="animate-in slide-in-from-right-4 duration-300 space-y-1">
                       {currentFolders.length === 0 ? (
@@ -652,14 +690,8 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
                                   const lowStock = items.filter(i => i.qty <= 0).length;
                                   return (
                                       <SortableModelRow 
-                                          key={model} 
-                                          id={model}
-                                          title={model} 
-                                          count={items.length} 
-                                          lowStock={lowStock} 
-                                          categoryType={selectedBigGroup}
-                                          onClick={() => setActiveCategory(model)} 
-                                          onRename={setGroupToRename} 
+                                          key={model} id={model} title={model} count={items.length} lowStock={lowStock} 
+                                          categoryType={selectedBigGroup} onClick={() => setActiveCategory(model)} onRename={setGroupToRename} 
                                       />
                                   );
                               })}
@@ -668,7 +700,6 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
                   </div>
               )}
 
-              {/* Level 3: 零件列表 (Sortable Groups) */}
               {activeCategory && (
                   <div className="space-y-4 animate-in slide-in-from-right-4 duration-300">
                       {currentItemsData.totalCount === 0 && <div className="text-center text-slate-400 mt-10"><p className="font-bold">無項目</p></div>}
@@ -682,6 +713,7 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
                                 items={currentItemsData.grouped[subGroupName]} 
                                 onEdit={setEditingItem} 
                                 onRestock={(id, max) => {const i = inventory.find(x=>x.id===id); if(i) onUpdateInventory({...i, qty: max})}} 
+                                itemOrder={itemOrder}
                               />
                           ))}
                       </SortableContext>
@@ -689,9 +721,11 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
                       {currentItemsData.ungrouped.length > 0 && (
                           <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
                               {currentItemsData.sortedGroupKeys.length > 0 && <div className="bg-slate-50 px-4 py-2 text-xs font-bold text-slate-400 border-b border-slate-100">其他</div>}
-                              {currentItemsData.ungrouped.map((item, idx) => (
-                                  <InventoryRow key={item.id} item={item} onEdit={setEditingItem} onRestock={(id, max) => {const i = inventory.find(x=>x.id===id); if(i) onUpdateInventory({...i, qty: max})}} isLast={idx === currentItemsData.ungrouped.length - 1} />
-                              ))}
+                              <SortableContext items={currentItemsData.ungrouped.map(i => i.id)} strategy={verticalListSortingStrategy}>
+                                  {currentItemsData.ungrouped.map((item, idx) => (
+                                      <SortableItemRow key={item.id} item={item} onEdit={setEditingItem} onRestock={(id, max) => {const i = inventory.find(x=>x.id===id); if(i) onUpdateInventory({...i, qty: max})}} isLast={idx === currentItemsData.ungrouped.length - 1} />
+                                  ))}
+                              </SortableContext>
                           </div>
                       )}
                   </div>
@@ -701,7 +735,7 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
 
       <EditInventoryModal isOpen={!!editingItem || isAddMode} onClose={() => { setEditingItem(null); setIsAddMode(false); }} onSave={handleModalSave} onDelete={(id) => { onDeleteInventory(id); setEditingItem(null); }} initialItem={editingItem} existingModels={Object.keys(groupedInventory)} defaultModel={activeCategory} />
       <RenameModal isOpen={!!groupToRename || !!editingBigGroup} title={editingBigGroup ? "修改分類名稱" : "修改型號名稱"} oldName={editingBigGroup ? editingBigGroup.name : groupToRename} onClose={() => { setGroupToRename(null); setEditingBigGroup(null); }} onDelete={editingBigGroup ? () => handleDeleteBigGroup(editingBigGroup.id) : null} onRename={(old, newName) => { if (editingBigGroup) setBigGroupLabels(prev => ({ ...prev, [editingBigGroup.id]: newName })); else onRenameGroup(old, newName); }} />
-      <ReportModal isOpen={showReport} onClose={() => setShowReport(false)} inventory={inventory} modelOrder={modelOrder} subGroupOrder={subGroupOrder} />
+      <ReportModal isOpen={showReport} onClose={() => setShowReport(false)} inventory={inventory} modelOrder={modelOrder} subGroupOrder={subGroupOrder} itemOrder={itemOrder} />
     </div>
   );
 };
