@@ -27,10 +27,10 @@ import { CSS } from '@dnd-kit/utilities';
 
 // 定義可用的圖示名稱，方便儲存於 JSON
 const ICON_MAP = {
-  Droplets, Palette, Printer, Archive, MoreHorizontal, Box, Tag, Settings
+  Droplets, Palette, Printer, Archive, MoreHorizontal, Box, Tag, Settings, FolderPlus
 };
 
-// 預設分類 (用於第一次初始化)
+// 預設分類 (用於第一次初始化與資料遷移)
 const DEFAULT_CATEGORIES = [
   { id: 'cat_toner', name: '碳粉系列', icon: 'Droplets', color: 'text-sky-600', bg: 'bg-sky-100', border: 'border-sky-200' },
   { id: 'cat_color', name: '彩色影印機', icon: 'Palette', color: 'text-purple-600', bg: 'bg-purple-100', border: 'border-purple-200' },
@@ -57,20 +57,25 @@ const cleanItemName = (modelName, itemName) => {
     if (!modelName || !itemName) return itemName;
     let display = itemName;
     const modelClean = modelName.trim();
+    // 移除 "(MP 3352)" 這樣的字串
     const escapedModel = modelClean.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     display = display.replace(new RegExp(`\\(${escapedModel}\\)`, 'gi'), '');
     display = display.replace(new RegExp(`${escapedModel}`, 'gi'), '');
+    
+    // 移除拆解後的 token
     const tokens = modelClean.split(/[\s\-_/]+/).filter(t => t.length > 1); 
     tokens.sort((a, b) => b.length - a.length); 
     tokens.forEach(token => {
         try { display = display.replace(new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), ''); } catch (e) {}
     });
+    
+    // 清理括號與空格
     display = display.replace(/\(\s*\)/g, '');
     display = display.replace(/^[\s\-_]+|[\s\-_]+$/g, '').trim();
     return display || itemName; 
 };
 
-// --- 1. 報表視窗 (完全依照分類ID + 智慧分組 + 修正排序) ---
+// --- 1. 報表視窗 (完全依照分類與手動排序) ---
 const ReportModal = ({ isOpen, onClose, inventory, categories, modelOrder, itemOrder }) => {
   const [copied, setCopied] = useState(false);
   const [onlyMissing, setOnlyMissing] = useState(false);
@@ -81,33 +86,17 @@ const ReportModal = ({ isOpen, onClose, inventory, categories, modelOrder, itemO
     const strItemOrder = itemOrder ? itemOrder.map(String) : [];
 
     // 1. 資料處理：先歸類到 Category ID，再歸類到 Model
-    // 結構: { [CategoryId]: { [DisplayModel]: [Items...] } }
+    // 結構: { [CategoryId]: { [ModelName]: [Items...] } }
+    // 這裡嚴格使用 item.model，不進行額外的智慧拆分，確保使用者看到的與設定的一致
     const groupedData = {}; 
 
     inventory.forEach(item => {
-        const catId = item.categoryId || 'cat_other'; // 確保有分類
+        const catId = item.categoryId || 'cat_other'; 
+        const model = item.model || '未分類';
         
-        // 智慧顯示型號 (如果原始型號是統稱，嘗試從名稱提取)
-        let originalModel = item.model || '未分類';
-        let displayModel = originalModel;
-        
-        // 檢查是否為統稱
-        const isGenericModel = ['碳粉系列', '碳粉', 'TONER', '共用耗材', 'COMMON', '未分類'].some(k => originalModel.toUpperCase().includes(k));
-
-        if (isGenericModel) {
-            if (item.subGroup && item.subGroup.trim()) {
-                displayModel = item.subGroup.trim();
-            } else {
-                const match = item.name.match(/[\(（](.+?)[\)）]/);
-                if (match && match[1] && match[1].length > 1) {
-                     displayModel = match[1].trim();
-                }
-            }
-        }
-
         if (!groupedData[catId]) groupedData[catId] = {};
-        if (!groupedData[catId][displayModel]) groupedData[catId][displayModel] = [];
-        groupedData[catId][displayModel].push(item);
+        if (!groupedData[catId][model]) groupedData[catId][model] = [];
+        groupedData[catId][model].push(item);
     });
 
     let text = `【庫存盤點報表】${new Date().toLocaleDateString()}\n`;
@@ -116,19 +105,20 @@ const ReportModal = ({ isOpen, onClose, inventory, categories, modelOrder, itemO
     
     let hasContent = false;
 
-    // Level 1: 依照 Categories 順序遍歷
+    // Level 1: 依照 Categories 順序遍歷 (這些已經是排好序的 categories)
     categories.forEach(cat => {
         const modelsObj = groupedData[cat.id];
         if (!modelsObj) return;
         const modelsInThisCat = Object.keys(modelsObj);
         if (modelsInThisCat.length === 0) return;
 
-        // Level 2: 機型排序
+        // Level 2: 機型排序 (依照 modelOrder)
         modelsInThisCat.sort((a, b) => {
             if (modelOrder) {
                const idxA = modelOrder.indexOf(a);
                const idxB = modelOrder.indexOf(b);
                if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+               // 若只有一方在清單中，清單中的排前面
                if (idxA !== -1) return -1;
                if (idxB !== -1) return 1;
             }
@@ -141,13 +131,11 @@ const ReportModal = ({ isOpen, onClose, inventory, categories, modelOrder, itemO
         // Level 3: 機型迴圈
         modelsInThisCat.forEach((model, modelIndex) => {
             const items = modelsObj[model];
-            // Items 排序 (這裡必須與主畫面使用相同的邏輯)
+            // Items 排序 (依照 itemOrder)
             items.sort((a, b) => {
                  const idxA = strItemOrder.indexOf(String(a.id));
                  const idxB = strItemOrder.indexOf(String(b.id));
-                 // 如果兩者都有排序紀錄，照紀錄
                  if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-                 // 如果只有一個有紀錄，有紀錄的排前面 (讓新加入的排後面，或依照名稱)
                  if (idxA !== -1) return -1;
                  if (idxB !== -1) return 1;
                  return a.name.localeCompare(b.name);
@@ -160,13 +148,13 @@ const ReportModal = ({ isOpen, onClose, inventory, categories, modelOrder, itemO
 
                 const icon = isFull ? '🔹' : '🔸';
                 let displayName = cleanItemName(model, item.name);
-                // 無縮排格式
+                // 格式：圖示 名稱: 數量/應備 單位
                 linesForThisModel.push(`${icon}${displayName}: ${item.qty}/${item.max} ${item.unit}`);
             });
 
             if (linesForThisModel.length > 0) {
                 hasModelsInThisCat = true;
-                // 第一個機型前只換一行，後續機型前換兩行 (緊湊版)
+                // 排版：第一個機型前換一行，後續機型前換兩行
                 const prefix = modelIndex === 0 ? '\n' : '\n\n'; 
                 categoryContent += `${prefix}◆ ${model}`; 
                 linesForThisModel.forEach(line => categoryContent += `\n${line}`);
@@ -224,14 +212,22 @@ const EditInventoryModal = ({ isOpen, onClose, onSave, onDelete, initialItem, ca
   useEffect(() => {
     if (isOpen) {
       if (initialItem) {
-        setFormData({ ...initialItem, subGroup: initialItem.subGroup || '', categoryId: initialItem.categoryId || defaultCategoryId || categories[0].id });
+        // 編輯模式：帶入現有資料
+        setFormData({ 
+            ...initialItem, 
+            subGroup: initialItem.subGroup || '', 
+            // 確保有 categoryId，若是舊資料則自動遷移
+            categoryId: initialItem.categoryId || migrateCategory(initialItem.model, initialItem) 
+        });
         setUseCustomModel(false);
       } else {
+        // 新增模式：帶入預設值
         const targetCatId = defaultCategoryId || categories[0]?.id || 'cat_other';
         setFormData({ 
             name: '', model: defaultModel || '', subGroup: '', 
             qty: 1, max: 5, unit: '個', categoryId: targetCatId 
         });
+        // 若沒有預設 model (在最上層新增)，則預設開啟自訂輸入
         setUseCustomModel(!defaultModel);
       }
     }
@@ -264,16 +260,16 @@ const EditInventoryModal = ({ isOpen, onClose, onSave, onDelete, initialItem, ca
 
            {/* 2. 選擇或輸入型號 */}
            <div>
-             <label className="text-sm font-bold text-slate-500 block mb-2">歸屬型號 / 群組</label>
+             <label className="text-sm font-bold text-slate-500 block mb-2">歸屬型號 (報表標題)</label>
              <div className="flex gap-2">
                 <input 
-                    placeholder="例如: MP 3352 或 通用工具" 
+                    placeholder="例如: MP 3352" 
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none font-bold text-base"
                     value={formData.model} 
                     onChange={e => setFormData({...formData, model: e.target.value})} 
                 />
              </div>
-             <p className="text-xs text-slate-400 mt-1">請填寫此零件屬於哪台機器，或是「通用」。</p>
+             <p className="text-xs text-slate-400 mt-1">此欄位將作為報表中的小標題 (如 ◆ MP 3352)。</p>
            </div>
 
            {/* 3. 品名 */}
@@ -356,7 +352,7 @@ const CategoryManagerModal = ({ isOpen, onClose, categories, onSaveCategories })
     );
 };
 
-// --- Sortable Components (UI 保持原樣) ---
+// --- Sortable Components ---
 const SortableBigCategory = ({ category, count, onClick, isActive }) => {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: category.id });
     const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1, zIndex: isDragging ? 50 : 'auto', touchAction: 'none' };
@@ -383,7 +379,7 @@ const SortableModelRow = ({ id, title, count, lowStock, onClick }) => {
     return (
         <div ref={setNodeRef} style={style} onClick={onClick} className="bg-white p-3.5 rounded-xl border border-slate-100 shadow-[0_1px_3px_rgb(0,0,0,0.02)] active:scale-[0.99] transition-all cursor-pointer flex items-center justify-between mb-3 hover:border-blue-200 hover:shadow-md group">
             <div className="flex items-center flex-1 min-w-0">
-                <div className={`p-2.5 rounded-lg mr-3.5 shrink-0 bg-slate-50 text-slate-500`}><Printer size={20} /></div>
+                <div className={`p-2.5 rounded-lg mr-3.5 shrink-0 bg-slate-50 text-slate-500`}><FolderPlus size={20} /></div>
                 <div className="min-w-0">
                     <h3 className="text-base font-extrabold text-slate-800 truncate mb-0.5">{title}</h3>
                     <div className="flex items-center gap-2 text-xs font-bold text-slate-400">
@@ -434,6 +430,7 @@ const SortableItemRow = ({ item, onEdit, onRestock, isLast }) => {
 
 // --- Main Component ---
 const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteInventory, onBack }) => {
+  // 分類 State (從 LocalStorage 讀取，若無則使用預設)
   const [categories, setCategories] = useState(() => {
       try {
           const saved = JSON.parse(localStorage.getItem('inventoryCategories'));
@@ -453,12 +450,13 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
   const [modelOrder, setModelOrder] = useState(() => { try { return JSON.parse(localStorage.getItem('invModelOrder')) || []; } catch { return []; } });
   const [itemOrder, setItemOrder] = useState(() => { try { return JSON.parse(localStorage.getItem('invItemOrder')) || []; } catch { return []; } });
 
-  // 持久化
+  // 持久化 State
   useEffect(() => { localStorage.setItem('inventoryCategories', JSON.stringify(categories)); }, [categories]);
   useEffect(() => { localStorage.setItem('invModelOrder', JSON.stringify(modelOrder)); }, [modelOrder]);
   useEffect(() => { localStorage.setItem('invItemOrder', JSON.stringify(itemOrder)); }, [itemOrder]);
 
   // --- 自動遷移舊資料 ---
+  // 檢查是否有舊格式資料(無 categoryId)，若有則自動補上
   useEffect(() => {
       let hasChanges = false;
       const newInventory = inventory.map(item => {
@@ -469,10 +467,13 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
           return item;
       });
       if (hasChanges) {
-          // 只在記憶體中顯示正確的分類，若需寫回 DB，請在 parent 層處理
-          // 這裡我們暫時只確保顯示正確
+          console.log('Migrating inventory data to new structure...');
+          // 注意：這裡只會觸發一次性的更新，確保資料都有 categoryId
+          newInventory.forEach(item => {
+              if(!item.categoryId) onUpdateInventory(item);
+          });
       }
-  }, [inventory]); 
+  }, [inventory]);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -483,10 +484,11 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
   // 1. 取得目前分類下的所有 Items
   const itemsInCurrentCat = useMemo(() => {
       if (!selectedCatId) return [];
+      // 確保使用 categoryId 過濾
       return inventory.filter(i => (i.categoryId || migrateCategory(i.model, i)) === selectedCatId);
   }, [inventory, selectedCatId]);
 
-  // 2. 將 Items 依照 Model 分組
+  // 2. 將 Items 依照 Model 分組 (Level 2)
   const folders = useMemo(() => {
       const groups = {};
       itemsInCurrentCat.forEach(item => {
@@ -494,6 +496,7 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
           if (!groups[m]) groups[m] = [];
           groups[m].push(item);
       });
+      // 依照 modelOrder 排序
       return Object.keys(groups).sort((a, b) => {
           const idxA = modelOrder.indexOf(a);
           const idxB = modelOrder.indexOf(b);
@@ -504,7 +507,7 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
       });
   }, [itemsInCurrentCat, modelOrder]);
 
-  // 3. 取得目前 Model 下的 Items (含排序)
+  // 3. 取得目前 Model 下的 Items (Level 3) (含排序)
   const currentItems = useMemo(() => {
       let list = itemsInCurrentCat;
       if (activeModel) {
@@ -541,34 +544,33 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
       if (!over || active.id === over.id) return;
 
       if (!selectedCatId) {
-          // 排序分類
+          // 1. 排序分類 (Level 1)
           const oldIdx = categories.findIndex(c => c.id === active.id);
           const newIdx = categories.findIndex(c => c.id === over.id);
           setCategories(arrayMove(categories, oldIdx, newIdx));
       } else if (!activeModel) {
-          // 排序型號
+          // 2. 排序型號資料夾 (Level 2)
           setModelOrder(prev => {
              const newOrder = [...prev];
+             // 補上可能還不在 order 中的 folder
              folders.forEach(f => { if(!newOrder.includes(f)) newOrder.push(f); });
              const oldIdx = newOrder.indexOf(active.id);
              const newIdx = newOrder.indexOf(over.id);
              return arrayMove(newOrder, oldIdx, newIdx);
           });
       } else {
-          // 排序零件 (Level 3) - 修正邏輯
-          // 取得目前畫面上的所有 ID 列表
+          // 3. 排序零件 (Level 3)
+          // 關鍵修正：必須以「當前畫面」的順序來計算移動，並更新到全域
           const currentIds = currentItems.map(i => String(i.id));
           const oldIdx = currentIds.indexOf(String(active.id));
           const newIdx = currentIds.indexOf(String(over.id));
           
           if (oldIdx !== -1 && newIdx !== -1) {
-              // 在「目前畫面列表」中移動
               const newOrder = arrayMove(currentIds, oldIdx, newIdx);
               
-              // 更新到全域的 itemOrder
               setItemOrder(prev => {
                   const prevStrings = prev.map(String);
-                  // 移除舊的(避免重複)，然後加入新的
+                  // 保留不在當前畫面的其他 items，並接上當前畫面新的順序
                   const otherItems = prevStrings.filter(id => !currentIds.includes(id));
                   return [...otherItems, ...newOrder];
               });
