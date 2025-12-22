@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   ArrowLeft, Plus, Search, ChevronRight, ChevronDown, Edit3, 
   RotateCcw, CheckCircle, Trash2, AlertTriangle, Box, Tag, 
@@ -238,8 +238,8 @@ const ReportModal = ({ isOpen, onClose, inventory, modelOrder, subGroupOrder, it
 const EditInventoryModal = ({ isOpen, onClose, onSave, onDelete, initialItem, existingModels, defaultModel, defaultCategoryType }) => {
   const [formData, setFormData] = useState({ name: '', model: '', subGroup: '', qty: 0, max: 5, unit: '個', categoryType: 'OTHER' });
   const [useCustomModel, setUseCustomModel] = useState(false);
+  const [showUnitOptions, setShowUnitOptions] = useState(false); // 新增：控制單位選單顯示
   
-  // 保持這個 Helper，雖然有 pb-[50vh]，但主動捲動能提供更好的體驗
   const handleInputFocus = (e) => {
     setTimeout(() => {
         e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -248,6 +248,7 @@ const EditInventoryModal = ({ isOpen, onClose, onSave, onDelete, initialItem, ex
 
   useEffect(() => {
     if (isOpen) {
+      setShowUnitOptions(false); // 重置選單狀態
       if (initialItem) {
         setFormData({ ...initialItem, subGroup: initialItem.subGroup || '', categoryType: getBigCategoryType(initialItem.model, initialItem) });
         setUseCustomModel(false);
@@ -269,24 +270,19 @@ const EditInventoryModal = ({ isOpen, onClose, onSave, onDelete, initialItem, ex
   if (!isOpen) return null;
   
   return (
-    // 修改 1: 外層 fixed 容器負責 overflow-y-auto，以支援內部的大 padding
     <div className="fixed inset-0 bg-black/60 z-[80] overflow-y-auto animate-in fade-in duration-200" onClick={onClose}>
-      
-      {/* 修改 2: 內部容器 flex 排版，並給予 pb-[50vh] (或 40vh)，確保底部有足夠空間被鍵盤頂起 */}
       <div className="min-h-full flex items-start justify-center pt-12 px-4 pb-[50vh]">
-        
-        <div className="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl relative" onClick={e => e.stopPropagation()}>
+        <div className="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl relative" onClick={e => { e.stopPropagation(); setShowUnitOptions(false); }}>
             <div className="flex justify-between items-center mb-5 border-b border-gray-100 pb-4">
             <h3 className="text-xl font-bold text-slate-800">{initialItem ? '編輯項目' : '新增項目'}</h3>
             {initialItem && <button onClick={() => { if(window.confirm(`確定要刪除「${formData.name}」嗎？`)) onDelete(formData.id); }} className="p-2 bg-rose-50 text-rose-500 rounded-xl hover:bg-rose-100 transition-colors"><Trash2 size={20}/></button>}
             </div>
             
             <div className="space-y-4 mb-6">
-            <div>
+            <div onClick={e => e.stopPropagation()}>
                 <label className="text-sm font-bold text-slate-500 block mb-2">歸屬型號</label>
                 {!useCustomModel ? (
                 <div className="flex gap-2">
-                    {/* 修改 3: 所有 select 強制 text-base 以防止 iOS Zoom */}
                     <select className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none text-slate-800 font-bold text-base" value={formData.model} onChange={e => {const val = e.target.value; setFormData({...formData, model: val, categoryType: getBigCategoryType(val, null)});}}>
                     {existingModels.map(m => <option key={m} value={m}>{m}</option>)}
                     </select>
@@ -295,7 +291,6 @@ const EditInventoryModal = ({ isOpen, onClose, onSave, onDelete, initialItem, ex
                 ) : (
                     <div className="space-y-3 animate-in slide-in-from-top-2">
                     <div className="flex gap-2">
-                        {/* 修改 4: 所有 input 強制 text-base */}
                         <input 
                             autoFocus 
                             placeholder="輸入新分類名稱" 
@@ -319,7 +314,7 @@ const EditInventoryModal = ({ isOpen, onClose, onSave, onDelete, initialItem, ex
                     </div>
                 )}
             </div>
-            <div>
+            <div onClick={e => e.stopPropagation()}>
                 <label className="text-sm font-bold text-slate-500 block mb-2">品名 (零件名稱)</label>
                 <input 
                     placeholder="例: 黃色碳粉" 
@@ -329,7 +324,7 @@ const EditInventoryModal = ({ isOpen, onClose, onSave, onDelete, initialItem, ex
                     onFocus={handleInputFocus}
                 />
             </div>
-            <div className="bg-blue-50/50 p-3 rounded-xl border border-blue-100">
+            <div className="bg-blue-50/50 p-3 rounded-xl border border-blue-100" onClick={e => e.stopPropagation()}>
                 <label className="text-xs font-bold text-blue-500 block mb-1.5 uppercase tracking-wider flex items-center"><Tag size={14} className="mr-1"/> 次分類 (選填)</label>
                 <input 
                     placeholder="例如: C3503" 
@@ -340,9 +335,8 @@ const EditInventoryModal = ({ isOpen, onClose, onSave, onDelete, initialItem, ex
                 />
             </div>
             <div className="grid grid-cols-3 gap-3">
-                <div className="col-span-1">
+                <div className="col-span-1" onClick={e => e.stopPropagation()}>
                     <label className="text-xs font-bold text-slate-400 block mb-1.5 text-center">數量</label>
-                    {/* 數量字體 text-xl > 16px，安全 */}
                     <input 
                         type="number" 
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none text-center font-mono font-bold text-xl text-blue-600" 
@@ -351,7 +345,7 @@ const EditInventoryModal = ({ isOpen, onClose, onSave, onDelete, initialItem, ex
                         onFocus={handleInputFocus}
                     />
                 </div>
-                <div className="col-span-1">
+                <div className="col-span-1" onClick={e => e.stopPropagation()}>
                     <label className="text-xs font-bold text-slate-400 block mb-1.5 text-center">應備</label>
                     <input 
                         type="number" 
@@ -361,20 +355,34 @@ const EditInventoryModal = ({ isOpen, onClose, onSave, onDelete, initialItem, ex
                         onFocus={handleInputFocus}
                     />
                 </div>
-                <div className="col-span-1">
+                
+                {/* 修改：使用 relative div 包裹 input 與自定義 absolute dropdown */}
+                <div className="col-span-1 relative" onClick={e => e.stopPropagation()}>
                     <label className="text-xs font-bold text-slate-400 block mb-1.5 text-center">單位</label>
                     <input 
-                        list="unitOptions"
                         placeholder="個" 
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none text-center font-bold text-base" 
                         value={formData.unit} 
                         onChange={e => setFormData({...formData, unit: e.target.value})} 
-                        onFocus={(e) => { e.target.value = ''; handleInputFocus(e); }} 
-                        onBlur={(e) => { if(!e.target.value) e.target.value = '個'; }} 
+                        onFocus={(e) => { setShowUnitOptions(true); handleInputFocus(e); }}
+                        // onBlur 不直接關閉，因為要讓下方選單的 onClick 可以觸發。點擊外部會由最外層的 onClick 關閉。
                     />
-                    <datalist id="unitOptions">
-                        {COMMON_UNITS.map(u => <option key={u} value={u} />)}
-                    </datalist>
+                    {showUnitOptions && (
+                        <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-48 overflow-y-auto animate-in fade-in slide-in-from-top-1">
+                            {COMMON_UNITS.map(u => (
+                                <div 
+                                    key={u} 
+                                    className="py-2.5 px-2 text-center text-slate-700 font-bold text-sm hover:bg-blue-50 active:bg-blue-100 cursor-pointer border-b border-slate-50 last:border-0"
+                                    onClick={() => {
+                                        setFormData({...formData, unit: u});
+                                        setShowUnitOptions(false);
+                                    }}
+                                >
+                                    {u}
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
             </div>
             </div>
@@ -401,7 +409,6 @@ const RenameModal = ({ isOpen, onClose, onRename, onDelete, oldName, title = "�
   useEffect(() => { setNewName(oldName || ''); }, [oldName]);
   if (!isOpen) return null;
   return (
-    // 同樣套用 fixed + scroll + pb-50vh 策略
     <div className="fixed inset-0 bg-black/60 z-[80] overflow-y-auto animate-in fade-in" onClick={onClose}>
       <div className="min-h-full flex items-start justify-center pt-24 p-4 pb-[50vh]">
         <div className="bg-white w-full max-w-xs rounded-2xl p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
