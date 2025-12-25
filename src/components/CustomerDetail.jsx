@@ -68,7 +68,9 @@ const CustomerDetail = ({
         div[class*="address"] *,
         span[class*="address"],
         div[style*="phone"],
-        div[style*="address"] {
+        div[style*="address"],
+        div[style*="textDecoration"],
+        div[style*="border"] {
           -webkit-touch-callout: none !important;
           -webkit-user-select: none !important;
           text-decoration: none !important;
@@ -79,10 +81,28 @@ const CustomerDetail = ({
           border-top: none !important;
           border-left: none !important;
           border-right: none !important;
+          -webkit-text-decoration: none !important;
+          -moz-text-decoration: none !important;
+          -ms-text-decoration: none !important;
         }
-        /* 移除手機瀏覽器自動識別 */
+        /* 移除手機瀏覽器自動識別電話和地址 */
         * {
           -webkit-tap-highlight-color: transparent;
+        }
+        /* 針對手機瀏覽器的特殊處理 */
+        @media (max-width: 768px) {
+          div[style*="phone"],
+          div[style*="address"] {
+            -webkit-appearance: none !important;
+            -moz-appearance: none !important;
+            appearance: none !important;
+            text-decoration: none !important;
+            border: none !important;
+            outline: none !important;
+            -webkit-text-decoration: none !important;
+            -moz-text-decoration: none !important;
+            -ms-text-decoration: none !important;
+          }
         }
       `}</style>
       {/* 頂部標題列 - 與 Dashboard 風格一致 */}
@@ -140,7 +160,13 @@ const CustomerDetail = ({
                     borderBottom: 'none',
                     borderTop: 'none',
                     borderLeft: 'none',
-                    borderRight: 'none'
+                    borderRight: 'none',
+                    WebkitTextDecoration: 'none',
+                    MozTextDecoration: 'none',
+                    MsTextDecoration: 'none',
+                    WebkitAppearance: 'none',
+                    MozAppearance: 'none',
+                    appearance: 'none'
                   }}
                 >
                   {selectedCustomer.phones[0].number}
@@ -177,7 +203,13 @@ const CustomerDetail = ({
                   borderBottom: 'none',
                   borderTop: 'none',
                   borderLeft: 'none',
-                  borderRight: 'none'
+                  borderRight: 'none',
+                  WebkitTextDecoration: 'none',
+                  MozTextDecoration: 'none',
+                  MsTextDecoration: 'none',
+                  WebkitAppearance: 'none',
+                  MozAppearance: 'none',
+                  appearance: 'none'
                 }}
               >
                 {selectedCustomer.address}
@@ -217,12 +249,12 @@ const CustomerDetail = ({
             <div className="flex-1 flex items-center gap-2 min-w-0">
               {selectedCustomer.assets && selectedCustomer.assets.length > 0 ? (
                 selectedCustomer.assets.map((asset, idx) => (
-                  <span key={idx} className="text-xs bg-slate-100 text-slate-500 px-2 py-1 rounded font-bold">
+                  <span key={idx} className="text-base font-bold text-slate-800">
                     {asset.model || '無機型'}
                   </span>
                 ))
               ) : (
-                <span className="text-xs bg-slate-100 text-slate-500 px-2 py-1 rounded font-bold">無機型</span>
+                <span className="text-base font-bold text-slate-800">無機型</span>
               )}
             </div>
             <div className="bg-slate-50 p-2.5 rounded-xl text-slate-600 shrink-0 flex items-center justify-center">
