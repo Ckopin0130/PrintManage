@@ -593,7 +593,6 @@ export default function App() {
           setShowAddressAlert={setShowAddressAlert} 
           setShowPhoneSheet={setShowPhoneSheet} 
           showToast={showToast}
-          // 傳入新功能
           onRenameGroup={renameCustomerGroup}
           onDeleteGroup={deleteCustomerGroup}
         />

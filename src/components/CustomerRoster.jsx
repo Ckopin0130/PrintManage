@@ -199,6 +199,50 @@ const CategoryManagerModal = ({ isOpen, onClose, categories, onSaveCategories })
     );
 };
 
+// --- Group Manager (新增：管理群組) ---
+const GroupManagerModal = ({ isOpen, onClose, groups, onRenameGroup, onDeleteGroup }) => {
+    const [localGroups, setLocalGroups] = useState([]);
+    useEffect(() => { setLocalGroups(groups.map(g => ({ name: g, originalName: g }))); }, [groups, isOpen]);
+    const handleChange = (originalName, newName) => {
+        setLocalGroups(localGroups.map(g => g.originalName === originalName ? { ...g, name: newName } : g));
+    };
+    const handleDelete = (groupName) => {
+        if(window.confirm(`確定刪除群組「${groupName}」？此操作將刪除該群組下的所有客戶。`)) {
+            onDeleteGroup(groupName);
+            onClose();
+        }
+    };
+    const handleSave = () => {
+        localGroups.forEach(g => {
+            if (g.name !== g.originalName && g.name.trim() !== '') {
+                onRenameGroup(g.originalName, g.name.trim());
+            }
+        });
+        onClose();
+    };
+    if(!isOpen) return null;
+    return (
+        <div className="fixed inset-0 bg-black/60 z-[90] flex items-center justify-center p-4 animate-in fade-in" onClick={onClose}>
+            <div className="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+                <h3 className="text-xl font-bold text-slate-800 mb-4 flex items-center"><Settings className="mr-2"/> 管理群組</h3>
+                <div className="flex-1 overflow-y-auto space-y-3 mb-4 pr-1">
+                    {localGroups.map(group => (
+                        <div key={group.originalName} className="flex items-center gap-2 p-2 border rounded-xl bg-slate-50">
+                            <div className="p-2 rounded-lg bg-slate-100 text-slate-600"><MapPin size={20}/></div>
+                            <input className="flex-1 bg-transparent font-bold outline-none text-slate-700" value={group.name} onChange={e => handleChange(group.originalName, e.target.value)} />
+                            <button onClick={() => handleDelete(group.originalName)} className="p-2 text-rose-400 hover:bg-rose-50 rounded"><Trash2 size={18}/></button>
+                        </div>
+                    ))}
+                </div>
+                <div className="flex gap-3">
+                    <button onClick={onClose} className="flex-1 py-3 bg-slate-100 font-bold text-slate-500 rounded-xl">取消</button>
+                    <button onClick={handleSave} className="flex-1 py-3 bg-blue-600 font-bold text-white rounded-xl shadow-lg">儲存</button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 // --- Sortable Components ---
 const SortableBigCategory = ({ category, count, onClick, isActive }) => {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: category.id });
@@ -261,13 +305,14 @@ const SortableCustomerRow = ({ item, onClick, onCall, onNav }) => {
 };
 
 // --- Main ---
-const CustomerRoster = ({ customers, onAddCustomer, onUpdateCustomer, onDeleteCustomer, onBack, setTargetCustomer, setShowAddressAlert, setShowPhoneSheet, showToast, setCurrentView, setSelectedCustomer }) => {
+const CustomerRoster = ({ customers, onAddCustomer, onUpdateCustomer, onDeleteCustomer, onBack, setTargetCustomer, setShowAddressAlert, setShowPhoneSheet, showToast, setCurrentView, setSelectedCustomer, onRenameGroup, onDeleteGroup }) => {
   const [categories, setCategories] = useState(() => { try { return JSON.parse(localStorage.getItem('customerCategories')) || DEFAULT_CATEGORIES; } catch { return DEFAULT_CATEGORIES; } });
   const [selectedCatId, setSelectedCatId] = useState(null); 
   const [activeGroup, setActiveGroup] = useState(null); 
   const [editingItem, setEditingItem] = useState(null);
   const [isAddMode, setIsAddMode] = useState(false);
   const [isCatManagerOpen, setIsCatManagerOpen] = useState(false);
+  const [isGroupManagerOpen, setIsGroupManagerOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState(''); 
   const [groupOrder, setGroupOrder] = useState(() => { try { return JSON.parse(localStorage.getItem('custGroupOrder')) || []; } catch { return []; } });
   const [customerOrder, setCustomerOrder] = useState(() => { try { return JSON.parse(localStorage.getItem('custOrder')) || []; } catch { return []; } });
@@ -316,9 +361,27 @@ const CustomerRoster = ({ customers, onAddCustomer, onUpdateCustomer, onDeleteCu
 
   const currentItems = useMemo(() => {
       let list = itemsInCurrentCat;
-      if (activeGroup) list = list.filter(i => (i.L2_district || '未分區') === activeGroup);
-      else if (searchTerm) list = customers.filter(i => i.name.includes(searchTerm) || i.phone?.includes(searchTerm));
-      else return [];
+      if (activeGroup) {
+          list = list.filter(i => (i.L2_district || '未分區') === activeGroup);
+          // 第三層搜尋功能
+          if (searchTerm) {
+              const searchLower = searchTerm.toLowerCase();
+              list = list.filter(i => {
+                  const name = (i.name || '').toLowerCase();
+                  const phone = (i.phones?.[0]?.number || '').toLowerCase();
+                  const address = (i.address || '').toLowerCase();
+                  return name.includes(searchLower) || phone.includes(searchLower) || address.includes(searchLower);
+              });
+          }
+      } else if (searchTerm) {
+          list = customers.filter(i => {
+              const searchLower = searchTerm.toLowerCase();
+              const name = (i.name || '').toLowerCase();
+              const phone = (i.phones?.[0]?.number || '').toLowerCase();
+              const address = (i.address || '').toLowerCase();
+              return name.includes(searchLower) || phone.includes(searchLower) || address.includes(searchLower);
+          });
+      } else return [];
       
       const strOrder = customerOrder.map(String);
       return list.sort((a, b) => {
@@ -400,10 +463,16 @@ const CustomerRoster = ({ customers, onAddCustomer, onUpdateCustomer, onDeleteCu
                 {!selectedCatId && !activeGroup && (
                     <button onClick={() => setIsCatManagerOpen(true)} className="p-2 bg-slate-100 text-slate-600 rounded-xl hover:bg-blue-50 hover:text-blue-600"><Settings size={20}/></button>
                 )}
+                {selectedCatId && !activeGroup && (
+                    <button onClick={() => setIsGroupManagerOpen(true)} className="p-2 bg-slate-100 text-slate-600 rounded-xl hover:bg-blue-50 hover:text-blue-600"><Settings size={20}/></button>
+                )}
+                {activeGroup && (
+                    <button onClick={() => setIsGroupManagerOpen(true)} className="p-2 bg-slate-100 text-slate-600 rounded-xl hover:bg-blue-50 hover:text-blue-600"><Settings size={20}/></button>
+                )}
                 <button onClick={() => setIsAddMode(true)} className="flex items-center text-sm font-bold bg-blue-600 text-white px-3 py-2 rounded-xl shadow-lg shadow-blue-200 hover:bg-blue-700 active:scale-95 transition-all"><Plus size={20} className="mr-1"/>新增</button>
             </div>
          </div>
-         {!activeGroup && (
+         {(!selectedCatId || activeGroup) && (
              <div className="relative animate-in fade-in slide-in-from-top-1 mb-1">
                 <Search size={20} className="absolute left-3 top-2.5 text-slate-400" />
                 <input className="w-full bg-slate-100 border-none rounded-xl py-2 pl-10 pr-4 text-base outline-none focus:ring-2 focus:ring-blue-100 font-bold text-slate-700 transition-all placeholder-slate-400" placeholder="搜尋客戶、電話或地址..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
@@ -443,6 +512,7 @@ const CustomerRoster = ({ customers, onAddCustomer, onUpdateCustomer, onDeleteCu
 
       <EditCustomerModal isOpen={!!editingItem || isAddMode} onClose={() => { setEditingItem(null); setIsAddMode(false); }} onSave={(data) => { if (isAddMode) onAddCustomer(data); else onUpdateCustomer(data); setIsAddMode(false); setEditingItem(null); }} onDelete={onDeleteCustomer} initialItem={editingItem} categories={categories} defaultCategoryId={selectedCatId} defaultGroup={activeGroup} customers={customers} />
       <CategoryManagerModal isOpen={isCatManagerOpen} onClose={() => setIsCatManagerOpen(false)} categories={categories} onSaveCategories={setCategories} />
+      <GroupManagerModal isOpen={isGroupManagerOpen} onClose={() => setIsGroupManagerOpen(false)} groups={groups} onRenameGroup={onRenameGroup} onDeleteGroup={onDeleteGroup} />
     </div>
   );
 };
