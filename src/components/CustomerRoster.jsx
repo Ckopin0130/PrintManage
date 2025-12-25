@@ -288,9 +288,13 @@ const SortableCustomerRow = ({ item, onClick }) => {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.customerID });
     const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1, zIndex: isDragging ? 50 : 'auto' };
     const model = item.assets?.[0]?.model || '無機型';
+    const addressFirstChar = item.address ? item.address.charAt(0) : '無';
     return (
         <div ref={setNodeRef} style={style} className="flex items-center justify-between py-5 px-4 bg-white border-b border-slate-100">
-            <div className="flex items-center flex-1 mr-3" onClick={() => onClick(item)}>
+            <div className="flex items-center flex-1 mr-3 gap-3" onClick={() => onClick(item)}>
+                <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-base shrink-0">
+                    {addressFirstChar}
+                </div>
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-2">
                         <span className="text-base font-bold text-slate-800">{item.name}</span>

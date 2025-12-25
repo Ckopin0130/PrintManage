@@ -43,6 +43,27 @@ const CustomerDetail = ({
 
   return (
     <div className="bg-slate-50 min-h-screen pb-24 flex flex-col font-sans">
+      <style>{`
+        a[href^="tel:"] {
+          text-decoration: none !important;
+          border: none !important;
+          outline: none !important;
+          -webkit-tap-highlight-color: transparent !important;
+        }
+        a[href^="tel:"]:hover,
+        a[href^="tel:"]:active,
+        a[href^="tel:"]:focus {
+          text-decoration: none !important;
+          border: none !important;
+          outline: none !important;
+        }
+        .no-underline {
+          text-decoration: none !important;
+          border: none !important;
+          outline: none !important;
+          -webkit-tap-highlight-color: transparent !important;
+        }
+      `}</style>
       {/* 頂部標題列 - 與 Dashboard 風格一致 */}
       <div className="bg-white/95 backdrop-blur px-4 py-3 flex items-center shadow-sm sticky top-0 z-30 border-b border-slate-100/50 shrink-0">
         <button onClick={() => setCurrentView('roster')} className="p-2 -ml-2 text-slate-600 hover:bg-slate-50 rounded-full transition-colors"><ArrowLeft size={24}/></button>
@@ -85,7 +106,7 @@ const CustomerDetail = ({
                 <>
                   <div className="flex-1 min-w-0">
                     <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">電話</div>
-                    <div className="text-base font-bold text-slate-800 truncate">{selectedCustomer.phones[0].number}</div>
+                    <div className="text-base font-bold text-slate-800 truncate no-underline">{selectedCustomer.phones[0].number}</div>
                   </div>
                   <button
                     onClick={() => handlePhoneClick(selectedCustomer.phones[0].number)}
@@ -107,7 +128,7 @@ const CustomerDetail = ({
               <div className="flex-1 flex items-start gap-3 min-w-0">
                 <div className="flex-1 min-w-0">
                   <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">地址</div>
-                  <div className="text-sm text-slate-500 leading-relaxed">{selectedCustomer.address}</div>
+                  <div className="text-sm text-slate-500 leading-relaxed no-underline">{selectedCustomer.address}</div>
                   {selectedCustomer.addressNote && (
                     <div className="mt-2 bg-red-50 text-red-700 p-2 rounded-lg border border-red-100 flex items-start gap-2">
                       <ShieldAlert size={14} className="flex-shrink-0 mt-0.5" />
