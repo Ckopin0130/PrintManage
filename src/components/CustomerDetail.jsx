@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { 
   ArrowLeft, Edit, Trash2, MapPin, ShieldAlert, Navigation, Info, User, Phone, 
-  Printer, History, Plus, FileText, Search, X 
+  Printer, History, Plus, FileText, Search, X, Building2, PhoneCall
 } from 'lucide-react';
 
 const CustomerDetail = ({ 
@@ -26,59 +26,184 @@ const CustomerDetail = ({
     }).sort((a,b) => new Date(b.date) - new Date(a.date));
   }, [records, selectedCustomer.customerID, searchTerm]);
 
-  const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedCustomer.address)}`;
-  const serviceCount = records.filter(r => r.customerID === selectedCustomer.customerID).length; // 總次數不隨搜尋改變
+  const serviceCount = records.filter(r => r.customerID === selectedCustomer.customerID).length;
+  const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedCustomer.address || '')}`;
+  const handlePhoneClick = (phoneNumber) => {
+    if (phoneNumber) {
+      window.location.href = `tel:${phoneNumber.replace(/[^0-9+]/g, '')}`;
+    }
+  };
+  const handleAddressClick = () => {
+    if (selectedCustomer.addressNote) {
+      handleNavClick(selectedCustomer);
+    } else if (selectedCustomer.address) {
+      window.open(mapUrl, '_blank');
+    }
+  };
 
   return (
-    <div className="bg-gray-50 min-h-screen pb-24 animate-in">
-      <div className="bg-white px-4 py-4 flex items-center shadow-sm sticky top-0 z-10 border-b border-gray-100">
-        <button onClick={() => setCurrentView('roster')} className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-full"><ArrowLeft /></button>
-        <h2 className="text-lg font-bold flex-1 text-center pl-8">客戶詳情</h2>
-        <div className="flex -mr-2">
-          <button onClick={startEdit} className="p-2 text-blue-600 mr-1 hover:bg-blue-50 rounded-full"><Edit size={20} /></button>
-          <button onClick={handleDeleteCustomer} className="p-2 text-red-500 hover:bg-red-50 rounded-full"><Trash2 size={20} /></button>
+    <div className="bg-slate-50 min-h-screen pb-24 flex flex-col font-sans">
+      {/* 頂部標題列 - 與 Dashboard 風格一致 */}
+      <div className="bg-white/95 backdrop-blur px-4 py-3 flex items-center shadow-sm sticky top-0 z-30 border-b border-slate-100/50 shrink-0">
+        <button onClick={() => setCurrentView('roster')} className="p-2 -ml-2 text-slate-600 hover:bg-slate-50 rounded-full transition-colors"><ArrowLeft size={24}/></button>
+        <h2 className="text-lg font-extrabold flex-1 text-center text-slate-800 tracking-wide">客戶詳情</h2>
+        <div className="flex gap-1 -mr-2">
+          <button onClick={startEdit} className="p-2 text-blue-600 hover:bg-blue-50 rounded-full transition-colors"><Edit size={20} /></button>
+          <button onClick={handleDeleteCustomer} className="p-2 text-red-500 hover:bg-red-50 rounded-full transition-colors"><Trash2 size={20} /></button>
         </div>
       </div>
-      <div className="p-4 space-y-4">
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-            <div className="flex justify-between items-start"><h1 className="text-2xl font-bold text-gray-800 mb-1">{selectedCustomer.name}</h1><span className="bg-gray-100 text-gray-500 text-xs px-2 py-1 rounded font-mono">{selectedCustomer.L2_district}</span></div>
-            <div className="mt-2 flex items-start justify-between">
-                <div className="flex-1 mr-3 group">
-                  <p className="text-gray-500 text-sm flex items-start cursor-pointer hover:text-blue-600 transition-colors" 
-                      onClick={() => { if(selectedCustomer.addressNote) handleNavClick(selectedCustomer); else window.open(mapUrl, '_blank'); }}>
-                      <MapPin size={16} className="mr-1.5 flex-shrink-0 mt-0.5 text-blue-500" /> 
-                      <span className="leading-relaxed underline decoration-dotted decoration-gray-300 underline-offset-4 group-active:opacity-50">{selectedCustomer.address}</span>
-                   </p>
-                </div>
-                {selectedCustomer.addressNote ? (
-                    <button type="button" onClick={(e) => { e.stopPropagation(); handleNavClick(selectedCustomer); }} className="flex-shrink-0 bg-red-50 text-red-600 border border-red-100 p-2.5 rounded-xl shadow-sm active:scale-90 transition-transform flex items-center justify-center">
-                        <ShieldAlert size={18} />
-                    </button>
-                ) : (
-                    <a href={mapUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="flex-shrink-0 bg-blue-600 text-white p-2.5 rounded-xl shadow-md shadow-blue-200 active:scale-90 transition-transform hover:bg-blue-700 flex items-center justify-center">
-                        <Navigation size={18} />
-                    </a>
+
+      <div className="flex-1 overflow-y-auto px-4 pt-4 space-y-4">
+        {/* 名片卡區域 - 使用 Dashboard 風格 */}
+        <div className="bg-white rounded-2xl shadow-[0_2px_8px_rgb(0,0,0,0.04)] border border-slate-100 p-5 space-y-4">
+          {/* 客戶名稱 */}
+          <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+            <div className="flex items-center gap-3">
+              <div className="bg-blue-50 p-3 rounded-2xl text-blue-600 shadow-sm">
+                <Building2 size={24} strokeWidth={2.5} />
+              </div>
+              <div>
+                <h1 className="text-2xl font-extrabold text-slate-800">{selectedCustomer.name}</h1>
+                {selectedCustomer.L2_district && (
+                  <span className="text-xs font-bold text-slate-400 mt-1 block">{selectedCustomer.L2_district}</span>
                 )}
+              </div>
             </div>
-            {selectedCustomer.addressNote && <div className="mt-3 text-sm bg-red-50 text-red-700 p-3 rounded-lg border border-red-100 flex items-start"><ShieldAlert size={16} className="mr-2 mt-0.5 flex-shrink-0" /><span className="font-bold">{selectedCustomer.addressNote}</span></div>}
-            {selectedCustomer.notes && <div className="mt-3 text-sm bg-yellow-50 text-yellow-800 p-3 rounded-lg border border-yellow-100 flex items-start"><Info size={16} className="mr-2 mt-0.5 flex-shrink-0" /><span>{selectedCustomer.notes}</span></div>}
-            <div className="mt-6 pt-5 border-t border-gray-100"><h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">聯絡人</h3>
-               {selectedCustomer.phones?.map((p, idx) => (
-                   <div key={idx} className="flex justify-between items-center mb-3 last:mb-0 bg-gray-50 p-2 rounded-xl">
-                       <div className="flex items-center text-sm font-bold text-gray-700 ml-1"><User size={16} className="mr-2 text-gray-400" />{p.label || '電話'}</div>
-                       <a href={`tel:${p.number ? p.number.replace(/[^0-9+]/g, '') : ''}`} className="bg-white text-green-600 border border-gray-200 px-3 py-1.5 rounded-lg text-sm font-bold flex items-center shadow-sm no-underline"><Phone size={14} className="mr-1.5"/> {p.number}</a>
-                   </div>
-               ))}
+          </div>
+
+          {/* 聯絡人 */}
+          {selectedCustomer.contactPerson && (
+            <div className="flex items-center gap-3">
+              <div className="bg-emerald-50 p-2.5 rounded-xl text-emerald-600 shrink-0">
+                <User size={20} strokeWidth={2.5} />
+              </div>
+              <div className="flex-1">
+                <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">聯絡人</div>
+                <div className="text-base font-bold text-slate-800">{selectedCustomer.contactPerson}</div>
+              </div>
             </div>
+          )}
+
+          {/* 電話 */}
+          {selectedCustomer.phones && selectedCustomer.phones.length > 0 && (
+            <div className="space-y-2">
+              {selectedCustomer.phones.map((p, idx) => (
+                <div key={idx} className="flex items-center gap-3">
+                  <div className="bg-green-50 p-2.5 rounded-xl text-green-600 shrink-0">
+                    <Phone size={20} strokeWidth={2.5} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">{p.label || '電話'}</div>
+                    <button 
+                      onClick={() => handlePhoneClick(p.number)}
+                      className="text-base font-bold text-slate-800 hover:text-green-600 transition-colors text-left"
+                    >
+                      {p.number || '無電話'}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* 地址 */}
+          {selectedCustomer.address && (
+            <div className="flex items-start gap-3">
+              <div className="bg-blue-50 p-2.5 rounded-xl text-blue-600 shrink-0">
+                <MapPin size={20} strokeWidth={2.5} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">地址</div>
+                <button 
+                  onClick={handleAddressClick}
+                  className="text-base font-bold text-slate-800 hover:text-blue-600 transition-colors text-left flex items-start gap-2 group"
+                >
+                  <span className="flex-1 leading-relaxed">{selectedCustomer.address}</span>
+                  <div className="bg-blue-50 group-hover:bg-blue-100 p-1.5 rounded-lg transition-colors shrink-0">
+                    <Navigation size={16} className="text-blue-600" />
+                  </div>
+                </button>
+                {selectedCustomer.addressNote && (
+                  <div className="mt-2 bg-red-50 text-red-700 p-2.5 rounded-lg border border-red-100 flex items-start gap-2">
+                    <ShieldAlert size={14} className="flex-shrink-0 mt-0.5" />
+                    <span className="text-sm font-bold">{selectedCustomer.addressNote}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* 機器型號 */}
+          {selectedCustomer.assets && selectedCustomer.assets.length > 0 && (
+            <div className="flex items-center gap-3">
+              <div className="bg-amber-50 p-2.5 rounded-xl text-amber-600 shrink-0">
+                <Printer size={20} strokeWidth={2.5} />
+              </div>
+              <div className="flex-1">
+                <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">機器型號</div>
+                <div className="flex flex-wrap gap-2">
+                  {selectedCustomer.assets.map((asset, idx) => (
+                    <span key={idx} className="text-base font-bold text-slate-800 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200">
+                      {asset.model || '無機型'}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 備註 */}
+          {selectedCustomer.notes && (
+            <div className="flex items-start gap-3 pt-2 border-t border-slate-100">
+              <div className="bg-violet-50 p-2.5 rounded-xl text-violet-600 shrink-0">
+                <Info size={20} strokeWidth={2.5} />
+              </div>
+              <div className="flex-1">
+                <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">備註</div>
+                <div className="text-sm font-bold text-slate-700 leading-relaxed">{selectedCustomer.notes}</div>
+              </div>
+            </div>
+          )}
+
+          {/* 累計服務次數 */}
+          <div className="pt-3 border-t border-slate-100">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="bg-slate-50 p-2 rounded-lg">
+                  <History size={18} className="text-slate-600" />
+                </div>
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">累計服務</span>
+              </div>
+              <div className="text-2xl font-extrabold text-slate-800">
+                {serviceCount} <span className="text-sm font-bold text-slate-400">次</span>
+              </div>
+            </div>
+          </div>
         </div>
-         <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between">
-           <div className="flex items-center"><div className="bg-blue-50 p-3 rounded-xl mr-4 text-blue-600"><Printer size={24}/></div><div><div className="text-xs text-gray-400 font-bold uppercase">機器型號</div><div className="font-bold text-gray-800 text-lg">{selectedCustomer.assets?.[0]?.model || '無'}</div></div></div>
-            <div className="text-right"><div className="text-xs text-gray-400 font-bold uppercase">累計服務</div><div className="font-bold text-slate-800 text-2xl">{serviceCount} <span className="text-xs text-gray-400 font-normal">次</span></div></div>
-         </div>
-         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="bg-slate-50 px-5 py-4 border-b border-gray-200 flex justify-between items-center">
-               <h3 className="font-bold text-gray-700 flex items-center"><History size={18} className="mr-2 text-blue-500"/> 維修履歷</h3>
-               <button onClick={startAddRecord} className="flex items-center text-blue-600 text-sm font-bold bg-white px-3 py-1.5 rounded-lg border border-blue-100 shadow-sm active:scale-95 transition-transform hover:bg-blue-50"><Plus size={16} className="mr-1"/> 新增</button>
+
+        {/* 分隔線 - 讓名片和履歷明顯分開 */}
+        <div className="relative py-2">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-slate-200"></div>
+          </div>
+          <div className="relative flex justify-center">
+            <div className="bg-slate-50 px-4">
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">維修履歷</span>
+            </div>
+          </div>
+        </div>
+        {/* 維修履歷區域 */}
+        <div className="bg-white rounded-2xl shadow-[0_2px_8px_rgb(0,0,0,0.04)] border border-slate-100 overflow-hidden">
+            <div className="bg-slate-50 px-5 py-4 border-b border-slate-200 flex justify-between items-center">
+               <h3 className="font-extrabold text-slate-800 flex items-center gap-2">
+                 <div className="bg-blue-50 p-1.5 rounded-lg text-blue-600">
+                   <History size={18} strokeWidth={2.5}/>
+                 </div>
+                 <span>維修履歷</span>
+               </h3>
+               <button onClick={startAddRecord} className="flex items-center text-blue-600 text-sm font-bold bg-white px-3 py-1.5 rounded-lg border border-blue-100 shadow-sm active:scale-95 transition-transform hover:bg-blue-50">
+                 <Plus size={16} className="mr-1"/> 新增
+               </button>
             </div>
             {/* 新增：搜尋列 */}
             <div className="px-5 py-3 border-b border-gray-100 bg-white">
