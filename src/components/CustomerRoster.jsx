@@ -312,8 +312,8 @@ const SortableCustomerRow = ({ item, onClick }) => {
 // --- Main ---
 const CustomerRoster = ({ customers, onAddCustomer, onUpdateCustomer, onDeleteCustomer, onBack, setTargetCustomer, setShowAddressAlert, setShowPhoneSheet, showToast, setCurrentView, setSelectedCustomer, onRenameGroup, onDeleteGroup }) => {
   const [categories, setCategories] = useState(() => { try { return JSON.parse(localStorage.getItem('customerCategories')) || DEFAULT_CATEGORIES; } catch { return DEFAULT_CATEGORIES; } });
-  const [selectedCatId, setSelectedCatId] = useState(null); 
-  const [activeGroup, setActiveGroup] = useState(null); 
+  const [selectedCatId, setSelectedCatId] = useState(() => { try { return localStorage.getItem('rosterSelectedCatId') || null; } catch { return null; } }); 
+  const [activeGroup, setActiveGroup] = useState(() => { try { return localStorage.getItem('rosterActiveGroup') || null; } catch { return null; } }); 
   const [editingItem, setEditingItem] = useState(null);
   const [isAddMode, setIsAddMode] = useState(false);
   const [isCatManagerOpen, setIsCatManagerOpen] = useState(false);
@@ -325,6 +325,8 @@ const CustomerRoster = ({ customers, onAddCustomer, onUpdateCustomer, onDeleteCu
   useEffect(() => { localStorage.setItem('customerCategories', JSON.stringify(categories)); }, [categories]);
   useEffect(() => { localStorage.setItem('custGroupOrder', JSON.stringify(groupOrder)); }, [groupOrder]);
   useEffect(() => { localStorage.setItem('custOrder', JSON.stringify(customerOrder)); }, [customerOrder]);
+  useEffect(() => { if (selectedCatId) localStorage.setItem('rosterSelectedCatId', selectedCatId); else localStorage.removeItem('rosterSelectedCatId'); }, [selectedCatId]);
+  useEffect(() => { if (activeGroup) localStorage.setItem('rosterActiveGroup', activeGroup); else localStorage.removeItem('rosterActiveGroup'); }, [activeGroup]);
 
   // 自動遷移
   useEffect(() => {
