@@ -284,21 +284,26 @@ const SortableGroupRow = ({ id, title, count, onClick }) => {
     );
 };
 
-const SortableCustomerRow = ({ item, onClick, onCall, onNav }) => {
+const SortableCustomerRow = ({ item, onClick }) => {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.customerID });
     const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1, zIndex: isDragging ? 50 : 'auto' };
-    const phone = item.phones?.[0]?.number;
     const model = item.assets?.[0]?.model || '無機型';
     return (
-        <div ref={setNodeRef} style={style} className="flex items-center justify-between py-3 px-4 bg-white border-b border-slate-100">
+        <div ref={setNodeRef} style={style} className="flex items-center justify-between py-5 px-4 bg-white border-b border-slate-100">
             <div className="flex items-center flex-1 mr-3" onClick={() => onClick(item)}>
-                <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-sm mr-3 flex-shrink-0">{item.name?.substring(0,1)}</div>
-                <div className="flex-1 min-w-0"><div className="flex justify-between items-baseline mb-1"><span className="text-base font-bold truncate text-slate-800">{item.name}</span><span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded ml-2 font-bold flex-shrink-0">{model}</span></div><div className="flex items-center text-xs text-slate-400 truncate">{item.addressNote && <AlertTriangle size={12} className="text-rose-500 mr-1"/>}<span className={item.addressNote ? 'text-rose-500 font-bold' : ''}>{item.address || '無地址'}</span></div></div>
+                <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-2">
+                        <span className="text-base font-bold text-slate-800">{item.name}</span>
+                        <span className="text-xs bg-slate-100 text-slate-500 px-2 py-1 rounded font-bold flex-shrink-0">{model}</span>
+                    </div>
+                    <div className="flex items-center text-sm text-slate-500">
+                        {item.addressNote && <AlertTriangle size={14} className="text-rose-500 mr-1 flex-shrink-0"/>}
+                        <span className={item.addressNote ? 'text-rose-500 font-bold' : ''}>{item.address || '無地址'}</span>
+                    </div>
+                </div>
             </div>
-            <div className="flex items-center gap-1 shrink-0">
-                <button onClick={(e) => { e.stopPropagation(); onNav(item); }} className="p-2 rounded-full bg-blue-50 text-blue-600"><Navigation size={18}/></button>
-                <button onClick={(e) => { e.stopPropagation(); onCall(item); }} className={`p-2 rounded-full ${phone ? 'bg-green-50 text-green-600' : 'bg-gray-50 text-gray-300'}`}><Phone size={18}/></button>
-                <div {...attributes} {...listeners} style={{ touchAction: 'none' }} className="text-slate-300 p-2 ml-1" onClick={e => e.stopPropagation()}><GripVertical size={18}/></div>
+            <div {...attributes} {...listeners} style={{ touchAction: 'none' }} className="text-slate-300 p-3 cursor-grab active:cursor-grabbing hover:text-slate-500 flex-shrink-0" onClick={e => e.stopPropagation()}>
+                <GripVertical size={20}/>
             </div>
         </div>
     );
@@ -373,6 +378,19 @@ const CustomerRoster = ({ customers, onAddCustomer, onUpdateCustomer, onDeleteCu
                   return name.includes(searchLower) || phone.includes(searchLower) || address.includes(searchLower);
               });
           }
+      } else if (selectedCatId && !activeGroup) {
+          // 第二層搜尋功能
+          if (searchTerm) {
+              const searchLower = searchTerm.toLowerCase();
+              list = list.filter(i => {
+                  const name = (i.name || '').toLowerCase();
+                  const phone = (i.phones?.[0]?.number || '').toLowerCase();
+                  const address = (i.address || '').toLowerCase();
+                  return name.includes(searchLower) || phone.includes(searchLower) || address.includes(searchLower);
+              });
+          } else {
+              return [];
+          }
       } else if (searchTerm) {
           list = customers.filter(i => {
               const searchLower = searchTerm.toLowerCase();
@@ -390,7 +408,7 @@ const CustomerRoster = ({ customers, onAddCustomer, onUpdateCustomer, onDeleteCu
           if (idxA !== -1 && idxB !== -1) return idxA - idxB;
           return a.name.localeCompare(b.name);
       });
-  }, [itemsInCurrentCat, activeGroup, searchTerm, customers, customerOrder]);
+  }, [itemsInCurrentCat, activeGroup, searchTerm, customers, customerOrder, selectedCatId]);
 
   const catCounts = useMemo(() => {
       const counts = {};
@@ -472,12 +490,10 @@ const CustomerRoster = ({ customers, onAddCustomer, onUpdateCustomer, onDeleteCu
                 <button onClick={() => setIsAddMode(true)} className="flex items-center text-sm font-bold bg-blue-600 text-white px-3 py-2 rounded-xl shadow-lg shadow-blue-200 hover:bg-blue-700 active:scale-95 transition-all"><Plus size={20} className="mr-1"/>新增</button>
             </div>
          </div>
-         {(!selectedCatId || activeGroup) && (
-             <div className="relative animate-in fade-in slide-in-from-top-1 mb-1">
-                <Search size={20} className="absolute left-3 top-2.5 text-slate-400" />
-                <input className="w-full bg-slate-100 border-none rounded-xl py-2 pl-10 pr-4 text-base outline-none focus:ring-2 focus:ring-blue-100 font-bold text-slate-700 transition-all placeholder-slate-400" placeholder="搜尋客戶、電話或地址..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
-             </div>
-         )}
+         <div className="relative animate-in fade-in slide-in-from-top-1 mb-1">
+            <Search size={20} className="absolute left-3 top-2.5 text-slate-400" />
+            <input className="w-full bg-slate-100 border-none rounded-xl py-2 pl-10 pr-4 text-base outline-none focus:ring-2 focus:ring-blue-100 font-bold text-slate-700 transition-all placeholder-slate-400" placeholder="搜尋客戶、電話或地址..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+         </div>
       </div>
 
       <div className="p-4 flex-1">
@@ -498,11 +514,11 @@ const CustomerRoster = ({ customers, onAddCustomer, onUpdateCustomer, onDeleteCu
                       )}
                   </div>
               )}
-              {(activeGroup || searchTerm) && (
+              {(activeGroup || (selectedCatId && searchTerm) || (!selectedCatId && searchTerm)) && (
                   <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm animate-in slide-in-from-right-4 duration-300">
                        {currentItems.length === 0 ? <div className="p-8 text-center text-slate-400">沒有找到相符的客戶</div> : (
                            <SortableContext items={currentItems.map(i => i.customerID)} strategy={verticalListSortingStrategy}>
-                                {currentItems.map((item) => <SortableCustomerRow key={item.customerID} item={item} onClick={handleCustomerClick} onCall={handleCall} onNav={handleNav} />)}
+                                {currentItems.map((item) => <SortableCustomerRow key={item.customerID} item={item} onClick={handleCustomerClick} />)}
                            </SortableContext>
                        )}
                   </div>
