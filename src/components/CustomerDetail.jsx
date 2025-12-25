@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { 
   ArrowLeft, Edit, Trash2, MapPin, ShieldAlert, Navigation, Info, User, Phone, 
-  Printer, History, Plus, FileText, Search, X, Building2, PhoneCall
+  Printer, History, Plus, FileText, Search, X, Building2, PhoneForwarded, Wrench
 } from 'lucide-react';
 
 const CustomerDetail = ({ 
@@ -63,30 +63,26 @@ const CustomerDetail = ({
           text-decoration-style: none !important;
           text-decoration-color: transparent !important;
         }
-        .no-underline {
-          text-decoration: none !important;
-          border: none !important;
-          outline: none !important;
-          -webkit-tap-highlight-color: transparent !important;
-          -webkit-user-select: none !important;
-          -moz-user-select: none !important;
-          -ms-user-select: none !important;
-          user-select: none !important;
-          text-decoration-line: none !important;
-          text-decoration-style: none !important;
-          text-decoration-color: transparent !important;
-        }
-        /* 移除手機瀏覽器自動識別電話和地址的樣式 */
-        * {
-          -webkit-tap-highlight-color: transparent;
-        }
-        div[class*="phone"], div[class*="address"], span[class*="address"] {
+        /* 強制移除所有電話和地址的底線 */
+        div[class*="phone"] *,
+        div[class*="address"] *,
+        span[class*="address"],
+        div[style*="phone"],
+        div[style*="address"] {
           -webkit-touch-callout: none !important;
           -webkit-user-select: none !important;
           text-decoration: none !important;
           text-decoration-line: none !important;
           text-decoration-style: none !important;
           text-decoration-color: transparent !important;
+          border-bottom: none !important;
+          border-top: none !important;
+          border-left: none !important;
+          border-right: none !important;
+        }
+        /* 移除手機瀏覽器自動識別 */
+        * {
+          -webkit-tap-highlight-color: transparent;
         }
       `}</style>
       {/* 頂部標題列 - 與 Dashboard 風格一致 */}
@@ -101,7 +97,7 @@ const CustomerDetail = ({
 
       <div className="flex-1 overflow-y-auto px-4 pt-4 space-y-4">
         {/* 名片卡區域 - 統一設計，無分隔線 */}
-        <div className="bg-white rounded-2xl shadow-[0_2px_8px_rgb(0,0,0,0.04)] border border-slate-100 p-4 space-y-4">
+        <div className="bg-white rounded-2xl shadow-[0_2px_8px_rgb(0,0,0,0.04)] border border-slate-100 p-5 space-y-5">
           {/* 客戶名稱 */}
           <div className="flex items-center gap-3">
             <div className="bg-blue-50 p-2.5 rounded-xl text-blue-600 shrink-0 flex items-center justify-center">
@@ -115,52 +111,43 @@ const CustomerDetail = ({
             </div>
           </div>
 
-          {/* 第二行：聯絡人 + 電話 + 撥號鍵 */}
-          <div className="flex items-center gap-3">
-            <div className="bg-emerald-50 p-2.5 rounded-xl text-emerald-600 shrink-0 flex items-center justify-center">
-              <User size={20} strokeWidth={2.5} />
-            </div>
-            <div className="flex-1 flex items-center gap-3 min-w-0">
+          {/* 電話 + 撥號鍵 */}
+          {selectedCustomer.phones && selectedCustomer.phones.length > 0 && selectedCustomer.phones[0].number && (
+            <div className="flex items-center gap-3">
               <div className="flex-1 min-w-0">
-                <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">聯絡人</div>
-                <div className={`text-base font-bold ${selectedCustomer.contactPerson ? 'text-slate-800' : 'text-slate-400 bg-slate-50 px-2 py-1 rounded inline-block'}`}>
-                  {selectedCustomer.contactPerson || '暫無資料'}
+                <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">電話</div>
+                <div 
+                  className="text-base font-bold text-slate-800 truncate"
+                  style={{ 
+                    textDecoration: 'none',
+                    border: 'none',
+                    outline: 'none',
+                    WebkitTapHighlightColor: 'transparent',
+                    WebkitTouchCallout: 'none',
+                    WebkitUserSelect: 'none',
+                    userSelect: 'none',
+                    textDecorationLine: 'none',
+                    textDecorationStyle: 'none',
+                    textDecorationColor: 'transparent',
+                    borderBottom: 'none',
+                    borderTop: 'none',
+                    borderLeft: 'none',
+                    borderRight: 'none'
+                  }}
+                >
+                  {selectedCustomer.phones[0].number}
                 </div>
               </div>
-              {selectedCustomer.phones && selectedCustomer.phones.length > 0 && selectedCustomer.phones[0].number && (
-                <>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">電話</div>
-                    <div 
-                      className="text-base font-bold text-slate-800 truncate"
-                      style={{ 
-                        textDecoration: 'none !important',
-                        border: 'none !important',
-                        outline: 'none !important',
-                        WebkitTapHighlightColor: 'transparent !important',
-                        WebkitTouchCallout: 'none !important',
-                        WebkitUserSelect: 'none !important',
-                        userSelect: 'none !important',
-                        textDecorationLine: 'none',
-                        textDecorationStyle: 'none',
-                        textDecorationColor: 'transparent'
-                      }}
-                    >
-                      {selectedCustomer.phones[0].number}
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => handlePhoneClick(selectedCustomer.phones[0].number)}
-                    className="bg-green-50 hover:bg-green-100 p-2.5 rounded-lg transition-colors shrink-0 flex items-center justify-center"
-                  >
-                    <PhoneCall size={18} className="text-green-600" />
-                  </button>
-                </>
-              )}
+              <button
+                onClick={() => handlePhoneClick(selectedCustomer.phones[0].number)}
+                className="bg-green-50 hover:bg-green-100 p-2.5 rounded-lg transition-colors shrink-0 flex items-center justify-center mt-6"
+              >
+                <PhoneForwarded size={18} className="text-green-600" />
+              </button>
             </div>
-          </div>
+          )}
 
-          {/* 第三行：地址 + 導航鍵 */}
+          {/* 地址 + 導航鍵 */}
           {selectedCustomer.address && (
             <div className="flex items-start gap-3">
               <div className="bg-blue-50 p-2.5 rounded-xl text-blue-600 shrink-0 flex items-center justify-center">
@@ -168,20 +155,24 @@ const CustomerDetail = ({
               </div>
               <div className="flex-1 flex items-start gap-3 min-w-0">
                 <div className="flex-1 min-w-0">
-                  <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">地址</div>
+                  <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">地址</div>
                   <div 
-                    className="text-sm text-slate-500 leading-relaxed"
+                    className="text-base text-slate-500 leading-relaxed"
                     style={{ 
-                      textDecoration: 'none !important',
-                      border: 'none !important',
-                      outline: 'none !important',
-                      WebkitTapHighlightColor: 'transparent !important',
-                      WebkitTouchCallout: 'none !important',
-                      WebkitUserSelect: 'none !important',
-                      userSelect: 'none !important',
+                      textDecoration: 'none',
+                      border: 'none',
+                      outline: 'none',
+                      WebkitTapHighlightColor: 'transparent',
+                      WebkitTouchCallout: 'none',
+                      WebkitUserSelect: 'none',
+                      userSelect: 'none',
                       textDecorationLine: 'none',
                       textDecorationStyle: 'none',
-                      textDecorationColor: 'transparent'
+                      textDecorationColor: 'transparent',
+                      borderBottom: 'none',
+                      borderTop: 'none',
+                      borderLeft: 'none',
+                      borderRight: 'none'
                     }}
                   >
                     {selectedCustomer.address}
@@ -189,13 +180,13 @@ const CustomerDetail = ({
                   {selectedCustomer.addressNote && (
                     <div className="mt-2 bg-red-50 text-red-700 p-2 rounded-lg border border-red-100 flex items-start gap-2">
                       <ShieldAlert size={14} className="flex-shrink-0 mt-0.5" />
-                      <span className="text-sm font-bold">{selectedCustomer.addressNote}</span>
+                      <span className="text-base font-bold">{selectedCustomer.addressNote}</span>
                     </div>
                   )}
                 </div>
                 <button
                   onClick={handleAddressClick}
-                  className="bg-blue-50 hover:bg-blue-100 p-2.5 rounded-lg transition-colors shrink-0 flex items-center justify-center"
+                  className="bg-blue-50 hover:bg-blue-100 p-2.5 rounded-lg transition-colors shrink-0 flex items-center justify-center mt-6"
                 >
                   <Navigation size={18} className="text-blue-600" />
                 </button>
@@ -203,31 +194,16 @@ const CustomerDetail = ({
             </div>
           )}
 
-          {/* 機器型號 + 累計服務 */}
+          {/* 累計服務 */}
           <div className="flex items-center gap-3">
-            <div className="bg-amber-50 p-2.5 rounded-xl text-amber-600 shrink-0 flex items-center justify-center">
-              <Printer size={20} strokeWidth={2.5} />
+            <div className="bg-slate-50 p-2.5 rounded-xl text-slate-600 shrink-0 flex items-center justify-center">
+              <Wrench size={20} strokeWidth={2.5} />
             </div>
-            <div className="flex-1 flex items-center justify-between gap-3">
-              <div className="flex-1 min-w-0">
-                <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">機器型號</div>
-                <div className="flex flex-wrap gap-2">
-                  {selectedCustomer.assets && selectedCustomer.assets.length > 0 ? (
-                    selectedCustomer.assets.map((asset, idx) => (
-                      <span key={idx} className="text-xs bg-slate-100 text-slate-500 px-2 py-1 rounded font-bold">
-                        {asset.model || '無機型'}
-                      </span>
-                    ))
-                  ) : (
-                    <span className="text-xs bg-slate-100 text-slate-500 px-2 py-1 rounded font-bold">無機型</span>
-                  )}
-                </div>
-              </div>
-              <div className="shrink-0 text-right">
-                <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">累計服務</div>
-                <div className="text-base font-bold text-slate-800">
-                  {serviceCount} <span className="text-base font-bold text-slate-800">次</span>
-                </div>
+            <div className="flex-1">
+              <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">累計服務</div>
+              <div className="text-base font-bold text-slate-800 flex items-center gap-1">
+                <Wrench size={16} className="text-slate-600" />
+                <span>{serviceCount} 次</span>
               </div>
             </div>
           </div>
@@ -239,8 +215,8 @@ const CustomerDetail = ({
                 <Info size={20} strokeWidth={2.5} />
               </div>
               <div className="flex-1 min-w-0">
-                <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">備註</div>
-                <div className="text-sm text-slate-700 leading-relaxed">{selectedCustomer.notes}</div>
+                <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">備註</div>
+                <div className="text-base text-slate-700 leading-relaxed">{selectedCustomer.notes}</div>
               </div>
             </div>
           )}
