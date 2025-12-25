@@ -409,17 +409,25 @@ export default function App() {
         updatedAssets = [{ model: formData.model }];
     }
 
+    // 明確處理 notes 和 addressNote，確保它們完全分開
+    const finalNotes = formData.notes !== undefined ? formData.notes : 
+                      (formData.note !== undefined ? formData.note : 
+                      (selectedCustomer.notes !== undefined ? selectedCustomer.notes : ''));
+    
+    const finalAddressNote = formData.addressNote !== undefined ? formData.addressNote : 
+                            (selectedCustomer.addressNote !== undefined ? selectedCustomer.addressNote : '');
+
     const updatedEntry = {
       ...selectedCustomer,
       name: formData.name || selectedCustomer.name,
       L1_group: formData.L1_group || selectedCustomer.L1_group,
       L2_district: formData.L2_district || selectedCustomer.L2_district,
       address: formData.address || selectedCustomer.address,
-      addressNote: formData.addressNote !== undefined ? formData.addressNote : (selectedCustomer.addressNote || ''),
+      addressNote: finalAddressNote,
       contactPerson: formData.contactPerson !== undefined ? formData.contactPerson : (selectedCustomer.contactPerson || ''),
       phones: updatedPhones || selectedCustomer.phones || [],
       assets: updatedAssets || selectedCustomer.assets || [],
-      notes: formData.notes !== undefined ? formData.notes : (formData.note !== undefined ? formData.note : (selectedCustomer.notes || ''))
+      notes: finalNotes
     };
 
     try {

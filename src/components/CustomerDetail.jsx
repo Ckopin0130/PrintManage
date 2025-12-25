@@ -220,12 +220,6 @@ const CustomerDetail = ({
               >
                 <Navigation size={18} className="text-blue-600" />
               </button>
-              {selectedCustomer.addressNote && (
-                <div className="ml-2 bg-red-50 text-red-700 p-2 rounded-lg border border-red-100 flex items-start gap-2">
-                  <ShieldAlert size={14} className="flex-shrink-0 mt-0.5" />
-                  <span className="text-base font-bold">{selectedCustomer.addressNote}</span>
-                </div>
-              )}
             </div>
           )}
 
