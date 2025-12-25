@@ -55,45 +55,43 @@ const CustomerDetail = ({
 
       <div className="flex-1 overflow-y-auto px-4 pt-4 space-y-4">
         {/* 名片卡區域 - 使用 Dashboard 風格 */}
-        <div className="bg-white rounded-2xl shadow-[0_2px_8px_rgb(0,0,0,0.04)] border border-slate-100 p-5 space-y-4">
+        <div className="bg-white rounded-2xl shadow-[0_2px_8px_rgb(0,0,0,0.04)] border border-slate-100 p-4 space-y-3">
           {/* 客戶名稱 */}
-          <div className="flex items-center justify-between pb-4 border-b border-slate-100">
-            <div className="flex items-center gap-3">
-              <div className="bg-blue-50 p-3 rounded-2xl text-blue-600 shadow-sm">
-                <Building2 size={24} strokeWidth={2.5} />
-              </div>
-              <div>
-                <h1 className="text-2xl font-extrabold text-slate-800">{selectedCustomer.name}</h1>
-                {selectedCustomer.L2_district && (
-                  <span className="text-xs font-bold text-slate-400 mt-1 block">{selectedCustomer.L2_district}</span>
-                )}
-              </div>
+          <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
+            <div className="bg-blue-50 p-2.5 rounded-xl text-blue-600 shrink-0 flex items-center justify-center">
+              <Building2 size={20} strokeWidth={2.5} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h1 className="text-base font-bold text-slate-800 truncate">{selectedCustomer.name}</h1>
+              {selectedCustomer.L2_district && (
+                <span className="text-xs font-bold text-slate-400 mt-0.5 block">{selectedCustomer.L2_district}</span>
+              )}
             </div>
           </div>
 
           {/* 第二行：聯絡人 + 電話 + 撥號鍵 */}
           <div className="flex items-center gap-3">
-            <div className="bg-emerald-50 p-2.5 rounded-xl text-emerald-600 shrink-0">
+            <div className="bg-emerald-50 p-2.5 rounded-xl text-emerald-600 shrink-0 flex items-center justify-center">
               <User size={20} strokeWidth={2.5} />
             </div>
-            <div className="flex-1 flex items-center gap-3">
-              <div className="flex-1">
+            <div className="flex-1 flex items-center gap-3 min-w-0">
+              <div className="flex-1 min-w-0">
                 <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">聯絡人</div>
-                <div className={`text-base font-bold ${selectedCustomer.contactPerson ? 'text-slate-800' : 'text-slate-400 bg-slate-50 px-3 py-1.5 rounded-lg inline-block'}`}>
+                <div className={`text-base font-bold ${selectedCustomer.contactPerson ? 'text-slate-800' : 'text-slate-400 bg-slate-50 px-2 py-1 rounded inline-block'}`}>
                   {selectedCustomer.contactPerson || '暫無資料'}
                 </div>
               </div>
               {selectedCustomer.phones && selectedCustomer.phones.length > 0 && selectedCustomer.phones[0].number && (
                 <>
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">電話</div>
-                    <div className="text-base font-bold text-slate-800">{selectedCustomer.phones[0].number}</div>
+                    <div className="text-base font-bold text-slate-800 truncate">{selectedCustomer.phones[0].number}</div>
                   </div>
                   <button
                     onClick={() => handlePhoneClick(selectedCustomer.phones[0].number)}
-                    className="bg-green-50 hover:bg-green-100 p-2.5 rounded-lg transition-colors shrink-0 mt-5"
+                    className="bg-green-50 hover:bg-green-100 p-2.5 rounded-lg transition-colors shrink-0 flex items-center justify-center"
                   >
-                    <PhoneCall size={20} className="text-green-600" />
+                    <PhoneCall size={18} className="text-green-600" />
                   </button>
                 </>
               )}
@@ -103,76 +101,71 @@ const CustomerDetail = ({
           {/* 第三行：地址 + 導航鍵 */}
           {selectedCustomer.address && (
             <div className="flex items-start gap-3">
-              <div className="bg-blue-50 p-2.5 rounded-xl text-blue-600 shrink-0">
+              <div className="bg-blue-50 p-2.5 rounded-xl text-blue-600 shrink-0 flex items-center justify-center">
                 <MapPin size={20} strokeWidth={2.5} />
               </div>
-              <div className="flex-1 flex items-start gap-3">
-                <div className="flex-1">
+              <div className="flex-1 flex items-start gap-3 min-w-0">
+                <div className="flex-1 min-w-0">
                   <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">地址</div>
-                  <div className="text-base font-bold text-slate-800 leading-relaxed">{selectedCustomer.address}</div>
+                  <div className="text-sm text-slate-500 leading-relaxed">{selectedCustomer.address}</div>
                   {selectedCustomer.addressNote && (
-                    <div className="mt-2 bg-red-50 text-red-700 p-2.5 rounded-lg border border-red-100 flex items-start gap-2">
+                    <div className="mt-2 bg-red-50 text-red-700 p-2 rounded-lg border border-red-100 flex items-start gap-2">
                       <ShieldAlert size={14} className="flex-shrink-0 mt-0.5" />
-                      <span className="text-base font-bold">{selectedCustomer.addressNote}</span>
+                      <span className="text-sm font-bold">{selectedCustomer.addressNote}</span>
                     </div>
                   )}
                 </div>
                 <button
                   onClick={handleAddressClick}
-                  className="bg-blue-50 hover:bg-blue-100 p-2.5 rounded-lg transition-colors shrink-0 mt-5"
+                  className="bg-blue-50 hover:bg-blue-100 p-2.5 rounded-lg transition-colors shrink-0 flex items-center justify-center"
                 >
-                  <Navigation size={20} className="text-blue-600" />
+                  <Navigation size={18} className="text-blue-600" />
                 </button>
               </div>
             </div>
           )}
 
-          {/* 機器型號 */}
-          {selectedCustomer.assets && selectedCustomer.assets.length > 0 && (
-            <div className="flex items-center gap-3">
-              <div className="bg-amber-50 p-2.5 rounded-xl text-amber-600 shrink-0">
-                <Printer size={20} strokeWidth={2.5} />
-              </div>
-              <div className="flex-1">
+          {/* 機器型號 + 累計服務 */}
+          <div className="flex items-center gap-3 pt-2 border-t border-slate-100">
+            <div className="bg-amber-50 p-2.5 rounded-xl text-amber-600 shrink-0 flex items-center justify-center">
+              <Printer size={20} strokeWidth={2.5} />
+            </div>
+            <div className="flex-1 flex items-center justify-between gap-3">
+              <div className="flex-1 min-w-0">
                 <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">機器型號</div>
                 <div className="flex flex-wrap gap-2">
-                  {selectedCustomer.assets.map((asset, idx) => (
-                    <span key={idx} className="text-base font-bold text-slate-800 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200">
-                      {asset.model || '無機型'}
-                    </span>
-                  ))}
+                  {selectedCustomer.assets && selectedCustomer.assets.length > 0 ? (
+                    selectedCustomer.assets.map((asset, idx) => (
+                      <span key={idx} className="text-xs bg-slate-100 text-slate-500 px-2 py-1 rounded font-bold">
+                        {asset.model || '無機型'}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-xs bg-slate-100 text-slate-500 px-2 py-1 rounded font-bold">無機型</span>
+                  )}
+                </div>
+              </div>
+              <div className="shrink-0 text-right">
+                <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">累計服務</div>
+                <div className="text-base font-bold text-slate-800">
+                  {serviceCount} <span className="text-base font-bold text-slate-800">次</span>
                 </div>
               </div>
             </div>
-          )}
+          </div>
 
           {/* 備註 */}
           {selectedCustomer.notes && (
             <div className="flex items-start gap-3 pt-2 border-t border-slate-100">
-              <div className="bg-violet-50 p-2.5 rounded-xl text-violet-600 shrink-0">
+              <div className="bg-violet-50 p-2.5 rounded-xl text-violet-600 shrink-0 flex items-center justify-center">
                 <Info size={20} strokeWidth={2.5} />
               </div>
-              <div className="flex-1">
+              <div className="flex-1 min-w-0">
                 <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">備註</div>
-                <div className="text-base font-bold text-slate-700 leading-relaxed">{selectedCustomer.notes}</div>
+                <div className="text-sm text-slate-700 leading-relaxed">{selectedCustomer.notes}</div>
               </div>
             </div>
           )}
-
-          {/* 累計服務次數 */}
-          <div className="pt-3 border-t border-slate-100">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="bg-slate-50 p-2 rounded-lg">
-                  <History size={18} className="text-slate-600" />
-                </div>
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">累計服務</span>
-              </div>
-              <div className="text-base font-bold text-slate-800">
-                {serviceCount} <span className="text-base font-bold text-slate-800">次</span>
-              </div>
-            </div>
-          </div>
         </div>
 
         {/* 分隔線 - 讓名片和履歷明顯分開 */}
