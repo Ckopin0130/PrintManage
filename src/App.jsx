@@ -412,10 +412,8 @@ export default function App() {
     // 明確處理所有欄位，確保正確更新
     const updatedEntry = {
       ...selectedCustomer,
-      // 使用明確的檢查，避免空字符串被當作 falsy
-      name: (formData.name !== undefined && formData.name !== null && formData.name !== '') 
-            ? formData.name 
-            : (formData.name === '' ? '' : selectedCustomer.name),
+      // 直接使用 formData 的值，如果不存在則使用 selectedCustomer 的值
+      name: formData.name !== undefined ? formData.name : selectedCustomer.name,
       L1_group: formData.L1_group !== undefined ? formData.L1_group : selectedCustomer.L1_group,
       L2_district: formData.L2_district !== undefined ? formData.L2_district : selectedCustomer.L2_district,
       address: formData.address !== undefined ? formData.address : selectedCustomer.address,
