@@ -197,7 +197,7 @@ export default function App() {
     catch (e) { console.error(e); showToast('新增失敗', 'error'); }
   };
 
-  // 刪除庫存
+  // 刪除庫存 (單筆)
   const deleteInventoryItem = async (id) => {
     setInventory(prev => prev.filter(i => i.id !== id));
     if (dbStatus === 'demo' || !user) { showToast('零件已刪除 (離線)'); return; }
@@ -205,9 +205,12 @@ export default function App() {
     catch (e) { console.error(e); showToast('刪除失敗', 'error'); }
   };
 
-  // 重新命名分類
-  const renameModelGroup = async (oldModel, newModel) => {
+  // 重新命名庫存群組 (Batch Update)
+  const renameModelGroup = async (oldModel, newModel, categoryId) => {
+    // 這裡我們只更新屬於該 category 的項目 (更嚴謹)
+    // 但因為 inventory 結構，model 是跨 item 的，所以還是 filter model
     setInventory(prev => prev.map(item => item.model === oldModel ? { ...item, model: newModel } : item));
+    
     if (dbStatus === 'demo' || !user) { showToast(`分類已更新：${newModel} (離線)`); return; }
     try {
       const batch = writeBatch(db);
@@ -218,138 +221,66 @@ export default function App() {
     } catch (e) { console.error(e); showToast('更新失敗', 'error'); }
   };
 
-  // --- 6. 備份與還原功能 (已補回) ---
+  // 刪除整個庫存群組 (Batch Delete)
+  const deleteModelGroup = async (modelName) => {
+      const itemsToDelete = inventory.filter(i => i.model === modelName);
+      if (itemsToDelete.length === 0) return;
 
-  // 從資料物件還原到 Firestore
-  const restoreDataToFirestore = async (data) => {
-    if (!data) throw new Error("無資料");
-    setIsProcessing(true);
-    
-    // 更新本地 State
-    if (data.customers) setCustomers(data.customers);
-    if (data.inventory) setInventory(data.inventory);
-    if (data.records) setRecords(data.records);
-
-    if (dbStatus !== 'demo' && user) {
-        try {
-            const batch = writeBatch(db); 
-            let count = 0; 
-            // 簡單的 Batch 限制處理 (Firebase 限制一次 500 筆)
-            const safeBatchSet = (ref, val) => { 
-                if (count < 480) { batch.set(ref, val); count++; } 
-            };
-
-            if (data.customers) data.customers.forEach(c => safeBatchSet(doc(db, 'customers', c.customerID), c));
-            if (data.inventory) data.inventory.forEach(i => safeBatchSet(doc(db, 'inventory', i.id), i));
-            if (data.records) data.records.forEach(r => safeBatchSet(doc(db, 'records', r.id), r));
-            
-            await batch.commit(); 
-            showToast('資料還原成功！');
-        } catch (e) {
-            console.error("還原失敗", e);
-            showToast('還原部分失敗，請檢查 Log', 'error');
-        }
-    } else { 
-        showToast('已匯入預覽 (離線模式)'); 
-    }
-    setIsProcessing(false);
-  };
-
-  // 匯出 JSON
-  const handleExportData = () => {
-    const dataStr = JSON.stringify({ customers, records, inventory }, null, 2);
-    const blob = new Blob([dataStr], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `backup_${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    showToast('資料已匯出');
-  };
-
-  // 匯入 JSON
-  const handleImportData = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      try {
-        const data = JSON.parse(event.target.result);
-        await restoreDataToFirestore(data);
-      } catch (err) { 
-        console.error(err);
-        showToast('檔案格式錯誤', 'error'); 
+      if(dbStatus === 'demo' || !user) {
+          setInventory(prev => prev.filter(i => i.model !== modelName));
+          showToast(`群組 ${modelName} 已刪除 (離線)`);
+          return;
       }
-    };
-    reader.readAsText(file);
-  };
 
-  // 讀取雲端備份列表
-  const fetchCloudBackups = async () => {
-    if (dbStatus === 'demo') return;
-    try {
-      const listRef = ref(storage, 'backups/');
-      const res = await listAll(listRef);
-      const backups = await Promise.all(res.items.map(async (itemRef) => {
-        try {
-            const metadata = await getMetadata(itemRef);
-            return {
-              name: itemRef.name,
-              time: new Date(metadata.timeCreated).toLocaleString(),
-              fullPath: itemRef.fullPath,
-              size: (metadata.size / 1024).toFixed(2) + ' KB'
-            };
-        } catch (e) { return null; }
-      }));
-      setCloudBackups(backups.filter(b => b).sort((a, b) => new Date(b.time) - new Date(a.time)));
-    } catch (error) { console.error("List backups failed", error); }
-  };
-
-  // 建立雲端備份
-  const handleCreateCloudBackup = async () => {
-    if (dbStatus === 'demo') return showToast('演示模式無法備份', 'error');
-    setIsProcessing(true);
-    try {
-      const dataStr = JSON.stringify({ customers, records, inventory });
-      const fileName = `backup_${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
-      const backupRef = ref(storage, `backups/${fileName}`);
-      await uploadString(backupRef, dataStr);
-      showToast('雲端備份建立成功');
-      fetchCloudBackups();
-    } catch (error) { 
-        console.error(error);
-        showToast('備份失敗', 'error'); 
-    } finally { setIsProcessing(false); }
-  };
-
-  // 從雲端還原
-  const handleRestoreFromCloud = async (backupItem) => {
-      if (!window.confirm(`確定要從「${backupItem.time}」還原資料嗎？目前的資料將被覆蓋。`)) return;
-      setIsProcessing(true);
       try {
-          const backupRef = ref(storage, backupItem.fullPath);
-          const url = await getDownloadURL(backupRef);
-          const response = await fetch(url);
-          const data = await response.json();
-          await restoreDataToFirestore(data);
-      } catch (error) {
-          console.error("Restore failed", error);
-          showToast('還原失敗', 'error');
-          setIsProcessing(false);
+          const batch = writeBatch(db);
+          itemsToDelete.forEach(item => {
+              const ref = doc(db, 'inventory', item.id);
+              batch.delete(ref);
+          });
+          await batch.commit();
+          showToast(`群組 ${modelName} 已刪除`);
+      } catch (e) {
+          console.error(e);
+          showToast('刪除失敗', 'error');
       }
   };
 
-  // 刪除雲端備份
-  const handleDeleteCloudBackup = async (backupItem) => {
-      if (!window.confirm('確定要刪除此備份檔嗎？')) return;
+  // 重新命名客戶群組 (Batch Update)
+  const renameCustomerGroup = async (oldGroup, newGroup) => {
+      setCustomers(prev => prev.map(c => c.L2_district === oldGroup ? { ...c, L2_district: newGroup } : c));
+      
+      if (dbStatus === 'demo' || !user) { showToast(`群組已更新 (離線)`); return; }
       try {
-          const backupRef = ref(storage, backupItem.fullPath);
-          await deleteObject(backupRef);
-          showToast('備份檔已刪除');
-          setCloudBackups(prev => prev.filter(b => b.name !== backupItem.name));
-      } catch (error) {
+          const batch = writeBatch(db);
+          const itemsToUpdate = customers.filter(c => c.L2_district === oldGroup);
+          itemsToUpdate.forEach(item => { const ref = doc(db, 'customers', item.customerID); batch.update(ref, { L2_district: newGroup }); });
+          await batch.commit();
+          showToast(`群組名稱已更新`);
+      } catch (e) { console.error(e); showToast('更新失敗', 'error'); }
+  };
+
+  // 刪除整個客戶群組 (Batch Delete)
+  const deleteCustomerGroup = async (groupName) => {
+      const itemsToDelete = customers.filter(c => c.L2_district === groupName);
+      if (itemsToDelete.length === 0) return;
+
+      if (dbStatus === 'demo' || !user) {
+          setCustomers(prev => prev.filter(c => c.L2_district !== groupName));
+          showToast(`群組已刪除 (離線)`);
+          return;
+      }
+
+      try {
+          const batch = writeBatch(db);
+          itemsToDelete.forEach(item => {
+              const ref = doc(db, 'customers', item.customerID);
+              batch.delete(ref);
+          });
+          await batch.commit();
+          showToast(`群組 ${groupName} 已刪除`);
+      } catch (e) {
+          console.error(e);
           showToast('刪除失敗', 'error');
       }
   };
@@ -536,6 +467,102 @@ export default function App() {
     } catch (err) { showToast('新增失敗', 'error'); } finally { setIsProcessing(false); }
   };
 
+  // 雲端備份與還原功能...
+  const restoreDataToFirestore = async (data) => {
+    if (!data) throw new Error("無資料");
+    setIsProcessing(true);
+    if (data.customers) setCustomers(data.customers);
+    if (data.inventory) setInventory(data.inventory);
+    if (data.records) setRecords(data.records);
+    if (dbStatus !== 'demo' && user) {
+        try {
+            const batch = writeBatch(db); 
+            let count = 0; 
+            const safeBatchSet = (ref, val) => { if (count < 480) { batch.set(ref, val); count++; } };
+            if (data.customers) data.customers.forEach(c => safeBatchSet(doc(db, 'customers', c.customerID), c));
+            if (data.inventory) data.inventory.forEach(i => safeBatchSet(doc(db, 'inventory', i.id), i));
+            if (data.records) data.records.forEach(r => safeBatchSet(doc(db, 'records', r.id), r));
+            await batch.commit(); 
+            showToast('資料還原成功！');
+        } catch (e) { console.error("還原失敗", e); showToast('還原部分失敗，請檢查 Log', 'error'); }
+    } else { showToast('已匯入預覽 (離線模式)'); }
+    setIsProcessing(false);
+  };
+
+  const handleExportData = () => {
+    const dataStr = JSON.stringify({ customers, records, inventory }, null, 2);
+    const blob = new Blob([dataStr], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `backup_${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast('資料已匯出');
+  };
+
+  const handleImportData = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try { const data = JSON.parse(event.target.result); await restoreDataToFirestore(data); } 
+      catch (err) { console.error(err); showToast('檔案格式錯誤', 'error'); }
+    };
+    reader.readAsText(file);
+  };
+
+  const fetchCloudBackups = async () => {
+    if (dbStatus === 'demo') return;
+    try {
+      const listRef = ref(storage, 'backups/');
+      const res = await listAll(listRef);
+      const backups = await Promise.all(res.items.map(async (itemRef) => {
+        try {
+            const metadata = await getMetadata(itemRef);
+            return { name: itemRef.name, time: new Date(metadata.timeCreated).toLocaleString(), fullPath: itemRef.fullPath, size: (metadata.size / 1024).toFixed(2) + ' KB' };
+        } catch (e) { return null; }
+      }));
+      setCloudBackups(backups.filter(b => b).sort((a, b) => new Date(b.time) - new Date(a.time)));
+    } catch (error) { console.error("List backups failed", error); }
+  };
+
+  const handleCreateCloudBackup = async () => {
+    if (dbStatus === 'demo') return showToast('演示模式無法備份', 'error');
+    setIsProcessing(true);
+    try {
+      const dataStr = JSON.stringify({ customers, records, inventory });
+      const fileName = `backup_${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+      const backupRef = ref(storage, `backups/${fileName}`);
+      await uploadString(backupRef, dataStr);
+      showToast('雲端備份建立成功');
+      fetchCloudBackups();
+    } catch (error) { console.error(error); showToast('備份失敗', 'error'); } finally { setIsProcessing(false); }
+  };
+
+  const handleRestoreFromCloud = async (backupItem) => {
+      if (!window.confirm(`確定要從「${backupItem.time}」還原資料嗎？目前的資料將被覆蓋。`)) return;
+      setIsProcessing(true);
+      try {
+          const backupRef = ref(storage, backupItem.fullPath);
+          const url = await getDownloadURL(backupRef);
+          const response = await fetch(url);
+          const data = await response.json();
+          await restoreDataToFirestore(data);
+      } catch (error) { console.error("Restore failed", error); showToast('還原失敗', 'error'); setIsProcessing(false); }
+  };
+
+  const handleDeleteCloudBackup = async (backupItem) => {
+      if (!window.confirm('確定要刪除此備份檔嗎？')) return;
+      try {
+          const backupRef = ref(storage, backupItem.fullPath);
+          await deleteObject(backupRef);
+          showToast('備份檔已刪除');
+          setCloudBackups(prev => prev.filter(b => b.name !== backupItem.name));
+      } catch (error) { showToast('刪除失敗', 'error'); }
+  };
+
   return (
     <div className="max-w-md mx-auto bg-gray-100 min-h-screen font-sans text-gray-900 shadow-2xl relative overflow-hidden">
       <GlobalStyles />
@@ -566,6 +593,9 @@ export default function App() {
           setShowAddressAlert={setShowAddressAlert} 
           setShowPhoneSheet={setShowPhoneSheet} 
           showToast={showToast}
+          // 傳入新功能
+          onRenameGroup={renameCustomerGroup}
+          onDeleteGroup={deleteCustomerGroup}
         />
       )}
 
@@ -604,8 +634,14 @@ export default function App() {
 
       {(currentView === 'inventory' || activeTab === 'inventory') && (
         <InventoryView 
-          inventory={inventory} onUpdateInventory={updateInventory} onAddInventory={addInventoryItem}
-          onDeleteInventory={deleteInventoryItem} onRenameGroup={renameModelGroup} onBack={() => setCurrentView('dashboard')} 
+          inventory={inventory} 
+          onUpdateInventory={updateInventory} 
+          onAddInventory={addInventoryItem}
+          onDeleteInventory={deleteInventoryItem} 
+          // 傳入新功能
+          onRenameGroup={renameModelGroup} 
+          onDeleteGroup={deleteModelGroup}
+          onBack={() => setCurrentView('dashboard')} 
         />
       )}
 
