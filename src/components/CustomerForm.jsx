@@ -122,7 +122,7 @@ const CustomerForm = ({ mode, initialData, onSubmit, onCancel, onDelete }) => {
             </div>
           </div>
 
-          {/* 第二行：聯絡人 + 電話 + 撥號鍵 */}
+          {/* 第二行：聯絡人 */}
           <div className="flex items-center gap-3">
             <div className="bg-emerald-50 p-2.5 rounded-xl text-emerald-600 shrink-0 flex items-center justify-center">
               <User size={20} strokeWidth={2.5} />
@@ -134,6 +134,10 @@ const CustomerForm = ({ mode, initialData, onSubmit, onCancel, onDelete }) => {
               value={formData.contactPerson}
               onChange={e => setFormData({...formData, contactPerson: e.target.value})}
             />
+          </div>
+
+          {/* 第三行：電話 + 撥號鍵 */}
+          <div className="flex items-center gap-3">
             <div className="bg-green-50 p-2.5 rounded-xl text-green-600 shrink-0 flex items-center justify-center">
               <Phone size={20} strokeWidth={2.5} />
             </div>
@@ -149,7 +153,7 @@ const CustomerForm = ({ mode, initialData, onSubmit, onCancel, onDelete }) => {
             </div>
           </div>
 
-          {/* 第三行：地址 + 導航 */}
+          {/* 第四行：地址 + 導航 */}
           <div className="flex items-center gap-3">
             <div className="bg-blue-50 p-2.5 rounded-xl text-blue-600 shrink-0 flex items-center justify-center">
               <MapPin size={20} strokeWidth={2.5} />
@@ -167,21 +171,21 @@ const CustomerForm = ({ mode, initialData, onSubmit, onCancel, onDelete }) => {
             </div>
           </div>
 
-          {/* 地址注意事項 - 獨立一行 */}
-          <div className="flex items-center gap-3 -mt-2">
-            <div className="bg-red-50 p-2.5 rounded-xl text-red-600 shrink-0 flex items-center justify-center">
-              <AlertTriangle size={20} strokeWidth={2.5} />
+          {/* 地址注意事項 - 獨立一行，使用較小的樣式 */}
+          <div className="flex items-center gap-3 pl-12">
+            <div className="bg-red-50 p-2 rounded-lg text-red-600 shrink-0 flex items-center justify-center">
+              <AlertTriangle size={16} strokeWidth={2.5} />
             </div>
             <input
               type="text"
               placeholder="地址注意事項（例：後門進入...）"
-              className="flex-1 text-sm text-red-700 bg-red-50 rounded-lg px-3 py-2 border border-red-100 outline-none placeholder:text-red-400"
+              className="flex-1 text-sm text-red-700 bg-red-50 rounded-lg px-3 py-1.5 border border-red-100 outline-none placeholder:text-red-400"
               value={formData.addressNote}
               onChange={e => setFormData({...formData, addressNote: e.target.value})}
             />
           </div>
 
-          {/* 第四行：備註 */}
+          {/* 第五行：備註 */}
           <div className="flex items-start gap-3">
             <div className="bg-violet-50 p-2.5 rounded-xl text-violet-600 shrink-0 flex items-center justify-center">
               <Info size={20} strokeWidth={2.5} />
@@ -195,7 +199,7 @@ const CustomerForm = ({ mode, initialData, onSubmit, onCancel, onDelete }) => {
             />
           </div>
 
-          {/* 第五行：機器型號 */}
+          {/* 第六行：機器型號 */}
           <div className="flex items-center gap-3">
             <div className="bg-amber-50 p-2.5 rounded-xl text-amber-600 shrink-0 flex items-center justify-center">
               <Printer size={20} strokeWidth={2.5} />
