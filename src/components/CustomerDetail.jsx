@@ -71,64 +71,58 @@ const CustomerDetail = ({
             </div>
           </div>
 
-          {/* 聯絡人 */}
-          {selectedCustomer.contactPerson && (
-            <div className="flex items-center gap-3">
-              <div className="bg-emerald-50 p-2.5 rounded-xl text-emerald-600 shrink-0">
-                <User size={20} strokeWidth={2.5} />
-              </div>
+          {/* 第二行：聯絡人 + 電話 + 撥號鍵 */}
+          <div className="flex items-center gap-3">
+            <div className="bg-emerald-50 p-2.5 rounded-xl text-emerald-600 shrink-0">
+              <User size={20} strokeWidth={2.5} />
+            </div>
+            <div className="flex-1 flex items-center gap-3">
               <div className="flex-1">
                 <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">聯絡人</div>
-                <div className="text-base font-bold text-slate-800">{selectedCustomer.contactPerson}</div>
-              </div>
-            </div>
-          )}
-
-          {/* 電話 */}
-          {selectedCustomer.phones && selectedCustomer.phones.length > 0 && (
-            <div className="space-y-2">
-              {selectedCustomer.phones.map((p, idx) => (
-                <div key={idx} className="flex items-center gap-3">
-                  <div className="bg-green-50 p-2.5 rounded-xl text-green-600 shrink-0">
-                    <Phone size={20} strokeWidth={2.5} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">{p.label || '電話'}</div>
-                    <button 
-                      onClick={() => handlePhoneClick(p.number)}
-                      className="text-base font-bold text-slate-800 hover:text-green-600 transition-colors text-left"
-                    >
-                      {p.number || '無電話'}
-                    </button>
-                  </div>
+                <div className={`text-base font-bold ${selectedCustomer.contactPerson ? 'text-slate-800' : 'text-slate-400 bg-slate-50 px-3 py-1.5 rounded-lg inline-block'}`}>
+                  {selectedCustomer.contactPerson || '暫無資料'}
                 </div>
-              ))}
+              </div>
+              {selectedCustomer.phones && selectedCustomer.phones.length > 0 && selectedCustomer.phones[0].number && (
+                <>
+                  <div className="flex-1">
+                    <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">電話</div>
+                    <div className="text-base font-bold text-slate-800">{selectedCustomer.phones[0].number}</div>
+                  </div>
+                  <button
+                    onClick={() => handlePhoneClick(selectedCustomer.phones[0].number)}
+                    className="bg-green-50 hover:bg-green-100 p-2.5 rounded-lg transition-colors shrink-0 mt-5"
+                  >
+                    <PhoneCall size={20} className="text-green-600" />
+                  </button>
+                </>
+              )}
             </div>
-          )}
+          </div>
 
-          {/* 地址 */}
+          {/* 第三行：地址 + 導航鍵 */}
           {selectedCustomer.address && (
             <div className="flex items-start gap-3">
               <div className="bg-blue-50 p-2.5 rounded-xl text-blue-600 shrink-0">
                 <MapPin size={20} strokeWidth={2.5} />
               </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">地址</div>
-                <button 
+              <div className="flex-1 flex items-start gap-3">
+                <div className="flex-1">
+                  <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">地址</div>
+                  <div className="text-base font-bold text-slate-800 leading-relaxed">{selectedCustomer.address}</div>
+                  {selectedCustomer.addressNote && (
+                    <div className="mt-2 bg-red-50 text-red-700 p-2.5 rounded-lg border border-red-100 flex items-start gap-2">
+                      <ShieldAlert size={14} className="flex-shrink-0 mt-0.5" />
+                      <span className="text-base font-bold">{selectedCustomer.addressNote}</span>
+                    </div>
+                  )}
+                </div>
+                <button
                   onClick={handleAddressClick}
-                  className="text-base font-bold text-slate-800 hover:text-blue-600 transition-colors text-left flex items-start gap-2 group"
+                  className="bg-blue-50 hover:bg-blue-100 p-2.5 rounded-lg transition-colors shrink-0 mt-5"
                 >
-                  <span className="flex-1 leading-relaxed">{selectedCustomer.address}</span>
-                  <div className="bg-blue-50 group-hover:bg-blue-100 p-1.5 rounded-lg transition-colors shrink-0">
-                    <Navigation size={16} className="text-blue-600" />
-                  </div>
+                  <Navigation size={20} className="text-blue-600" />
                 </button>
-                {selectedCustomer.addressNote && (
-                  <div className="mt-2 bg-red-50 text-red-700 p-2.5 rounded-lg border border-red-100 flex items-start gap-2">
-                    <ShieldAlert size={14} className="flex-shrink-0 mt-0.5" />
-                    <span className="text-sm font-bold">{selectedCustomer.addressNote}</span>
-                  </div>
-                )}
               </div>
             </div>
           )}
@@ -160,7 +154,7 @@ const CustomerDetail = ({
               </div>
               <div className="flex-1">
                 <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">備註</div>
-                <div className="text-sm font-bold text-slate-700 leading-relaxed">{selectedCustomer.notes}</div>
+                <div className="text-base font-bold text-slate-700 leading-relaxed">{selectedCustomer.notes}</div>
               </div>
             </div>
           )}
@@ -174,8 +168,8 @@ const CustomerDetail = ({
                 </div>
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">累計服務</span>
               </div>
-              <div className="text-2xl font-extrabold text-slate-800">
-                {serviceCount} <span className="text-sm font-bold text-slate-400">次</span>
+              <div className="text-base font-bold text-slate-800">
+                {serviceCount} <span className="text-base font-bold text-slate-800">次</span>
               </div>
             </div>
           </div>
