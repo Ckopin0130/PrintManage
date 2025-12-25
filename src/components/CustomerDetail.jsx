@@ -111,13 +111,27 @@ const CustomerDetail = ({
             </div>
           </div>
 
+          {/* 聯絡人 */}
+          <div className="flex items-center gap-3">
+            <div className="bg-emerald-50 p-2.5 rounded-xl text-emerald-600 shrink-0 flex items-center justify-center">
+              <User size={20} strokeWidth={2.5} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className={`text-base font-bold ${selectedCustomer.contactPerson ? 'text-slate-800' : 'text-slate-400 bg-slate-50 px-2 py-1 rounded inline-block'}`}>
+                {selectedCustomer.contactPerson || '暫無資料'}
+              </div>
+            </div>
+          </div>
+
           {/* 電話 + 撥號鍵 */}
           {selectedCustomer.phones && selectedCustomer.phones.length > 0 && selectedCustomer.phones[0].number && (
             <div className="flex items-center gap-3">
-              <div className="flex-1 min-w-0">
-                <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">電話</div>
+              <div className="bg-green-50 p-2.5 rounded-xl text-green-600 shrink-0 flex items-center justify-center">
+                <Phone size={20} strokeWidth={2.5} />
+              </div>
+              <div className="flex-1 flex items-center gap-3 min-w-0">
                 <div 
-                  className="text-base font-bold text-slate-800 truncate"
+                  className="text-base font-bold text-slate-800 truncate flex-1"
                   style={{ 
                     textDecoration: 'none',
                     border: 'none',
@@ -137,13 +151,13 @@ const CustomerDetail = ({
                 >
                   {selectedCustomer.phones[0].number}
                 </div>
+                <button
+                  onClick={() => handlePhoneClick(selectedCustomer.phones[0].number)}
+                  className="bg-green-50 hover:bg-green-100 p-2.5 rounded-lg transition-colors shrink-0 flex items-center justify-center"
+                >
+                  <PhoneForwarded size={18} className="text-green-600" />
+                </button>
               </div>
-              <button
-                onClick={() => handlePhoneClick(selectedCustomer.phones[0].number)}
-                className="bg-green-50 hover:bg-green-100 p-2.5 rounded-lg transition-colors shrink-0 flex items-center justify-center mt-6"
-              >
-                <PhoneForwarded size={18} className="text-green-600" />
-              </button>
             </div>
           )}
 
@@ -155,7 +169,6 @@ const CustomerDetail = ({
               </div>
               <div className="flex-1 flex items-start gap-3 min-w-0">
                 <div className="flex-1 min-w-0">
-                  <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">地址</div>
                   <div 
                     className="text-base text-slate-500 leading-relaxed"
                     style={{ 
@@ -186,10 +199,28 @@ const CustomerDetail = ({
                 </div>
                 <button
                   onClick={handleAddressClick}
-                  className="bg-blue-50 hover:bg-blue-100 p-2.5 rounded-lg transition-colors shrink-0 flex items-center justify-center mt-6"
+                  className="bg-blue-50 hover:bg-blue-100 p-2.5 rounded-lg transition-colors shrink-0 flex items-center justify-center"
                 >
                   <Navigation size={18} className="text-blue-600" />
                 </button>
+              </div>
+            </div>
+          )}
+
+          {/* 機器型號 */}
+          {selectedCustomer.assets && selectedCustomer.assets.length > 0 && (
+            <div className="flex items-center gap-3">
+              <div className="bg-amber-50 p-2.5 rounded-xl text-amber-600 shrink-0 flex items-center justify-center">
+                <Printer size={20} strokeWidth={2.5} />
+              </div>
+              <div className="flex-1">
+                <div className="flex flex-wrap gap-2">
+                  {selectedCustomer.assets.map((asset, idx) => (
+                    <span key={idx} className="text-xs bg-slate-100 text-slate-500 px-2 py-1 rounded font-bold">
+                      {asset.model || '無機型'}
+                    </span>
+                  ))}
+                </div>
               </div>
             </div>
           )}
@@ -200,10 +231,8 @@ const CustomerDetail = ({
               <Wrench size={20} strokeWidth={2.5} />
             </div>
             <div className="flex-1">
-              <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">累計服務</div>
-              <div className="text-base font-bold text-slate-800 flex items-center gap-1">
-                <Wrench size={16} className="text-slate-600" />
-                <span>{serviceCount} 次</span>
+              <div className="text-base font-bold text-slate-800">
+                {serviceCount} <span className="text-base font-bold text-slate-800">次</span>
               </div>
             </div>
           </div>
@@ -215,7 +244,6 @@ const CustomerDetail = ({
                 <Info size={20} strokeWidth={2.5} />
               </div>
               <div className="flex-1 min-w-0">
-                <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">備註</div>
                 <div className="text-base text-slate-700 leading-relaxed">{selectedCustomer.notes}</div>
               </div>
             </div>
