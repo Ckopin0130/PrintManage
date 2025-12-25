@@ -97,8 +97,8 @@ const CustomerDetail = ({
 
       <div className="flex-1 overflow-y-auto px-4 pt-4 space-y-4">
         {/* 名片卡區域 - 統一設計，無分隔線 */}
-        <div className="bg-white rounded-2xl shadow-[0_2px_8px_rgb(0,0,0,0.04)] border border-slate-100 p-5 space-y-5">
-          {/* 客戶名稱 */}
+        <div className="bg-white rounded-2xl shadow-[0_2px_8px_rgb(0,0,0,0.04)] border border-slate-100 p-5 space-y-4">
+          {/* 第一行：客戶名稱（哪個地區） */}
           <div className="flex items-center gap-3">
             <div className="bg-blue-50 p-2.5 rounded-xl text-blue-600 shrink-0 flex items-center justify-center">
               <Building2 size={20} strokeWidth={2.5} />
@@ -106,32 +106,26 @@ const CustomerDetail = ({
             <div className="flex-1 min-w-0">
               <h1 className="text-base font-bold text-slate-800 truncate">{selectedCustomer.name}</h1>
               {selectedCustomer.L2_district && (
-                <span className="text-xs font-bold text-slate-400 mt-0.5 block">{selectedCustomer.L2_district}</span>
+                <span className="text-xs font-bold text-slate-400 mt-0.5 block">({selectedCustomer.L2_district})</span>
               )}
             </div>
           </div>
 
-          {/* 聯絡人 */}
+          {/* 第二行：聯絡人圖標 + 欄位 + 電話符號 + 電話欄位 + 撥號鍵符號 */}
           <div className="flex items-center gap-3">
             <div className="bg-emerald-50 p-2.5 rounded-xl text-emerald-600 shrink-0 flex items-center justify-center">
               <User size={20} strokeWidth={2.5} />
             </div>
-            <div className="flex-1 min-w-0">
-              <div className={`text-base font-bold ${selectedCustomer.contactPerson ? 'text-slate-800' : 'text-slate-400 bg-slate-50 px-2 py-1 rounded inline-block'}`}>
-                {selectedCustomer.contactPerson || '暫無資料'}
-              </div>
+            <div className={`flex-1 text-base font-bold ${selectedCustomer.contactPerson ? 'text-slate-800' : 'text-slate-400 bg-slate-50 px-2 py-1 rounded'}`}>
+              {selectedCustomer.contactPerson || '暫無資料'}
             </div>
-          </div>
-
-          {/* 電話 + 撥號鍵 */}
-          {selectedCustomer.phones && selectedCustomer.phones.length > 0 && selectedCustomer.phones[0].number && (
-            <div className="flex items-center gap-3">
-              <div className="bg-green-50 p-2.5 rounded-xl text-green-600 shrink-0 flex items-center justify-center">
-                <Phone size={20} strokeWidth={2.5} />
-              </div>
-              <div className="flex-1 flex items-center gap-3 min-w-0">
+            {selectedCustomer.phones && selectedCustomer.phones.length > 0 && selectedCustomer.phones[0].number && (
+              <>
+                <div className="bg-green-50 p-2.5 rounded-xl text-green-600 shrink-0 flex items-center justify-center">
+                  <Phone size={20} strokeWidth={2.5} />
+                </div>
                 <div 
-                  className="text-base font-bold text-slate-800 truncate flex-1"
+                  className="flex-1 text-base font-bold text-slate-800 truncate min-w-0"
                   style={{ 
                     textDecoration: 'none',
                     border: 'none',
@@ -157,97 +151,87 @@ const CustomerDetail = ({
                 >
                   <PhoneForwarded size={18} className="text-green-600" />
                 </button>
-              </div>
-            </div>
-          )}
+              </>
+            )}
+          </div>
 
-          {/* 地址 + 導航鍵 */}
+          {/* 第三行：地址符號 + 地址 + 導航符號 */}
           {selectedCustomer.address && (
-            <div className="flex items-start gap-3">
+            <div className="flex items-center gap-3">
               <div className="bg-blue-50 p-2.5 rounded-xl text-blue-600 shrink-0 flex items-center justify-center">
                 <MapPin size={20} strokeWidth={2.5} />
               </div>
-              <div className="flex-1 flex items-start gap-3 min-w-0">
-                <div className="flex-1 min-w-0">
-                  <div 
-                    className="text-base text-slate-500 leading-relaxed"
-                    style={{ 
-                      textDecoration: 'none',
-                      border: 'none',
-                      outline: 'none',
-                      WebkitTapHighlightColor: 'transparent',
-                      WebkitTouchCallout: 'none',
-                      WebkitUserSelect: 'none',
-                      userSelect: 'none',
-                      textDecorationLine: 'none',
-                      textDecorationStyle: 'none',
-                      textDecorationColor: 'transparent',
-                      borderBottom: 'none',
-                      borderTop: 'none',
-                      borderLeft: 'none',
-                      borderRight: 'none'
-                    }}
-                  >
-                    {selectedCustomer.address}
-                  </div>
-                  {selectedCustomer.addressNote && (
-                    <div className="mt-2 bg-red-50 text-red-700 p-2 rounded-lg border border-red-100 flex items-start gap-2">
-                      <ShieldAlert size={14} className="flex-shrink-0 mt-0.5" />
-                      <span className="text-base font-bold">{selectedCustomer.addressNote}</span>
-                    </div>
-                  )}
-                </div>
-                <button
-                  onClick={handleAddressClick}
-                  className="bg-blue-50 hover:bg-blue-100 p-2.5 rounded-lg transition-colors shrink-0 flex items-center justify-center"
-                >
-                  <Navigation size={18} className="text-blue-600" />
-                </button>
+              <div 
+                className="flex-1 text-base text-slate-500 leading-relaxed min-w-0"
+                style={{ 
+                  textDecoration: 'none',
+                  border: 'none',
+                  outline: 'none',
+                  WebkitTapHighlightColor: 'transparent',
+                  WebkitTouchCallout: 'none',
+                  WebkitUserSelect: 'none',
+                  userSelect: 'none',
+                  textDecorationLine: 'none',
+                  textDecorationStyle: 'none',
+                  textDecorationColor: 'transparent',
+                  borderBottom: 'none',
+                  borderTop: 'none',
+                  borderLeft: 'none',
+                  borderRight: 'none'
+                }}
+              >
+                {selectedCustomer.address}
               </div>
+              <button
+                onClick={handleAddressClick}
+                className="bg-blue-50 hover:bg-blue-100 p-2.5 rounded-lg transition-colors shrink-0 flex items-center justify-center"
+              >
+                <Navigation size={18} className="text-blue-600" />
+              </button>
+              {selectedCustomer.addressNote && (
+                <div className="ml-2 bg-red-50 text-red-700 p-2 rounded-lg border border-red-100 flex items-start gap-2">
+                  <ShieldAlert size={14} className="flex-shrink-0 mt-0.5" />
+                  <span className="text-base font-bold">{selectedCustomer.addressNote}</span>
+                </div>
+              )}
             </div>
           )}
 
-          {/* 機器型號 */}
-          {selectedCustomer.assets && selectedCustomer.assets.length > 0 && (
-            <div className="flex items-center gap-3">
-              <div className="bg-amber-50 p-2.5 rounded-xl text-amber-600 shrink-0 flex items-center justify-center">
-                <Printer size={20} strokeWidth={2.5} />
-              </div>
-              <div className="flex-1">
-                <div className="flex flex-wrap gap-2">
-                  {selectedCustomer.assets.map((asset, idx) => (
-                    <span key={idx} className="text-xs bg-slate-100 text-slate-500 px-2 py-1 rounded font-bold">
-                      {asset.model || '無機型'}
-                    </span>
-                  ))}
-                </div>
-              </div>
+          {/* 第四行：備註 + 欄位 */}
+          <div className="flex items-start gap-3">
+            <div className="bg-violet-50 p-2.5 rounded-xl text-violet-600 shrink-0 flex items-center justify-center">
+              <Info size={20} strokeWidth={2.5} />
             </div>
-          )}
-
-          {/* 累計服務 */}
-          <div className="flex items-center gap-3">
-            <div className="bg-slate-50 p-2.5 rounded-xl text-slate-600 shrink-0 flex items-center justify-center">
-              <Wrench size={20} strokeWidth={2.5} />
-            </div>
-            <div className="flex-1">
-              <div className="text-base font-bold text-slate-800">
-                {serviceCount} <span className="text-base font-bold text-slate-800">次</span>
+            <div className="flex-1 min-w-0">
+              <div className={`text-base ${selectedCustomer.notes ? 'text-slate-700' : 'text-slate-400 bg-slate-50 px-2 py-1 rounded'} leading-relaxed`}>
+                {selectedCustomer.notes || '無備註'}
               </div>
             </div>
           </div>
 
-          {/* 備註 */}
-          {selectedCustomer.notes && (
-            <div className="flex items-start gap-3">
-              <div className="bg-violet-50 p-2.5 rounded-xl text-violet-600 shrink-0 flex items-center justify-center">
-                <Info size={20} strokeWidth={2.5} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-base text-slate-700 leading-relaxed">{selectedCustomer.notes}</div>
-              </div>
+          {/* 第五行：機器型號符號 + 機型 + 板手符號 + 次數 */}
+          <div className="flex items-center gap-3">
+            <div className="bg-amber-50 p-2.5 rounded-xl text-amber-600 shrink-0 flex items-center justify-center">
+              <Printer size={20} strokeWidth={2.5} />
             </div>
-          )}
+            <div className="flex-1 flex items-center gap-2 min-w-0">
+              {selectedCustomer.assets && selectedCustomer.assets.length > 0 ? (
+                selectedCustomer.assets.map((asset, idx) => (
+                  <span key={idx} className="text-xs bg-slate-100 text-slate-500 px-2 py-1 rounded font-bold">
+                    {asset.model || '無機型'}
+                  </span>
+                ))
+              ) : (
+                <span className="text-xs bg-slate-100 text-slate-500 px-2 py-1 rounded font-bold">無機型</span>
+              )}
+            </div>
+            <div className="bg-slate-50 p-2.5 rounded-xl text-slate-600 shrink-0 flex items-center justify-center">
+              <Wrench size={20} strokeWidth={2.5} />
+            </div>
+            <div className="text-base font-bold text-slate-800 shrink-0">
+              {serviceCount} 次
+            </div>
+          </div>
         </div>
 
         {/* 分隔線 - 讓名片和履歷明顯分開 */}
