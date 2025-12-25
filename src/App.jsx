@@ -409,35 +409,41 @@ export default function App() {
         updatedAssets = [{ model: formData.model }];
     }
 
-    // 明確處理 notes 和 addressNote，確保它們完全分開
-    const finalNotes = formData.notes !== undefined ? formData.notes : 
-                      (formData.note !== undefined ? formData.note : 
-                      (selectedCustomer.notes !== undefined ? selectedCustomer.notes : ''));
-    
-    const finalAddressNote = formData.addressNote !== undefined ? formData.addressNote : 
-                            (selectedCustomer.addressNote !== undefined ? selectedCustomer.addressNote : '');
-
+    // 明確處理所有欄位，確保正確更新
     const updatedEntry = {
       ...selectedCustomer,
-      name: formData.name || selectedCustomer.name,
-      L1_group: formData.L1_group || selectedCustomer.L1_group,
-      L2_district: formData.L2_district || selectedCustomer.L2_district,
-      address: formData.address || selectedCustomer.address,
-      addressNote: finalAddressNote,
+      // 使用明確的檢查，避免空字符串被當作 falsy
+      name: (formData.name !== undefined && formData.name !== null && formData.name !== '') 
+            ? formData.name 
+            : (formData.name === '' ? '' : selectedCustomer.name),
+      L1_group: formData.L1_group !== undefined ? formData.L1_group : selectedCustomer.L1_group,
+      L2_district: formData.L2_district !== undefined ? formData.L2_district : selectedCustomer.L2_district,
+      address: formData.address !== undefined ? formData.address : selectedCustomer.address,
+      addressNote: formData.addressNote !== undefined ? formData.addressNote : (selectedCustomer.addressNote || ''),
       contactPerson: formData.contactPerson !== undefined ? formData.contactPerson : (selectedCustomer.contactPerson || ''),
       phones: updatedPhones || selectedCustomer.phones || [],
       assets: updatedAssets || selectedCustomer.assets || [],
-      notes: finalNotes
+      // notes 和 addressNote 完全分開處理
+      notes: formData.notes !== undefined ? formData.notes : (selectedCustomer.notes !== undefined ? selectedCustomer.notes : '')
     };
 
     try {
         if (dbStatus === 'demo' || !user) {
             setCustomers(prev => prev.map(c => c.customerID === selectedCustomer.customerID ? updatedEntry : c));
+            setSelectedCustomer(updatedEntry);
         } else {
             await setDoc(doc(db, 'customers', selectedCustomer.customerID), updatedEntry);
+            setSelectedCustomer(updatedEntry);
+            setCustomers(prev => prev.map(c => c.customerID === selectedCustomer.customerID ? updatedEntry : c));
         }
-        setSelectedCustomer(updatedEntry); setCurrentView('detail'); showToast('資料已更新');
-    } catch (err) { showToast('更新失敗', 'error'); } finally { setIsProcessing(false); }
+        setCurrentView('detail'); 
+        showToast('資料已更新');
+    } catch (err) { 
+        console.error('更新失敗:', err);
+        showToast('更新失敗', 'error'); 
+    } finally { 
+        setIsProcessing(false); 
+    }
   };
 
   // 新增客戶 (相容新舊格式)

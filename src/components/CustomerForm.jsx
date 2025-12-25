@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Save, AlertTriangle, Trash2 } from 'lucide-react';
 
 const CustomerForm = ({ mode, initialData, onSubmit, onCancel, onDelete }) => {
@@ -12,8 +12,27 @@ const CustomerForm = ({ mode, initialData, onSubmit, onCancel, onDelete }) => {
       phoneLabel: initialData.phones?.[0]?.label || '主要電話',
       phoneNumber: initialData.phones?.[0]?.number || '',
       model: initialData.assets?.[0]?.model || '',
-      notes: initialData.notes || ''
+      notes: initialData.notes || '',
+      contactPerson: initialData.contactPerson || ''
   });
+
+  // 當 initialData 變化時，更新 formData
+  useEffect(() => {
+    if (initialData && Object.keys(initialData).length > 0) {
+      setFormData({
+        name: initialData.name || '',
+        L1_group: initialData.L1_group || '屏東區',
+        L2_district: initialData.L2_district || '',
+        address: initialData.address || '',
+        addressNote: initialData.addressNote || '',
+        phoneLabel: initialData.phones?.[0]?.label || '主要電話',
+        phoneNumber: initialData.phones?.[0]?.number || '',
+        model: initialData.assets?.[0]?.model || '',
+        notes: initialData.notes || '',
+        contactPerson: initialData.contactPerson || ''
+      });
+    }
+  }, [initialData]);
 
   const handleSubmit = (e) => {
       e.preventDefault();
