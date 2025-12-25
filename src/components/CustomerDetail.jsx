@@ -123,10 +123,10 @@ const CustomerDetail = ({
             <div className="bg-blue-50 p-2.5 rounded-xl text-blue-600 shrink-0 flex items-center justify-center">
               <Building2 size={20} strokeWidth={2.5} />
             </div>
-            <div className="flex-1 min-w-0">
+            <div className="flex-1 min-w-0 flex items-center gap-2">
               <h1 className="text-base font-bold text-slate-800 truncate">{selectedCustomer.name}</h1>
               {selectedCustomer.L2_district && (
-                <span className="text-xs font-bold text-slate-400 mt-0.5 block">({selectedCustomer.L2_district})</span>
+                <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded">{selectedCustomer.L2_district}</span>
               )}
             </div>
           </div>

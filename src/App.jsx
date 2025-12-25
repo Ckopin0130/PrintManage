@@ -411,10 +411,15 @@ export default function App() {
 
     const updatedEntry = {
       ...selectedCustomer,
-      ...formData,
+      name: formData.name || selectedCustomer.name,
+      L1_group: formData.L1_group || selectedCustomer.L1_group,
+      L2_district: formData.L2_district || selectedCustomer.L2_district,
+      address: formData.address || selectedCustomer.address,
+      addressNote: formData.addressNote !== undefined ? formData.addressNote : (selectedCustomer.addressNote || ''),
+      contactPerson: formData.contactPerson !== undefined ? formData.contactPerson : (selectedCustomer.contactPerson || ''),
       phones: updatedPhones || selectedCustomer.phones || [],
       assets: updatedAssets || selectedCustomer.assets || [],
-      notes: formData.notes || formData.note || selectedCustomer.notes || ''
+      notes: formData.notes !== undefined ? formData.notes : (formData.note !== undefined ? formData.note : (selectedCustomer.notes || ''))
     };
 
     try {
