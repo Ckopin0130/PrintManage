@@ -62,6 +62,18 @@ const CustomerDetail = ({
           border: none !important;
           outline: none !important;
           -webkit-tap-highlight-color: transparent !important;
+          -webkit-user-select: none !important;
+          -moz-user-select: none !important;
+          -ms-user-select: none !important;
+          user-select: none !important;
+        }
+        /* 移除手機瀏覽器自動識別電話和地址的樣式 */
+        * {
+          -webkit-tap-highlight-color: transparent;
+        }
+        div[class*="phone"], div[class*="address"] {
+          -webkit-touch-callout: none !important;
+          -webkit-user-select: none !important;
         }
       `}</style>
       {/* 頂部標題列 - 與 Dashboard 風格一致 */}
@@ -75,10 +87,10 @@ const CustomerDetail = ({
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 pt-4 space-y-4">
-        {/* 名片卡區域 - 使用 Dashboard 風格 */}
-        <div className="bg-white rounded-2xl shadow-[0_2px_8px_rgb(0,0,0,0.04)] border border-slate-100 p-4 space-y-3">
+        {/* 名片卡區域 - 統一設計，無分隔線 */}
+        <div className="bg-white rounded-2xl shadow-[0_2px_8px_rgb(0,0,0,0.04)] border border-slate-100 p-4 space-y-4">
           {/* 客戶名稱 */}
-          <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
+          <div className="flex items-center gap-3">
             <div className="bg-blue-50 p-2.5 rounded-xl text-blue-600 shrink-0 flex items-center justify-center">
               <Building2 size={20} strokeWidth={2.5} />
             </div>
@@ -106,7 +118,20 @@ const CustomerDetail = ({
                 <>
                   <div className="flex-1 min-w-0">
                     <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">電話</div>
-                    <div className="text-base font-bold text-slate-800 truncate no-underline">{selectedCustomer.phones[0].number}</div>
+                    <div 
+                      className="text-base font-bold text-slate-800 truncate no-underline"
+                      style={{ 
+                        textDecoration: 'none',
+                        border: 'none',
+                        outline: 'none',
+                        WebkitTapHighlightColor: 'transparent',
+                        WebkitTouchCallout: 'none',
+                        WebkitUserSelect: 'none',
+                        userSelect: 'none'
+                      }}
+                    >
+                      {selectedCustomer.phones[0].number}
+                    </div>
                   </div>
                   <button
                     onClick={() => handlePhoneClick(selectedCustomer.phones[0].number)}
@@ -128,7 +153,20 @@ const CustomerDetail = ({
               <div className="flex-1 flex items-start gap-3 min-w-0">
                 <div className="flex-1 min-w-0">
                   <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">地址</div>
-                  <div className="text-sm text-slate-500 leading-relaxed no-underline">{selectedCustomer.address}</div>
+                  <div 
+                    className="text-sm text-slate-500 leading-relaxed no-underline"
+                    style={{ 
+                      textDecoration: 'none',
+                      border: 'none',
+                      outline: 'none',
+                      WebkitTapHighlightColor: 'transparent',
+                      WebkitTouchCallout: 'none',
+                      WebkitUserSelect: 'none',
+                      userSelect: 'none'
+                    }}
+                  >
+                    {selectedCustomer.address}
+                  </div>
                   {selectedCustomer.addressNote && (
                     <div className="mt-2 bg-red-50 text-red-700 p-2 rounded-lg border border-red-100 flex items-start gap-2">
                       <ShieldAlert size={14} className="flex-shrink-0 mt-0.5" />
@@ -147,7 +185,7 @@ const CustomerDetail = ({
           )}
 
           {/* 機器型號 + 累計服務 */}
-          <div className="flex items-center gap-3 pt-2 border-t border-slate-100">
+          <div className="flex items-center gap-3">
             <div className="bg-amber-50 p-2.5 rounded-xl text-amber-600 shrink-0 flex items-center justify-center">
               <Printer size={20} strokeWidth={2.5} />
             </div>
@@ -177,7 +215,7 @@ const CustomerDetail = ({
 
           {/* 備註 */}
           {selectedCustomer.notes && (
-            <div className="flex items-start gap-3 pt-2 border-t border-slate-100">
+            <div className="flex items-start gap-3">
               <div className="bg-violet-50 p-2.5 rounded-xl text-violet-600 shrink-0 flex items-center justify-center">
                 <Info size={20} strokeWidth={2.5} />
               </div>
