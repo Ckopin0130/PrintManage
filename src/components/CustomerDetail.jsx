@@ -49,6 +49,9 @@ const CustomerDetail = ({
           border: none !important;
           outline: none !important;
           -webkit-tap-highlight-color: transparent !important;
+          text-decoration-line: none !important;
+          text-decoration-style: none !important;
+          text-decoration-color: transparent !important;
         }
         a[href^="tel:"]:hover,
         a[href^="tel:"]:active,
@@ -56,6 +59,9 @@ const CustomerDetail = ({
           text-decoration: none !important;
           border: none !important;
           outline: none !important;
+          text-decoration-line: none !important;
+          text-decoration-style: none !important;
+          text-decoration-color: transparent !important;
         }
         .no-underline {
           text-decoration: none !important;
@@ -66,14 +72,21 @@ const CustomerDetail = ({
           -moz-user-select: none !important;
           -ms-user-select: none !important;
           user-select: none !important;
+          text-decoration-line: none !important;
+          text-decoration-style: none !important;
+          text-decoration-color: transparent !important;
         }
         /* 移除手機瀏覽器自動識別電話和地址的樣式 */
         * {
           -webkit-tap-highlight-color: transparent;
         }
-        div[class*="phone"], div[class*="address"] {
+        div[class*="phone"], div[class*="address"], span[class*="address"] {
           -webkit-touch-callout: none !important;
           -webkit-user-select: none !important;
+          text-decoration: none !important;
+          text-decoration-line: none !important;
+          text-decoration-style: none !important;
+          text-decoration-color: transparent !important;
         }
       `}</style>
       {/* 頂部標題列 - 與 Dashboard 風格一致 */}
@@ -119,15 +132,18 @@ const CustomerDetail = ({
                   <div className="flex-1 min-w-0">
                     <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">電話</div>
                     <div 
-                      className="text-base font-bold text-slate-800 truncate no-underline"
+                      className="text-base font-bold text-slate-800 truncate"
                       style={{ 
-                        textDecoration: 'none',
-                        border: 'none',
-                        outline: 'none',
-                        WebkitTapHighlightColor: 'transparent',
-                        WebkitTouchCallout: 'none',
-                        WebkitUserSelect: 'none',
-                        userSelect: 'none'
+                        textDecoration: 'none !important',
+                        border: 'none !important',
+                        outline: 'none !important',
+                        WebkitTapHighlightColor: 'transparent !important',
+                        WebkitTouchCallout: 'none !important',
+                        WebkitUserSelect: 'none !important',
+                        userSelect: 'none !important',
+                        textDecorationLine: 'none',
+                        textDecorationStyle: 'none',
+                        textDecorationColor: 'transparent'
                       }}
                     >
                       {selectedCustomer.phones[0].number}
@@ -154,15 +170,18 @@ const CustomerDetail = ({
                 <div className="flex-1 min-w-0">
                   <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">地址</div>
                   <div 
-                    className="text-sm text-slate-500 leading-relaxed no-underline"
+                    className="text-sm text-slate-500 leading-relaxed"
                     style={{ 
-                      textDecoration: 'none',
-                      border: 'none',
-                      outline: 'none',
-                      WebkitTapHighlightColor: 'transparent',
-                      WebkitTouchCallout: 'none',
-                      WebkitUserSelect: 'none',
-                      userSelect: 'none'
+                      textDecoration: 'none !important',
+                      border: 'none !important',
+                      outline: 'none !important',
+                      WebkitTapHighlightColor: 'transparent !important',
+                      WebkitTouchCallout: 'none !important',
+                      WebkitUserSelect: 'none !important',
+                      userSelect: 'none !important',
+                      textDecorationLine: 'none',
+                      textDecorationStyle: 'none',
+                      textDecorationColor: 'transparent'
                     }}
                   >
                     {selectedCustomer.address}

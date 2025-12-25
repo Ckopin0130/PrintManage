@@ -302,7 +302,20 @@ const SortableCustomerRow = ({ item, onClick }) => {
                     </div>
                     <div className="flex items-center text-sm text-slate-500">
                         {item.addressNote && <AlertTriangle size={14} className="text-rose-500 mr-1 flex-shrink-0"/>}
-                        <span className={item.addressNote ? 'text-rose-500 font-bold' : ''}>{item.address || '無地址'}</span>
+                        <span 
+                            className={item.addressNote ? 'text-rose-500 font-bold' : ''}
+                            style={{ 
+                                textDecoration: 'none',
+                                border: 'none',
+                                outline: 'none',
+                                WebkitTapHighlightColor: 'transparent',
+                                WebkitTouchCallout: 'none',
+                                WebkitUserSelect: 'none',
+                                userSelect: 'none'
+                            }}
+                        >
+                            {item.address || '無地址'}
+                        </span>
                     </div>
                 </div>
             </div>
