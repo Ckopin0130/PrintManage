@@ -247,7 +247,19 @@ const GroupManagerModal = ({ isOpen, onClose, groups, onRenameGroup, onDeleteGro
     );
 };
 
-// --- Sortable Components ---
+const COLORS = [
+  { bg: 'bg-blue-100', text: 'text-blue-600', border: 'border-blue-200' },
+  { bg: 'bg-orange-100', text: 'text-orange-600', border: 'border-orange-200' },
+  { bg: 'bg-emerald-100', text: 'text-emerald-600', border: 'border-emerald-200' },
+  { bg: 'bg-purple-100', text: 'text-purple-600', border: 'border-purple-200' },
+  { bg: 'bg-rose-100', text: 'text-rose-600', border: 'border-rose-200' },
+  { bg: 'bg-cyan-100', text: 'text-cyan-600', border: 'border-cyan-200' },
+  { bg: 'bg-amber-100', text: 'text-amber-600', border: 'border-amber-200' },
+  { bg: 'bg-indigo-100', text: 'text-indigo-600', border: 'border-indigo-200' },
+];
+
+const getColor = (index) => COLORS[index % COLORS.length];
+
 const SortableBigCategory = ({ category, count, onClick, isActive }) => {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: category.id });
     const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1, zIndex: isDragging ? 50 : 'auto' };
@@ -266,13 +278,15 @@ const SortableBigCategory = ({ category, count, onClick, isActive }) => {
     );
 };
 
-const SortableGroupRow = ({ id, title, count, onClick }) => {
+const SortableGroupRow = ({ id, title, count, onClick, index }) => {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
     const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1, zIndex: isDragging ? 50 : 'auto' };
+    const color = getColor(index);
+
     return (
         <div ref={setNodeRef} style={style} onClick={onClick} className="bg-white p-3.5 rounded-xl border border-slate-100 shadow-[0_1px_3px_rgb(0,0,0,0.02)] active:scale-[0.99] transition-all cursor-pointer flex items-center justify-between mb-3 hover:border-blue-200 hover:shadow-md group">
             <div className="flex items-center flex-1 min-w-0">
-                <div className={`p-2.5 rounded-lg mr-3.5 shrink-0 bg-slate-50 text-slate-500`}><MapPin size={20} /></div>
+                <div className={`p-2.5 rounded-lg mr-3.5 shrink-0 ${color.bg} ${color.text}`}><MapPin size={20} /></div>
                 <div className="min-w-0">
                     <h3 className="text-base font-extrabold text-slate-800 truncate mb-0.5">{title}</h3>
                     <div className="flex items-center gap-2 text-xs font-bold text-slate-400">
@@ -288,16 +302,19 @@ const SortableGroupRow = ({ id, title, count, onClick }) => {
     );
 };
 
-const SortableCustomerRow = ({ item, onClick }) => {
+const SortableCustomerRow = ({ item, onClick, index }) => {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.customerID });
     const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1, zIndex: isDragging ? 50 : 'auto' };
     const model = item.assets?.[0]?.model || '無機型';
-    const addressFirstChar = item.address ? item.address.charAt(0) : '無';
+    // 修正：顯示客戶名稱第一個字
+    const nameFirstChar = item.name ? item.name.charAt(0) : '無';
+    const color = getColor(index);
+
     return (
-        <div ref={setNodeRef} style={style} className="flex items-center justify-between py-5 px-4 bg-white border-b border-slate-100">
+        <div ref={setNodeRef} style={style} className="bg-white p-3.5 rounded-xl border border-slate-100 shadow-[0_1px_3px_rgb(0,0,0,0.02)] active:scale-[0.99] transition-all cursor-pointer flex items-center justify-between mb-3 hover:border-blue-200 hover:shadow-md group">
             <div className="flex items-center flex-1 mr-3 gap-3" onClick={() => onClick(item)}>
-                <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-base shrink-0">
-                    {addressFirstChar}
+                <div className={`w-10 h-10 rounded-full ${color.bg} ${color.text} flex items-center justify-center font-bold text-base shrink-0`}>
+                    {nameFirstChar}
                 </div>
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-2">
@@ -346,8 +363,9 @@ const SortableCustomerRow = ({ item, onClick }) => {
 // --- Main ---
 const CustomerRoster = ({ customers, onAddCustomer, onUpdateCustomer, onDeleteCustomer, onBack, setTargetCustomer, setShowAddressAlert, setShowPhoneSheet, showToast, setCurrentView, setSelectedCustomer, onRenameGroup, onDeleteGroup }) => {
   const [categories, setCategories] = useState(() => { try { return JSON.parse(localStorage.getItem('customerCategories')) || DEFAULT_CATEGORIES; } catch { return DEFAULT_CATEGORIES; } });
-  const [selectedCatId, setSelectedCatId] = useState(() => { try { return localStorage.getItem('rosterSelectedCatId') || null; } catch { return null; } }); 
-  const [activeGroup, setActiveGroup] = useState(() => { try { return localStorage.getItem('rosterActiveGroup') || null; } catch { return null; } }); 
+  // 修正：移除 localStorage 讀取，讓每次進入都重置為第一層
+  const [selectedCatId, setSelectedCatId] = useState(null); 
+  const [activeGroup, setActiveGroup] = useState(null); 
   const [editingItem, setEditingItem] = useState(null);
   const [isAddMode, setIsAddMode] = useState(false);
   const [isCatManagerOpen, setIsCatManagerOpen] = useState(false);
@@ -359,8 +377,9 @@ const CustomerRoster = ({ customers, onAddCustomer, onUpdateCustomer, onDeleteCu
   useEffect(() => { localStorage.setItem('customerCategories', JSON.stringify(categories)); }, [categories]);
   useEffect(() => { localStorage.setItem('custGroupOrder', JSON.stringify(groupOrder)); }, [groupOrder]);
   useEffect(() => { localStorage.setItem('custOrder', JSON.stringify(customerOrder)); }, [customerOrder]);
-  useEffect(() => { if (selectedCatId) localStorage.setItem('rosterSelectedCatId', selectedCatId); else localStorage.removeItem('rosterSelectedCatId'); }, [selectedCatId]);
-  useEffect(() => { if (activeGroup) localStorage.setItem('rosterActiveGroup', activeGroup); else localStorage.removeItem('rosterActiveGroup'); }, [activeGroup]);
+  // 修正：移除寫入 localStorage 的副作用
+  // useEffect(() => { if (selectedCatId) localStorage.setItem('rosterSelectedCatId', selectedCatId); else localStorage.removeItem('rosterSelectedCatId'); }, [selectedCatId]);
+  // useEffect(() => { if (activeGroup) localStorage.setItem('rosterActiveGroup', activeGroup); else localStorage.removeItem('rosterActiveGroup'); }, [activeGroup]);
 
   // 自動遷移
   useEffect(() => {
@@ -545,16 +564,16 @@ const CustomerRoster = ({ customers, onAddCustomer, onUpdateCustomer, onDeleteCu
                   <div className="animate-in slide-in-from-right-4 duration-300 space-y-1">
                       {groups.length === 0 ? <div className="col-span-full text-center text-slate-400 mt-20"><Box size={48} className="mx-auto mb-3 opacity-20"/><p className="font-bold">此分類無客戶</p></div> : (
                           <SortableContext items={groups} strategy={verticalListSortingStrategy}>
-                              {groups.map(gName => <SortableGroupRow key={gName} id={gName} title={gName} count={itemsInCurrentCat.filter(i => (i.L2_district || '未分區') === gName).length} onClick={() => setActiveGroup(gName)} />)}
+                              {groups.map((gName, index) => <SortableGroupRow key={gName} id={gName} title={gName} count={itemsInCurrentCat.filter(i => (i.L2_district || '未分區') === gName).length} onClick={() => setActiveGroup(gName)} index={index} />)}
                           </SortableContext>
                       )}
                   </div>
               )}
               {(activeGroup || (selectedCatId && searchTerm) || (!selectedCatId && searchTerm)) && (
-                  <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm animate-in slide-in-from-right-4 duration-300">
+                  <div className="space-y-1 animate-in slide-in-from-right-4 duration-300">
                        {currentItems.length === 0 ? <div className="p-8 text-center text-slate-400">沒有找到相符的客戶</div> : (
                            <SortableContext items={currentItems.map(i => i.customerID)} strategy={verticalListSortingStrategy}>
-                                {currentItems.map((item) => <SortableCustomerRow key={item.customerID} item={item} onClick={handleCustomerClick} />)}
+                                {currentItems.map((item, index) => <SortableCustomerRow key={item.customerID} item={item} onClick={handleCustomerClick} index={index} />)}
                            </SortableContext>
                        )}
                   </div>
