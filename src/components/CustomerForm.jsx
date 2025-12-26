@@ -1,15 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, Trash2, Building2, User, Phone, PhoneForwarded, MapPin, Navigation, Info, Printer, AlertTriangle } from 'lucide-react';
-
-// 清理函數：如果 addressNote 看起來像是錯誤的資料（例如只有數字或與 notes 相同），則清空
-const cleanAddressNote = (addressNote, notes) => {
-  if (!addressNote || addressNote.trim() === '') return '';
-  // 如果 addressNote 與 notes 相同，則清空（可能是舊資料錯誤）
-  if (notes && addressNote === notes) return '';
-  // 如果 addressNote 只有數字且長度很短（可能是錯誤的資料），則清空
-  if (/^\d+$/.test(addressNote.trim()) && addressNote.trim().length <= 3) return '';
-  return addressNote;
-};
+import { X, Save, Trash2, Building2, User, Phone, PhoneForwarded, MapPin, Navigation, Info, Printer } from 'lucide-react';
 
 const CustomerForm = ({ mode, initialData, onSubmit, onCancel, onDelete }) => {
   const isEdit = mode === 'edit';
@@ -19,15 +9,9 @@ const CustomerForm = ({ mode, initialData, onSubmit, onCancel, onDelete }) => {
       L1_group: initialData.L1_group || '屏東區',
       L2_district: initialData.L2_district || '',
       address: initialData.address || '',
-      // 確保 addressNote 和 notes 完全分開，並清理錯誤的資料
-      addressNote: cleanAddressNote(
-        (initialData.addressNote !== undefined && initialData.addressNote !== null) ? initialData.addressNote : '',
-        (initialData.notes !== undefined && initialData.notes !== null) ? initialData.notes : ''
-      ),
       phoneLabel: initialData.phones?.[0]?.label || '主要電話',
       phoneNumber: initialData.phones?.[0]?.number || '',
       model: initialData.assets?.[0]?.model || '',
-      // 確保 notes 和 addressNote 完全分開，只使用 notes 欄位
       notes: (initialData.notes !== undefined && initialData.notes !== null) ? initialData.notes : '',
       contactPerson: initialData.contactPerson || ''
   });
@@ -35,21 +19,15 @@ const CustomerForm = ({ mode, initialData, onSubmit, onCancel, onDelete }) => {
   // 當 initialData 變化時，更新 formData
   useEffect(() => {
     if (initialData && Object.keys(initialData).length > 0) {
-      const notes = (initialData.notes !== undefined && initialData.notes !== null) ? initialData.notes : '';
-      const addressNote = (initialData.addressNote !== undefined && initialData.addressNote !== null) ? initialData.addressNote : '';
-      
       setFormData({
         name: initialData.name || '',
         L1_group: initialData.L1_group || '屏東區',
         L2_district: initialData.L2_district || '',
         address: initialData.address || '',
-        // 確保 addressNote 和 notes 完全分開，並清理錯誤的資料
-        addressNote: cleanAddressNote(addressNote, notes),
         phoneLabel: initialData.phones?.[0]?.label || '主要電話',
         phoneNumber: initialData.phones?.[0]?.number || '',
         model: initialData.assets?.[0]?.model || '',
-        // 確保 notes 和 addressNote 完全分開，只使用 notes 欄位
-        notes: notes,
+        notes: (initialData.notes !== undefined && initialData.notes !== null) ? initialData.notes : '',
         contactPerson: initialData.contactPerson || ''
       });
     }
@@ -190,20 +168,6 @@ const CustomerForm = ({ mode, initialData, onSubmit, onCancel, onDelete }) => {
             <div className="bg-blue-50 p-2.5 rounded-xl text-blue-600 shrink-0 flex items-center justify-center opacity-50">
               <Navigation size={18} strokeWidth={2.5} />
             </div>
-          </div>
-
-          {/* 地址注意事項 - 獨立一行，使用較小的樣式 */}
-          <div className="flex items-center gap-3 pl-12">
-            <div className="bg-red-50 p-2 rounded-lg text-red-600 shrink-0 flex items-center justify-center">
-              <AlertTriangle size={16} strokeWidth={2.5} />
-            </div>
-            <input
-              type="text"
-              placeholder="地址注意事項（例：後門進入...）"
-              className="flex-1 text-sm text-red-700 bg-red-50 rounded-lg px-3 py-1.5 border border-red-100 outline-none placeholder:text-red-400"
-              value={formData.addressNote}
-              onChange={e => setFormData({...formData, addressNote: e.target.value})}
-            />
           </div>
 
           {/* 第五行：備註 */}
