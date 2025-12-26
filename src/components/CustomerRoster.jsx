@@ -307,15 +307,28 @@ const SortableCustomerRow = ({ item, onClick }) => {
                     <div className="flex items-center text-sm text-slate-500">
                         {item.addressNote && <AlertTriangle size={14} className="text-rose-500 mr-1 flex-shrink-0"/>}
                         <span 
-                            className={item.addressNote ? 'text-rose-500 font-bold' : ''}
+                            className={`no-address-decoration ${item.addressNote ? 'text-rose-500 font-bold' : ''}`}
                             style={{ 
                                 textDecoration: 'none',
+                                textDecorationLine: 'none',
+                                textDecorationStyle: 'none',
+                                textDecorationColor: 'transparent',
                                 border: 'none',
+                                borderBottom: 'none',
+                                borderTop: 'none',
+                                borderLeft: 'none',
+                                borderRight: 'none',
                                 outline: 'none',
                                 WebkitTapHighlightColor: 'transparent',
                                 WebkitTouchCallout: 'none',
                                 WebkitUserSelect: 'none',
-                                userSelect: 'none'
+                                userSelect: 'none',
+                                WebkitTextDecoration: 'none',
+                                MozTextDecoration: 'none',
+                                MsTextDecoration: 'none',
+                                WebkitAppearance: 'none',
+                                MozAppearance: 'none',
+                                appearance: 'none'
                             }}
                         >
                             {item.address || '無地址'}

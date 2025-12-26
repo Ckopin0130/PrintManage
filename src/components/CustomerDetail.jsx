@@ -67,12 +67,14 @@ const CustomerDetail = ({
         div[class*="phone"] *,
         div[class*="address"] *,
         span[class*="address"],
+        span[class*="phone"],
         div[style*="phone"],
         div[style*="address"],
         div[style*="textDecoration"],
         div[style*="border"] {
           -webkit-touch-callout: none !important;
           -webkit-user-select: none !important;
+          user-select: none !important;
           text-decoration: none !important;
           text-decoration-line: none !important;
           text-decoration-style: none !important;
@@ -81,23 +83,36 @@ const CustomerDetail = ({
           border-top: none !important;
           border-left: none !important;
           border-right: none !important;
+          outline: none !important;
           -webkit-text-decoration: none !important;
           -moz-text-decoration: none !important;
           -ms-text-decoration: none !important;
+          -webkit-appearance: none !important;
+          -moz-appearance: none !important;
+          appearance: none !important;
         }
         /* 移除手機瀏覽器自動識別電話和地址 */
         * {
-          -webkit-tap-highlight-color: transparent;
+          -webkit-tap-highlight-color: transparent !important;
         }
         /* 針對手機瀏覽器的特殊處理 */
         @media (max-width: 768px) {
           div[style*="phone"],
-          div[style*="address"] {
+          div[style*="address"],
+          span[style*="phone"],
+          span[style*="address"] {
             -webkit-appearance: none !important;
             -moz-appearance: none !important;
             appearance: none !important;
             text-decoration: none !important;
+            text-decoration-line: none !important;
+            text-decoration-style: none !important;
+            text-decoration-color: transparent !important;
             border: none !important;
+            border-bottom: none !important;
+            border-top: none !important;
+            border-left: none !important;
+            border-right: none !important;
             outline: none !important;
             -webkit-text-decoration: none !important;
             -moz-text-decoration: none !important;
@@ -164,22 +179,22 @@ const CustomerDetail = ({
                   <Smartphone size={20} strokeWidth={2.5} />
                 </div>
                 <div 
-                  className="flex-1 text-base font-bold text-slate-800 truncate min-w-0"
+                  className="flex-1 text-base font-bold text-slate-800 truncate min-w-0 no-phone-decoration"
                   style={{ 
                     textDecoration: 'none',
+                    textDecorationLine: 'none',
+                    textDecorationStyle: 'none',
+                    textDecorationColor: 'transparent',
                     border: 'none',
+                    borderBottom: 'none',
+                    borderTop: 'none',
+                    borderLeft: 'none',
+                    borderRight: 'none',
                     outline: 'none',
                     WebkitTapHighlightColor: 'transparent',
                     WebkitTouchCallout: 'none',
                     WebkitUserSelect: 'none',
                     userSelect: 'none',
-                    textDecorationLine: 'none',
-                    textDecorationStyle: 'none',
-                    textDecorationColor: 'transparent',
-                    borderBottom: 'none',
-                    borderTop: 'none',
-                    borderLeft: 'none',
-                    borderRight: 'none',
                     WebkitTextDecoration: 'none',
                     MozTextDecoration: 'none',
                     MsTextDecoration: 'none',
@@ -201,22 +216,22 @@ const CustomerDetail = ({
                 <MapPin size={20} strokeWidth={2.5} />
               </div>
               <div 
-                className="flex-1 text-base text-slate-500 leading-relaxed min-w-0"
+                className="flex-1 text-base text-slate-500 leading-relaxed min-w-0 no-address-decoration"
                 style={{ 
                   textDecoration: 'none',
+                  textDecorationLine: 'none',
+                  textDecorationStyle: 'none',
+                  textDecorationColor: 'transparent',
                   border: 'none',
+                  borderBottom: 'none',
+                  borderTop: 'none',
+                  borderLeft: 'none',
+                  borderRight: 'none',
                   outline: 'none',
                   WebkitTapHighlightColor: 'transparent',
                   WebkitTouchCallout: 'none',
                   WebkitUserSelect: 'none',
                   userSelect: 'none',
-                  textDecorationLine: 'none',
-                  textDecorationStyle: 'none',
-                  textDecorationColor: 'transparent',
-                  borderBottom: 'none',
-                  borderTop: 'none',
-                  borderLeft: 'none',
-                  borderRight: 'none',
                   WebkitTextDecoration: 'none',
                   MozTextDecoration: 'none',
                   MsTextDecoration: 'none',
