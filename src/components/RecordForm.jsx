@@ -411,6 +411,7 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
                         {filteredInventory.length === 0 && <div className="text-center py-8 text-gray-400 text-xs flex flex-col items-center"><Package size={24} className="mb-2 opacity-20"/>找不到符合的零件...</div>}
                     </div>
                 </div>
+                </div>
             </section>
 
             {/* 4. 照片與結案狀態 - 優化設計 */}
@@ -476,7 +477,7 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
                 <div className="border-t-2 border-dashed border-slate-200 my-6"></div>
 
                 <div className="space-y-4">
-                    <div className="bg-gradient-to-r from-emerald-500 to-teal-500 px-5 py-4 -mx-5 -mb-4">
+                    <div className="bg-gradient-to-r from-emerald-500 to-teal-500 px-5 py-4 -mx-5 mb-4 rounded-t-xl">
                       <h2 className="text-xs font-extrabold text-white uppercase tracking-wider">案件狀態</h2>
                     </div>
                     <div className="grid grid-cols-3 gap-3 pt-4">
