@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  collection, onSnapshot, deleteDoc, doc, setDoc, writeBatch, query, orderBy, limit 
+  collection, onSnapshot, deleteDoc, doc, setDoc, writeBatch, query, orderBy, limit, deleteField
 } from 'firebase/firestore';
 import { 
   ref, uploadString, listAll, getDownloadURL, deleteObject, getMetadata 
@@ -396,9 +396,19 @@ export default function App() {
 
   // 編輯客戶 (相容新舊格式)
   const handleEditSubmit = async (formData) => {
-    if (!selectedCustomer) return;
     if (isProcessing) return;
     setIsProcessing(true);
+
+    // 判斷是從 CustomerDetail 還是 CustomerRoster 編輯
+    const sourceCustomer = selectedCustomer || (formData.customerID ? customers.find(c => c.customerID === formData.customerID) : null);
+    if (!sourceCustomer && !formData.customerID) {
+      setIsProcessing(false);
+      showToast('找不到客戶資料', 'error');
+      return;
+    }
+
+    const customerId = sourceCustomer?.customerID || formData.customerID;
+    const baseCustomer = sourceCustomer || formData;
 
     let updatedPhones = formData.phones;
     if (!updatedPhones && (formData.phoneNumber || formData.phone)) {
@@ -411,30 +421,47 @@ export default function App() {
 
     // 明確處理所有欄位，確保正確更新
     const updatedEntry = {
-      ...selectedCustomer,
-      // 直接使用 formData 的值，如果不存在則使用 selectedCustomer 的值
-      name: formData.name !== undefined ? formData.name : selectedCustomer.name,
-      L1_group: formData.L1_group !== undefined ? formData.L1_group : selectedCustomer.L1_group,
-      L2_district: formData.L2_district !== undefined ? formData.L2_district : selectedCustomer.L2_district,
-      address: formData.address !== undefined ? formData.address : selectedCustomer.address,
-      addressNote: formData.addressNote !== undefined ? formData.addressNote : (selectedCustomer.addressNote || ''),
-      contactPerson: formData.contactPerson !== undefined ? formData.contactPerson : (selectedCustomer.contactPerson || ''),
-      phones: updatedPhones || selectedCustomer.phones || [],
-      assets: updatedAssets || selectedCustomer.assets || [],
-      // notes 和 addressNote 完全分開處理
-      notes: formData.notes !== undefined ? formData.notes : (selectedCustomer.notes !== undefined ? selectedCustomer.notes : '')
+      ...baseCustomer,
+      customerID: customerId,
+      // 直接使用 formData 的值，如果不存在則使用 baseCustomer 的值
+      name: formData.name !== undefined ? formData.name : baseCustomer.name,
+      L1_group: formData.L1_group !== undefined ? formData.L1_group : baseCustomer.L1_group,
+      L2_district: formData.L2_district !== undefined ? formData.L2_district : baseCustomer.L2_district,
+      address: formData.address !== undefined ? formData.address : baseCustomer.address,
+      addressNote: formData.addressNote !== undefined ? formData.addressNote : (baseCustomer.addressNote || ''),
+      contactPerson: formData.contactPerson !== undefined ? formData.contactPerson : (baseCustomer.contactPerson || ''),
+      phones: updatedPhones || baseCustomer.phones || [],
+      assets: updatedAssets || baseCustomer.assets || [],
+      // notes 和 addressNote 完全分開處理，只使用 notes 欄位
+      notes: formData.notes !== undefined ? formData.notes : (baseCustomer.notes !== undefined ? baseCustomer.notes : '')
     };
+    // 明確刪除舊的 note 欄位，避免重疊
+    delete updatedEntry.note;
 
     try {
         if (dbStatus === 'demo' || !user) {
-            setCustomers(prev => prev.map(c => c.customerID === selectedCustomer.customerID ? updatedEntry : c));
-            setSelectedCustomer(updatedEntry);
+            setCustomers(prev => prev.map(c => c.customerID === customerId ? updatedEntry : c));
+            if (selectedCustomer && selectedCustomer.customerID === customerId) {
+                setSelectedCustomer(updatedEntry);
+            }
         } else {
-            await setDoc(doc(db, 'customers', selectedCustomer.customerID), updatedEntry);
-            setSelectedCustomer(updatedEntry);
-            setCustomers(prev => prev.map(c => c.customerID === selectedCustomer.customerID ? updatedEntry : c));
+            // 在 Firestore 中明確刪除 note 欄位（如果存在）
+            const firestoreData = {
+                ...updatedEntry
+            };
+            // 如果原本有 note 欄位，則明確刪除它
+            if (baseCustomer.note !== undefined) {
+                firestoreData.note = deleteField();
+            }
+            await setDoc(doc(db, 'customers', customerId), firestoreData);
+            if (selectedCustomer && selectedCustomer.customerID === customerId) {
+                setSelectedCustomer(updatedEntry);
+            }
+            setCustomers(prev => prev.map(c => c.customerID === customerId ? updatedEntry : c));
         }
-        setCurrentView('detail'); 
+        if (selectedCustomer) {
+            setCurrentView('detail'); 
+        }
         showToast('資料已更新');
     } catch (err) { 
         console.error('更新失敗:', err);
@@ -468,7 +495,8 @@ export default function App() {
       addressNote: formData.addressNote || '',
       phones: phones || [],
       assets: assets || [], 
-      notes: formData.notes || formData.note || '', 
+      // 只使用 notes 欄位，不使用舊的 note 欄位
+      notes: formData.notes || '', 
       categoryId: formData.categoryId || '', 
       serviceCount: 0
     };

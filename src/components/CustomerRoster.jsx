@@ -66,7 +66,8 @@ const EditCustomerModal = ({ isOpen, onClose, onSave, onDelete, initialItem, cat
             categoryId: initialItem.categoryId || migrateCategory(initialItem),
             phone: firstPhone,
             model: firstModel,
-            note: initialItem.notes || initialItem.note || '' 
+            // 只使用 notes 欄位，忽略舊的 note 欄位
+            note: initialItem.notes || '' 
         });
       } else {
         const targetCatId = defaultCategoryId || categories[0]?.id || 'cat_other';
@@ -82,13 +83,16 @@ const EditCustomerModal = ({ isOpen, onClose, onSave, onDelete, initialItem, cat
   const handleSave = () => {
       const selectedCat = categories.find(c => c.id === formData.categoryId);
       const catName = selectedCat ? selectedCat.name : '未分類';
-      onSave({
+      const savedData = {
           ...initialItem, ...formData,
           L1_group: catName, 
           phones: formData.phone ? [{ label: '公司', number: formData.phone }] : [],
           assets: formData.model ? [{ model: formData.model }] : [],
-          notes: formData.note 
-      });
+          notes: formData.note || ''
+      };
+      // 明確刪除舊的 note 欄位，只保留 notes
+      delete savedData.note;
+      onSave(savedData);
   };
 
   if (!isOpen) return null;
