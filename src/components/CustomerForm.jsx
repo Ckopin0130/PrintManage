@@ -126,7 +126,7 @@ const CustomerForm = ({ mode, initialData, onSubmit, onCancel, onDelete }) => {
                 onChange={e => setFormData({...formData, contactPerson: e.target.value})}
               />
             </div>
-            <div className="bg-blue-50 p-2.5 rounded-xl text-blue-600 shrink-0 flex items-center justify-center">
+            <div className="bg-green-50 p-2.5 rounded-xl text-green-600 shrink-0 flex items-center justify-center">
               <Smartphone size={20} strokeWidth={2.5} />
             </div>
             <div className="flex-1 min-w-0">

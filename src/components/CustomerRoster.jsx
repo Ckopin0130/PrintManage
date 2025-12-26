@@ -292,25 +292,52 @@ const SortableCustomerRow = ({ item, onClick }) => {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.customerID });
     const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1, zIndex: isDragging ? 50 : 'auto' };
     const model = item.assets?.[0]?.model || '無機型';
-    const nameFirstChar = item.name ? item.name.charAt(0) : '無';
+    const addressFirstChar = item.address ? item.address.charAt(0) : '無';
     return (
-        <div ref={setNodeRef} style={style} className="bg-white p-3.5 rounded-xl border border-slate-100 shadow-[0_1px_3px_rgb(0,0,0,0.02)] active:scale-[0.99] transition-all cursor-pointer flex items-center justify-between mb-3 hover:border-blue-200 hover:shadow-md group">
-            <div className="flex items-center flex-1 min-w-0" onClick={() => onClick(item)}>
-                <div className="p-2.5 rounded-lg mr-3.5 shrink-0 bg-slate-50 text-slate-500 flex items-center justify-center font-bold text-base w-10 h-10">
-                    {nameFirstChar}
+        <div ref={setNodeRef} style={style} className="flex items-center justify-between py-5 px-4 bg-white border-b border-slate-100">
+            <div className="flex items-center flex-1 mr-3 gap-3" onClick={() => onClick(item)}>
+                <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-base shrink-0">
+                    {addressFirstChar}
                 </div>
-                <div className="min-w-0">
-                    <h3 className="text-base font-extrabold text-slate-800 truncate mb-0.5">{item.name}</h3>
-                    <div className="flex items-center gap-2 text-xs font-bold text-slate-400">
-                        <span>{model}</span>
-                        {item.addressNote && <AlertTriangle size={12} className="text-rose-500 flex-shrink-0"/>}
-                        <span className="truncate">{item.address || '無地址'}</span>
+                <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-2">
+                        <span className="text-base font-bold text-slate-800">{item.name}</span>
+                        <span className="text-xs bg-slate-100 text-slate-500 px-2 py-1 rounded font-bold flex-shrink-0">{model}</span>
+                    </div>
+                    <div className="flex items-center text-sm text-slate-500">
+                        {item.addressNote && <AlertTriangle size={14} className="text-rose-500 mr-1 flex-shrink-0"/>}
+                        <span 
+                            className={`no-address-decoration ${item.addressNote ? 'text-rose-500 font-bold' : ''}`}
+                            style={{ 
+                                textDecoration: 'none',
+                                textDecorationLine: 'none',
+                                textDecorationStyle: 'none',
+                                textDecorationColor: 'transparent',
+                                border: 'none',
+                                borderBottom: 'none',
+                                borderTop: 'none',
+                                borderLeft: 'none',
+                                borderRight: 'none',
+                                outline: 'none',
+                                WebkitTapHighlightColor: 'transparent',
+                                WebkitTouchCallout: 'none',
+                                WebkitUserSelect: 'none',
+                                userSelect: 'none',
+                                WebkitTextDecoration: 'none',
+                                MozTextDecoration: 'none',
+                                MsTextDecoration: 'none',
+                                WebkitAppearance: 'none',
+                                MozAppearance: 'none',
+                                appearance: 'none'
+                            }}
+                        >
+                            {item.address || '無地址'}
+                        </span>
                     </div>
                 </div>
             </div>
-            <div className="flex items-center pl-2 gap-1">
-                <div {...attributes} {...listeners} style={{ touchAction: 'none' }} className="text-slate-300 cursor-grab active:cursor-grabbing hover:text-slate-500 p-2" onClick={e => e.stopPropagation()}><GripVertical size={20} /></div>
-                <ChevronRight className="text-slate-300 group-hover:text-blue-400 transition-colors" size={20} />
+            <div {...attributes} {...listeners} style={{ touchAction: 'none' }} className="text-slate-300 p-3 cursor-grab active:cursor-grabbing hover:text-slate-500 flex-shrink-0" onClick={e => e.stopPropagation()}>
+                <GripVertical size={20}/>
             </div>
         </div>
     );
@@ -524,7 +551,7 @@ const CustomerRoster = ({ customers, onAddCustomer, onUpdateCustomer, onDeleteCu
                   </div>
               )}
               {(activeGroup || (selectedCatId && searchTerm) || (!selectedCatId && searchTerm)) && (
-                  <div className="animate-in slide-in-from-right-4 duration-300 space-y-1">
+                  <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm animate-in slide-in-from-right-4 duration-300">
                        {currentItems.length === 0 ? <div className="p-8 text-center text-slate-400">沒有找到相符的客戶</div> : (
                            <SortableContext items={currentItems.map(i => i.customerID)} strategy={verticalListSortingStrategy}>
                                 {currentItems.map((item) => <SortableCustomerRow key={item.customerID} item={item} onClick={handleCustomerClick} />)}

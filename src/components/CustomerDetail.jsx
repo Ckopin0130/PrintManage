@@ -132,7 +132,7 @@ const CustomerDetail = ({
 
       <div className="flex-1 overflow-y-auto px-4 pt-4 space-y-4">
         {/* 名片卡區域 - 統一設計，無分隔線 */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 space-y-4">
+        <div className="bg-white rounded-2xl shadow-[0_2px_8px_rgb(0,0,0,0.04)] border border-slate-100 p-5 space-y-4">
           {/* 第一行：客戶名稱（哪個地區） */}
           <div className="flex items-center gap-3">
             <div className="bg-blue-50 p-2.5 rounded-xl text-blue-600 shrink-0 flex items-center justify-center">
@@ -174,12 +174,12 @@ const CustomerDetail = ({
               {selectedCustomer.contactPerson || '暫無資料'}
             </div>
             {selectedCustomer.phones && selectedCustomer.phones.length > 0 && selectedCustomer.phones[0].number && (
-              <div className="flex items-center gap-3 shrink-0">
-                <div className="bg-blue-50 p-2.5 rounded-xl text-blue-600 shrink-0 flex items-center justify-center">
+              <>
+                <div className="bg-green-50 p-2.5 rounded-xl text-green-600 shrink-0 flex items-center justify-center">
                   <Smartphone size={20} strokeWidth={2.5} />
                 </div>
                 <div 
-                  className="text-base font-bold text-slate-800 truncate min-w-0 no-phone-decoration text-right"
+                  className="flex-1 text-base font-bold text-slate-800 truncate min-w-0 no-phone-decoration"
                   style={{ 
                     textDecoration: 'none',
                     textDecorationLine: 'none',
@@ -205,7 +205,7 @@ const CustomerDetail = ({
                 >
                   {selectedCustomer.phones[0].number}
                 </div>
-              </div>
+              </>
             )}
           </div>
 
