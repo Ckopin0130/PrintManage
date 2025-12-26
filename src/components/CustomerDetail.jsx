@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { 
-  ArrowLeft, Edit, Trash2, MapPin, ShieldAlert, Navigation, Info, User, Phone, 
+  ArrowLeft, Edit, Trash2, MapPin, ShieldAlert, Navigation, Info, User, Smartphone, 
   Printer, History, Plus, FileText, Search, X, Building2, PhoneForwarded, Wrench
 } from 'lucide-react';
 
@@ -161,7 +161,7 @@ const CustomerDetail = ({
             {selectedCustomer.phones && selectedCustomer.phones.length > 0 && selectedCustomer.phones[0].number && (
               <>
                 <div className="bg-green-50 p-2.5 rounded-xl text-green-600 shrink-0 flex items-center justify-center">
-                  <Phone size={20} strokeWidth={2.5} />
+                  <Smartphone size={20} strokeWidth={2.5} />
                 </div>
                 <div 
                   className="flex-1 text-base font-bold text-slate-800 truncate min-w-0"
