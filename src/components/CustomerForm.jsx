@@ -119,14 +119,9 @@ const CustomerForm = ({ mode, initialData, onSubmit, onCancel, onDelete }) => {
                 />
               )}
             </div>
-            {/* 右側預留撥號、導航空間（表單不顯示功能鍵僅占位） */}
-            <div className="flex gap-1 ml-1">
-              <span className="inline-block w-10 h-10 align-middle" />
-              <span className="inline-block w-10 h-10 align-middle" />
-            </div>
           </div>
 
-          {/* 第二行：聯絡人 */}
+          {/* 第二行：聯絡人 + 電話 */}
           <div className="flex items-center gap-3">
             <div className="bg-emerald-50 p-2.5 rounded-xl text-emerald-600 shrink-0 flex items-center justify-center">
               <User size={20} strokeWidth={2.5} />
@@ -138,10 +133,6 @@ const CustomerForm = ({ mode, initialData, onSubmit, onCancel, onDelete }) => {
               value={formData.contactPerson}
               onChange={e => setFormData({...formData, contactPerson: e.target.value})}
             />
-          </div>
-
-          {/* 第三行：電話 + 撥號鍵 */}
-          <div className="flex items-center gap-3">
             <div className="bg-green-50 p-2.5 rounded-xl text-green-600 shrink-0 flex items-center justify-center">
               <Phone size={20} strokeWidth={2.5} />
             </div>
@@ -152,12 +143,9 @@ const CustomerForm = ({ mode, initialData, onSubmit, onCancel, onDelete }) => {
               value={formData.phoneNumber}
               onChange={e => setFormData({...formData, phoneNumber: e.target.value})}
             />
-            <div className="bg-green-50 p-2.5 rounded-xl text-green-600 shrink-0 flex items-center justify-center opacity-50">
-              <PhoneForwarded size={18} strokeWidth={2.5} />
-            </div>
           </div>
 
-          {/* 第四行：地址 + 導航 */}
+          {/* 第三行：地址 */}
           <div className="flex items-center gap-3">
             <div className="bg-blue-50 p-2.5 rounded-xl text-blue-600 shrink-0 flex items-center justify-center">
               <MapPin size={20} strokeWidth={2.5} />
@@ -170,12 +158,9 @@ const CustomerForm = ({ mode, initialData, onSubmit, onCancel, onDelete }) => {
               value={formData.address}
               onChange={e => setFormData({...formData, address: e.target.value})}
             />
-            <div className="bg-blue-50 p-2.5 rounded-xl text-blue-600 shrink-0 flex items-center justify-center opacity-50">
-              <Navigation size={18} strokeWidth={2.5} />
-            </div>
           </div>
 
-          {/* 第五行：備註 */}
+          {/* 第四行：備註 */}
           <div className="flex items-start gap-3">
             <div className="bg-violet-50 p-2.5 rounded-xl text-violet-600 shrink-0 flex items-center justify-center">
               <Info size={20} strokeWidth={2.5} />
@@ -189,7 +174,7 @@ const CustomerForm = ({ mode, initialData, onSubmit, onCancel, onDelete }) => {
             />
           </div>
 
-          {/* 第六行：機器型號 */}
+          {/* 第五行：機器型號 */}
           <div className="flex items-center gap-3">
             <div className="bg-amber-50 p-2.5 rounded-xl text-amber-600 shrink-0 flex items-center justify-center">
               <Printer size={20} strokeWidth={2.5} />
