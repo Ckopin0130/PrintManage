@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, Trash2, Building2, User, Phone, PhoneForwarded, MapPin, Navigation, Info, Printer } from 'lucide-react';
+import { X, Save, Trash2, Building2, User, Smartphone, MapPin, Info, Printer } from 'lucide-react';
 
 const CustomerForm = ({ mode, initialData, onSubmit, onCancel, onDelete }) => {
   const isEdit = mode === 'edit';
@@ -127,7 +127,7 @@ const CustomerForm = ({ mode, initialData, onSubmit, onCancel, onDelete }) => {
               />
             </div>
             <div className="bg-green-50 p-2.5 rounded-xl text-green-600 shrink-0 flex items-center justify-center">
-              <Phone size={20} strokeWidth={2.5} />
+              <Smartphone size={20} strokeWidth={2.5} />
             </div>
             <div className="flex-1 min-w-0">
               <input
@@ -158,15 +158,15 @@ const CustomerForm = ({ mode, initialData, onSubmit, onCancel, onDelete }) => {
           </div>
 
           {/* 第四行：備註 */}
-          <div className="flex items-start gap-3">
-            <div className="bg-violet-50 p-2.5 rounded-xl text-violet-600 shrink-0 flex items-center justify-center mt-2">
+          <div className="flex items-center gap-3">
+            <div className="bg-violet-50 p-2.5 rounded-xl text-violet-600 shrink-0 flex items-center justify-center">
               <Info size={20} strokeWidth={2.5} />
             </div>
             <div className="flex-1 min-w-0">
-              <textarea
-                rows={2}
+              <input
+                type="text"
                 placeholder="其他備註..."
-                className="w-full text-base text-slate-700 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-violet-100 focus:border-violet-300 resize-none leading-relaxed"
+                className="w-full text-base text-slate-700 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-violet-100 focus:border-violet-300"
                 value={formData.notes}
                 onChange={e => setFormData({...formData, notes: e.target.value})}
               />
