@@ -282,65 +282,170 @@ const CustomerDetail = ({
           </div>
         </div>
 
-        {/* 分隔線 - 讓名片和履歷明顯分開 */}
-        <div className="relative py-2">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-slate-200"></div>
-          </div>
-          <div className="relative flex justify-center">
-            <div className="bg-slate-50 px-4">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">維修履歷</span>
+        {/* 明顯分隔區域 - 讓名片和履歷完全分開 */}
+        <div className="mt-8 mb-6">
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t-2 border-slate-300"></div>
+            </div>
+            <div className="relative flex justify-center">
+              <div className="bg-slate-50 px-6 py-2">
+                <div className="flex items-center gap-2">
+                  <History size={16} className="text-slate-500" />
+                  <span className="text-sm font-extrabold text-slate-600 uppercase tracking-wider">維修履歷</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
-        {/* 維修履歷區域 */}
-        <div className="bg-white rounded-2xl shadow-[0_2px_8px_rgb(0,0,0,0.04)] border border-slate-100 overflow-hidden">
-            <div className="bg-slate-50 px-5 py-4 border-b border-slate-200 flex justify-between items-center">
-               <h3 className="font-extrabold text-slate-800 flex items-center gap-2">
-                 <div className="bg-blue-50 p-1.5 rounded-lg text-blue-600">
-                   <History size={18} strokeWidth={2.5}/>
+
+        {/* 維修履歷區域 - 全新設計 */}
+        <div className="bg-gradient-to-br from-slate-50 to-blue-50/30 rounded-3xl shadow-lg border-2 border-slate-200 overflow-hidden">
+            {/* 標題列 */}
+            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-5 flex justify-between items-center">
+               <h3 className="font-extrabold text-white flex items-center gap-3 text-lg">
+                 <div className="bg-white/20 backdrop-blur-sm p-2 rounded-xl">
+                   <History size={20} className="text-white" strokeWidth={2.5}/>
                  </div>
                  <span>維修履歷</span>
                </h3>
-               <button onClick={startAddRecord} className="flex items-center text-blue-600 text-sm font-bold bg-white px-3 py-1.5 rounded-lg border border-blue-100 shadow-sm active:scale-95 transition-transform hover:bg-blue-50">
-                 <Plus size={16} className="mr-1"/> 新增
+               <button 
+                 onClick={startAddRecord} 
+                 className="flex items-center gap-2 text-white text-sm font-bold bg-white/20 backdrop-blur-sm px-4 py-2.5 rounded-xl border border-white/30 shadow-lg active:scale-95 transition-all hover:bg-white/30"
+               >
+                 <Plus size={18} className=""/> 新增紀錄
                </button>
             </div>
-            {/* 新增：搜尋列 */}
-            <div className="px-5 py-3 border-b border-gray-100 bg-white">
+
+            {/* 搜尋列 */}
+            <div className="px-6 py-4 bg-white/50 backdrop-blur-sm border-b border-slate-200/50">
                 <div className="relative">
-                    <Search size={14} className="absolute left-3 top-2.5 text-gray-400"/>
+                    <Search size={16} className="absolute left-4 top-3 text-slate-400"/>
                     <input 
                         type="text" 
-                        className="w-full bg-gray-50 border border-gray-200 rounded-lg py-2 pl-9 pr-8 text-sm outline-none focus:ring-2 focus:ring-blue-100"
+                        className="w-full bg-white border-2 border-slate-200 rounded-xl py-3 pl-11 pr-10 text-sm outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-400 transition-all shadow-sm"
                         placeholder="搜尋歷史紀錄 (故障、處理、零件)..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
-                    {searchTerm && <button onClick={() => setSearchTerm('')} className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"><X size={14}/></button>}
+                    {searchTerm && (
+                      <button 
+                        onClick={() => setSearchTerm('')} 
+                        className="absolute right-4 top-3 text-slate-400 hover:text-slate-600 transition-colors"
+                      >
+                        <X size={16}/>
+                      </button>
+                    )}
                 </div>
             </div>
 
-            <div className="p-5">
-               {custRecords.length === 0 ? <div className="text-center py-6 text-gray-400 flex flex-col items-center"><FileText size={32} className="mb-2 opacity-20"/>{searchTerm ? '查無符合紀錄' : '尚無紀錄'}</div> : (
-                 <div className="relative border-l-2 border-slate-100 pl-6 space-y-6">
+            {/* 紀錄列表 */}
+            <div className="p-6 bg-white/30 backdrop-blur-sm min-h-[200px]">
+               {custRecords.length === 0 ? (
+                 <div className="text-center py-12 text-slate-500 flex flex-col items-center">
+                   <FileText size={48} className="mb-3 opacity-30"/>
+                   <div className="text-sm font-bold">{searchTerm ? '查無符合紀錄' : '尚無維修紀錄'}</div>
+                 </div>
+               ) : (
+                 <div className="space-y-4">
                     {custRecords.map(record => {
-                       let statusColor = "text-emerald-600 bg-emerald-50";
-                       if(record.status === 'pending') statusColor = "text-amber-600 bg-amber-50";
+                       let statusColor = "text-emerald-700 bg-emerald-100 border-emerald-300";
+                       let statusBg = "bg-emerald-50";
+                       if(record.status === 'pending') {
+                         statusColor = "text-amber-700 bg-amber-100 border-amber-300";
+                         statusBg = "bg-amber-50";
+                       }
                        return (
-                       <div key={record.id} className="relative group animate-in fade-in slide-in-from-bottom">
-                          <div className={`absolute -left-[31px] top-0 w-4 h-4 rounded-full border-4 border-white shadow-sm ring-1 ring-gray-100 bg-gray-200`}></div>
-                          <div className="text-xs font-bold text-slate-400 mb-1 flex justify-between items-center">
-                              <div className="flex items-center"><span>{record.date}</span><span className={`ml-2 px-1.5 py-0.5 rounded text-[10px] ${statusColor}`}>{record.status === 'pending' ? '待料' : '結案'}</span></div>
-                              <div className="flex space-x-2"><button onClick={(e) => startEditRecord(e, record)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors"><Edit size={14}/></button><button onClick={(e) => handleDeleteRecord(e, record.id)} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"><Trash2 size={14}/></button></div>
+                       <div 
+                         key={record.id} 
+                         className="bg-white rounded-2xl shadow-md border-2 border-slate-200 p-5 hover:shadow-lg transition-all hover:border-blue-300"
+                       >
+                          {/* 標題列 */}
+                          <div className="flex justify-between items-start mb-4">
+                            <div className="flex items-center gap-3">
+                              <div className={`w-3 h-3 rounded-full ${statusBg} border-2 ${statusColor.replace('text-', 'border-')}`}></div>
+                              <div>
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="text-sm font-bold text-slate-600">{record.date}</span>
+                                  <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border ${statusColor}`}>
+                                    {record.status === 'pending' ? '待料' : '結案'}
+                                  </span>
+                                </div>
+                                <div className="text-base font-extrabold text-slate-800 mt-1">
+                                  {record.fault || record.symptom}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex gap-1">
+                              <button 
+                                onClick={(e) => startEditRecord(e, record)} 
+                                className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                              >
+                                <Edit size={16}/>
+                              </button>
+                              <button 
+                                onClick={(e) => handleDeleteRecord(e, record.id)} 
+                                className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                              >
+                                <Trash2 size={16}/>
+                              </button>
+                            </div>
                           </div>
-                          <div className="flex items-start mb-1"><span className="font-bold text-gray-800 text-sm">{record.fault || record.symptom}</span></div>
-                          <div className={`text-sm bg-slate-50 p-3 rounded-lg border border-slate-100 leading-relaxed`}>{record.solution || record.action}</div>
-                          {record.parts && record.parts.length > 0 && <div className="mt-2 flex flex-wrap gap-1">{record.parts.map(p => <span key={p.id} className="text-[10px] bg-blue-50 text-blue-600 px-2 py-1 rounded border border-blue-100">{p.name} x{p.qty}</span>)}</div>}
+
+                          {/* 處理過程 */}
+                          <div className="bg-slate-50 rounded-xl p-4 mb-3 border border-slate-200">
+                            <div className="text-sm text-slate-700 leading-relaxed">
+                              {record.solution || record.action || '無處理記錄'}
+                            </div>
+                          </div>
+
+                          {/* 零件 */}
+                          {record.parts && record.parts.length > 0 && (
+                            <div className="flex flex-wrap gap-2 mb-3">
+                              {record.parts.map(p => (
+                                <span 
+                                  key={p.id} 
+                                  className="text-xs bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg border border-blue-200 font-bold"
+                                >
+                                  {p.name} × {p.qty}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* 照片 */}
                           {(record.photoBefore || record.photoAfter) && (
-                              <div className="mt-3 flex gap-2">
-                                  {record.photoBefore && (<div onClick={(e) => {e.stopPropagation(); setViewingImage(record.photoBefore)}} className="relative group cursor-pointer"><img src={record.photoBefore} className="h-20 w-20 object-cover rounded-lg border border-gray-200 shadow-sm" alt="Before" /></div>)}
-                                  {record.photoAfter && (<div onClick={(e) => {e.stopPropagation(); setViewingImage(record.photoAfter)}} className="relative group cursor-pointer"><img src={record.photoAfter} className="h-20 w-20 object-cover rounded-lg border border-gray-200 shadow-sm" alt="After" /></div>)}
+                              <div className="flex gap-3 mt-4">
+                                  {record.photoBefore && (
+                                    <div 
+                                      onClick={(e) => {e.stopPropagation(); setViewingImage(record.photoBefore)}} 
+                                      className="relative group cursor-pointer"
+                                    >
+                                      <img 
+                                        src={record.photoBefore} 
+                                        className="h-24 w-24 object-cover rounded-xl border-2 border-slate-200 shadow-sm hover:border-blue-400 transition-all" 
+                                        alt="Before" 
+                                      />
+                                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 rounded-xl transition-all flex items-center justify-center">
+                                        <span className="text-white text-xs font-bold opacity-0 group-hover:opacity-100">維修前</span>
+                                      </div>
+                                    </div>
+                                  )}
+                                  {record.photoAfter && (
+                                    <div 
+                                      onClick={(e) => {e.stopPropagation(); setViewingImage(record.photoAfter)}} 
+                                      className="relative group cursor-pointer"
+                                    >
+                                      <img 
+                                        src={record.photoAfter} 
+                                        className="h-24 w-24 object-cover rounded-xl border-2 border-slate-200 shadow-sm hover:border-blue-400 transition-all" 
+                                        alt="After" 
+                                      />
+                                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 rounded-xl transition-all flex items-center justify-center">
+                                        <span className="text-white text-xs font-bold opacity-0 group-hover:opacity-100">完修後</span>
+                                      </div>
+                                    </div>
+                                  )}
                               </div>
                           )}
                        </div>

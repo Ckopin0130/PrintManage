@@ -201,153 +201,68 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
     };
 
     return (
-      <div className="bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50 min-h-screen pb-24 font-sans">
-        {/* 頂部導覽列 - 優化設計 */}
-        <div className="bg-white/95 backdrop-blur-md px-4 py-4 flex items-center shadow-md sticky top-0 z-30 border-b border-slate-200/50">
-            <button 
-              onClick={onCancel} 
-              className="p-2 -ml-2 text-slate-600 hover:bg-slate-100 rounded-full transition-colors"
-            >
-              <ArrowLeft size={24} />
-            </button>
-            <h2 className="text-lg font-extrabold flex-1 text-center text-slate-800 tracking-wide pr-8">
-              {pageTitle}
-            </h2>
+      <div className="bg-gray-50 min-h-screen pb-24 font-sans">
+        {/* 頂部導覽列 */}
+        <div className="bg-white px-4 py-4 flex items-center shadow-sm sticky top-0 z-10 border-b border-gray-100">
+            <button onClick={onCancel} className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-full"><ArrowLeft /></button>
+            <h2 className="text-lg font-bold flex-1 text-center pr-8">{pageTitle}</h2>
         </div>
 
-        <main className="max-w-md mx-auto p-4 space-y-5 pt-6">
+        <main className="max-w-md mx-auto p-4 space-y-5">
             
-            {/* 1. 基本資訊卡片 - 優化設計 */}
-            <section className="bg-white rounded-3xl shadow-lg border-2 border-slate-200 overflow-hidden">
-                <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-5 py-4">
-                    <div className="flex justify-between items-center">
-                        <h3 className="text-sm font-extrabold text-white flex items-center gap-2">
-                          <ClipboardList size={18} className="text-white"/> 
-                          基本資訊
-                        </h3>
-                        <input 
-                          type="date" 
-                          className="bg-white/20 backdrop-blur-sm text-white px-3 py-2 rounded-xl text-sm font-bold outline-none border border-white/30 focus:border-white/50 focus:ring-2 focus:ring-white/20 placeholder:text-white/70" 
-                          value={form.date} 
-                          onChange={e => setForm({...form, date: e.target.value})} 
-                        />
-                    </div>
+            {/* 1. 基本資訊卡片 */}
+            <section className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
+                <div className="flex justify-between items-center mb-3">
+                    <h3 className="text-sm font-bold text-gray-700 flex items-center"><ClipboardList size={18} className="mr-2 text-blue-500"/> 基本資訊</h3>
+                    <input type="date" className="bg-gray-50 px-3 py-1 rounded-lg text-base font-mono text-gray-600 outline-none border border-transparent focus:border-blue-300" value={form.date} onChange={e => setForm({...form, date: e.target.value})} />
                 </div>
-                <div className="p-4">
-                  <div className="flex gap-3">
-                    {SOURCE_OPTIONS.map((option) => {
-                        const Icon = option.icon;
-                        const isSelected = form.serviceSource === option.id;
-                        return (
-                            <button 
-                              key={option.id} 
-                              type="button" 
-                              onClick={() => setForm({ ...form, serviceSource: option.id })} 
-                              className={`flex-1 flex flex-col items-center justify-center py-4 rounded-xl transition-all duration-200 border-2 ${
-                                isSelected 
-                                  ? `${option.activeColor} border-transparent shadow-lg transform scale-[1.02]` 
-                                  : 'bg-slate-50 border-slate-200 text-slate-400 hover:bg-slate-100 hover:border-slate-300'
-                              }`}
-                            >
-                                <div className="flex items-center gap-1.5 mb-1">
-                                  <Icon className={`w-5 h-5 ${!isSelected && option.iconColor}`} />
-                                  <span className="text-xs font-bold">{option.label}</span>
-                                </div>
-                            </button>
-                         );
-                    })}
-                  </div>
+                <div className="flex gap-2">
+                {SOURCE_OPTIONS.map((option) => {
+                    const Icon = option.icon;
+                    const isSelected = form.serviceSource === option.id;
+                    return (
+                        <button key={option.id} type="button" onClick={() => setForm({ ...form, serviceSource: option.id })} className={`flex-1 flex flex-col items-center justify-center py-3 rounded-xl transition-all duration-200 border ${isSelected ? `${option.activeColor} border-transparent shadow-md transform scale-[1.02]` : 'bg-gray-50 border-gray-100 text-gray-400 hover:bg-gray-100'}`}>
+                            <div className="flex items-center gap-1.5 mb-0.5"><Icon className={`w-4 h-4 ${!isSelected && option.iconColor}`} /><span className="text-xs font-bold">{option.label}</span></div>
+                        </button>
+                     );
+                })}
                 </div>
             </section>
 
-            {/* 2. 故障與處理 - 優化設計 */}
-            <section className="bg-white rounded-3xl shadow-lg border-2 border-slate-200 overflow-hidden">
-                <div className="bg-gradient-to-r from-amber-500 to-orange-500 px-5 py-4">
-                    <div className="flex justify-between items-center">
-                         <label className="text-sm font-extrabold text-white flex items-center gap-2">
-                           <AlertTriangle size={18} className="text-white"/> 
-                           故障情形
-                         </label>
+            {/* 2. 故障與處理 */}
+            <section className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-5">
+                <div>
+                    <div className="flex justify-between items-center mb-2">
+                         <label className="text-sm font-bold text-gray-700 flex items-center"><AlertTriangle size={18} className="mr-2 text-amber-500"/> 故障情形</label>
                         <div className="relative">
-                            <select 
-                              className="absolute opacity-0 inset-0 w-full cursor-pointer z-10 text-base" 
-                              onChange={handleQuickSymptom} 
-                              value=""
-                            >
-                              <option value="" disabled>選擇...</option>
-                              {Object.entries(SYMPTOM_CATEGORIES).map(([category, items]) => (
-                                <optgroup key={category} label={category}>
-                                  {items.map(item => <option key={item} value={item}>{item}</option>)}
-                                </optgroup>
-                              ))}
+                            <select className="absolute opacity-0 inset-0 w-full cursor-pointer z-10 text-base" onChange={handleQuickSymptom} value=""><option value="" disabled>選擇...</option>
+                                  {Object.entries(SYMPTOM_CATEGORIES).map(([category, items]) => (<optgroup key={category} label={category}>{items.map(item => <option key={item} value={item}>{item}</option>)}</optgroup>))}
                             </select>
-                            <button 
-                              type="button" 
-                              className="flex items-center gap-1.5 text-xs font-bold text-white bg-white/20 backdrop-blur-sm px-3 py-2 rounded-lg hover:bg-white/30 transition border border-white/30"
-                            >
-                              <Zap className="w-3.5 h-3.5 fill-current" /> 
-                              快速帶入
-                            </button>
+                            <button type="button" className="flex items-center gap-1 text-[11px] font-bold text-blue-600 bg-blue-50 px-2.5 py-1.5 rounded-lg hover:bg-blue-100 transition"><Zap className="w-3 h-3 fill-current" />快速帶入</button>
                         </div>
                     </div>
-                </div>
-                <div className="p-5 space-y-4">
                     <div className="space-y-3">
-                        <input 
-                          type="text" 
-                          className="w-full text-base text-gray-800 bg-gray-50 border border-gray-200 rounded-xl py-3 px-4 focus:bg-white focus:ring-2 focus:ring-blue-100 focus:border-blue-300 outline-none transition-all" 
-                          placeholder="描述故障狀況..." 
-                          value={form.symptom} 
-                          onChange={(e) => setForm({...form, symptom: e.target.value})} 
-                        />
-                        <div className="flex items-center gap-3 bg-blue-50 border-2 border-blue-200 rounded-xl px-4 py-3 hover:border-blue-300 transition-all">
-                          <span className="text-xs font-bold text-blue-700 uppercase tracking-wider whitespace-nowrap">SC Code</span>
-                          <input 
-                            type="text" 
-                            placeholder="輸入錯誤代碼" 
-                            className="flex-1 bg-white border border-blue-200 rounded-lg px-3 py-2 text-base uppercase focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-400 font-mono text-gray-800 font-bold placeholder-gray-400 transition-all" 
-                            value={form.errorCode || ''} 
-                            onChange={(e) => setForm({...form, errorCode: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '')})}
-                            maxLength={10}
-                          />
+                        <input type="text" className="w-full text-base text-gray-800 bg-gray-50 border border-gray-200 rounded-xl py-3 px-4 focus:bg-white focus:ring-2 focus:ring-blue-100 focus:border-blue-300 outline-none transition-all" placeholder="描述故障狀況..." value={form.symptom} onChange={(e) => setForm({...form, symptom: e.target.value})} />
+                        <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 w-fit"><span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">SC Code</span>
+                            <input type="text" placeholder="---" className="w-20 bg-transparent text-base uppercase focus:outline-none font-mono text-gray-700 font-bold placeholder-gray-300" value={form.errorCode} onChange={(e) => setForm({...form, errorCode: e.target.value.toUpperCase()})} />
                         </div>
                     </div>
                 </div>
 
-                <div className="border-t-2 border-dashed border-slate-200 my-4"></div>
+                <div className="border-t border-dashed border-gray-200"></div>
 
                 <div>
-                    <div className="bg-gradient-to-r from-purple-500 to-pink-500 px-5 py-4 -mx-5 -mb-4">
-                      <label className="text-sm font-extrabold text-white flex items-center gap-2">
-                        <Wrench size={18} className="text-white"/> 
-                        處理過程
-                      </label>
-                    </div>
-                    <div className="pt-4">
-                      <textarea 
-                        rows="4" 
-                        className="w-full text-base text-gray-800 bg-slate-50 border-2 border-slate-200 rounded-xl p-4 focus:bg-white focus:ring-2 focus:ring-purple-300 focus:border-purple-400 outline-none resize-none transition-all" 
-                        placeholder="輸入處理方式或更換項目..." 
-                        value={form.action} 
-                        onChange={(e) => setForm({...form, action: e.target.value})} 
-                      />
-                    </div>
-                </div>
+                    <label className="text-sm font-bold text-gray-700 mb-2 flex items-center"><Wrench size={18} className="mr-2 text-purple-500"/> 處理過程</label>
+                    <textarea rows="3" className="w-full text-base text-gray-800 bg-gray-50 border border-gray-200 rounded-xl p-4 focus:bg-white focus:ring-2 focus:ring-purple-100 focus:border-purple-300 outline-none resize-none transition-all" placeholder="輸入處理方式或更換項目..." value={form.action} onChange={(e) => setForm({...form, action: e.target.value})} ></textarea>
                 </div>
             </section>
 
-            {/* 3. 零件更換 - 優化設計 */}
-            <section className="bg-white rounded-3xl shadow-lg border-2 border-slate-200 overflow-hidden">
-                <div className="bg-gradient-to-r from-blue-600 to-cyan-600 px-5 py-4">
-                    <label className="text-sm font-extrabold text-white flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Package size={18} className="text-white"/> 
-                          零件更換
-                        </div>
-                        <span className="text-xs font-normal text-white/80">點擊下方列表加入</span>
-                    </label>
-                </div>
-                <div className="p-5">
+            {/* 3. 零件更換 */}
+            <section className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+                <label className="text-sm font-bold text-gray-700 mb-3 flex items-center justify-between">
+                    <div className="flex items-center"><Package size={18} className="mr-2 text-blue-600"/> 零件更換</div>
+                    <span className="text-xs font-normal text-gray-400">點擊下方列表加入</span>
+                </label>
                 
                 {form.parts && form.parts.length > 0 && (
                         <div className="mb-4 space-y-2">
@@ -414,15 +329,9 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
                 </div>
             </section>
 
-            {/* 4. 照片與結案狀態 - 優化設計 */}
-            <section className="bg-white rounded-3xl shadow-lg border-2 border-slate-200 overflow-hidden">
-                <div className="bg-gradient-to-r from-pink-500 to-rose-500 px-5 py-4">
-                  <div className="flex items-center text-sm font-extrabold text-white gap-2">
-                    <ImageIcon size={18} className="text-white"/> 
-                    照片紀錄
-                  </div>
-                </div>
-                <div className="p-5">
+            {/* 4. 照片與結案狀態 (已更新：支援刪除與重拍) */}
+            <section className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+                <div className="flex items-center mb-4 text-sm font-bold text-gray-700"><ImageIcon size={18} className="mr-2 text-pink-500"/> 照片紀錄</div>
                 <div className="grid grid-cols-2 gap-4 mb-6">
                     
                     {/* 維修前照片 */}
@@ -474,57 +383,27 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
                     </div>
                 </div>
                 
-                <div className="border-t-2 border-dashed border-slate-200 my-6"></div>
+                <div className="border-t border-dashed border-gray-200 my-5"></div>
 
-                <div className="space-y-4">
-                    <div className="bg-gradient-to-r from-emerald-500 to-teal-500 px-5 py-4 -mx-5 -mb-4">
-                      <h2 className="text-xs font-extrabold text-white uppercase tracking-wider">案件狀態</h2>
-                    </div>
-                    <div className="grid grid-cols-3 gap-3 pt-4">
+                <div className="space-y-3">
+                    <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider">案件狀態</h2>
+                    <div className="grid grid-cols-3 gap-2">
                         {STATUS_OPTIONS.map(option => {
                             const isSelected = form.status === option.id;
                             const Icon = option.icon;
                             return (
-                                <button 
-                                  key={option.id} 
-                                  type="button" 
-                                  onClick={() => setForm({...form, status: option.id})} 
-                                  className={`py-4 rounded-xl font-bold text-sm border-2 transition-all flex flex-col items-center justify-center gap-2 ${
-                                    isSelected 
-                                      ? option.activeColor + ' shadow-lg scale-[1.02] border-transparent' 
-                                      : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
-                                  }`}
-                                >
-                                    <Icon className="w-6 h-6" />
-                                    {option.label}
+                                <button key={option.id} type="button" onClick={() => setForm({...form, status: option.id})} className={`py-3 rounded-xl font-bold text-sm border transition-all flex flex-col items-center justify-center gap-1 ${isSelected ? option.activeColor + ' shadow-md scale-[1.02] border-transparent' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}`}>
+                                    <Icon className="w-5 h-5" />{option.label}
                                 </button>
                              )
                         })}
                     </div>
                 </div>
-                </div>
             </section>
 
-            <button 
-              className={`w-full py-5 text-white font-extrabold rounded-2xl shadow-xl transition-all flex items-center justify-center gap-2 text-lg ${
-                isSubmitting 
-                  ? 'bg-slate-400 cursor-not-allowed shadow-slate-200' 
-                  : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 active:scale-[0.98] shadow-blue-300'
-              }`} 
-              onClick={handleConfirm} 
-              disabled={isSubmitting}
-            >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="w-6 h-6 animate-spin" />
-                    <span>資料上傳中...</span>
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-6 h-6" />
-                    <span>確認並儲存</span>
-                  </>
-                )}
+            <button className={`w-full py-4 text-white font-bold rounded-2xl shadow-xl shadow-blue-200 transition-transform flex items-center justify-center ${isSubmitting ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 active:scale-[0.98]'}`} onClick={handleConfirm} disabled={isSubmitting}>
+                {isSubmitting ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Save className="w-5 h-5 mr-2" />}
+                {isSubmitting ? '資料上傳中...' : '確認並結案'}
             </button>
         </main>
       </div>

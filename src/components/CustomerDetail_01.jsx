@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { 
-  ArrowLeft, Edit, Trash2, MapPin, ShieldAlert, Navigation, Info, User, Phone, 
+  ArrowLeft, Edit, Trash2, MapPin, ShieldAlert, Navigation, Info, User, Smartphone, 
   Printer, History, Plus, FileText, Search, X, Building2, PhoneForwarded, Wrench
 } from 'lucide-react';
 
@@ -67,12 +67,14 @@ const CustomerDetail = ({
         div[class*="phone"] *,
         div[class*="address"] *,
         span[class*="address"],
+        span[class*="phone"],
         div[style*="phone"],
         div[style*="address"],
         div[style*="textDecoration"],
         div[style*="border"] {
           -webkit-touch-callout: none !important;
           -webkit-user-select: none !important;
+          user-select: none !important;
           text-decoration: none !important;
           text-decoration-line: none !important;
           text-decoration-style: none !important;
@@ -81,23 +83,36 @@ const CustomerDetail = ({
           border-top: none !important;
           border-left: none !important;
           border-right: none !important;
+          outline: none !important;
           -webkit-text-decoration: none !important;
           -moz-text-decoration: none !important;
           -ms-text-decoration: none !important;
+          -webkit-appearance: none !important;
+          -moz-appearance: none !important;
+          appearance: none !important;
         }
         /* 移除手機瀏覽器自動識別電話和地址 */
         * {
-          -webkit-tap-highlight-color: transparent;
+          -webkit-tap-highlight-color: transparent !important;
         }
         /* 針對手機瀏覽器的特殊處理 */
         @media (max-width: 768px) {
           div[style*="phone"],
-          div[style*="address"] {
+          div[style*="address"],
+          span[style*="phone"],
+          span[style*="address"] {
             -webkit-appearance: none !important;
             -moz-appearance: none !important;
             appearance: none !important;
             text-decoration: none !important;
+            text-decoration-line: none !important;
+            text-decoration-style: none !important;
+            text-decoration-color: transparent !important;
             border: none !important;
+            border-bottom: none !important;
+            border-top: none !important;
+            border-left: none !important;
+            border-right: none !important;
             outline: none !important;
             -webkit-text-decoration: none !important;
             -moz-text-decoration: none !important;
@@ -129,9 +144,28 @@ const CustomerDetail = ({
                 <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded">{selectedCustomer.L2_district}</span>
               )}
             </div>
+            {/* 右側撥號與導航鍵 */}
+            {(selectedCustomer.phones && selectedCustomer.phones[0]?.number) && (
+              <button
+                onClick={() => handlePhoneClick(selectedCustomer.phones[0].number)}
+                className="bg-green-50 hover:bg-green-100 p-2.5 rounded-lg transition-colors shrink-0 flex items-center justify-center ml-1"
+                title="撥號"
+              >
+                <PhoneForwarded size={18} className="text-green-600" />
+              </button>
+            )}
+            {selectedCustomer.address && (
+              <button
+                onClick={handleAddressClick}
+                className="bg-blue-50 hover:bg-blue-100 p-2.5 rounded-lg transition-colors shrink-0 flex items-center justify-center ml-1"
+                title="導航"
+              >
+                <Navigation size={18} className="text-blue-600" />
+              </button>
+            )}
           </div>
 
-          {/* 第二行：聯絡人圖標 + 欄位 + 電話符號 + 電話欄位 + 撥號鍵符號 */}
+          {/* 第二行：聯絡人圖標 + 欄位 + 電話符號 + 電話欄位 */}
           <div className="flex items-center gap-3">
             <div className="bg-emerald-50 p-2.5 rounded-xl text-emerald-600 shrink-0 flex items-center justify-center">
               <User size={20} strokeWidth={2.5} />
@@ -142,25 +176,25 @@ const CustomerDetail = ({
             {selectedCustomer.phones && selectedCustomer.phones.length > 0 && selectedCustomer.phones[0].number && (
               <>
                 <div className="bg-green-50 p-2.5 rounded-xl text-green-600 shrink-0 flex items-center justify-center">
-                  <Phone size={20} strokeWidth={2.5} />
+                  <Smartphone size={20} strokeWidth={2.5} />
                 </div>
                 <div 
-                  className="flex-1 text-base font-bold text-slate-800 truncate min-w-0"
+                  className="flex-1 text-base font-bold text-slate-800 truncate min-w-0 no-phone-decoration"
                   style={{ 
                     textDecoration: 'none',
+                    textDecorationLine: 'none',
+                    textDecorationStyle: 'none',
+                    textDecorationColor: 'transparent',
                     border: 'none',
+                    borderBottom: 'none',
+                    borderTop: 'none',
+                    borderLeft: 'none',
+                    borderRight: 'none',
                     outline: 'none',
                     WebkitTapHighlightColor: 'transparent',
                     WebkitTouchCallout: 'none',
                     WebkitUserSelect: 'none',
                     userSelect: 'none',
-                    textDecorationLine: 'none',
-                    textDecorationStyle: 'none',
-                    textDecorationColor: 'transparent',
-                    borderBottom: 'none',
-                    borderTop: 'none',
-                    borderLeft: 'none',
-                    borderRight: 'none',
                     WebkitTextDecoration: 'none',
                     MozTextDecoration: 'none',
                     MsTextDecoration: 'none',
@@ -171,39 +205,33 @@ const CustomerDetail = ({
                 >
                   {selectedCustomer.phones[0].number}
                 </div>
-                <button
-                  onClick={() => handlePhoneClick(selectedCustomer.phones[0].number)}
-                  className="bg-green-50 hover:bg-green-100 p-2.5 rounded-lg transition-colors shrink-0 flex items-center justify-center"
-                >
-                  <PhoneForwarded size={18} className="text-green-600" />
-                </button>
               </>
             )}
           </div>
 
-          {/* 第三行：地址符號 + 地址 + 導航符號 */}
+          {/* 第三行：地址符號 + 地址 */}
           {selectedCustomer.address && (
             <div className="flex items-center gap-3">
               <div className="bg-blue-50 p-2.5 rounded-xl text-blue-600 shrink-0 flex items-center justify-center">
                 <MapPin size={20} strokeWidth={2.5} />
               </div>
               <div 
-                className="flex-1 text-base text-slate-500 leading-relaxed min-w-0"
+                className="flex-1 text-base text-slate-500 leading-relaxed min-w-0 no-address-decoration"
                 style={{ 
                   textDecoration: 'none',
+                  textDecorationLine: 'none',
+                  textDecorationStyle: 'none',
+                  textDecorationColor: 'transparent',
                   border: 'none',
+                  borderBottom: 'none',
+                  borderTop: 'none',
+                  borderLeft: 'none',
+                  borderRight: 'none',
                   outline: 'none',
                   WebkitTapHighlightColor: 'transparent',
                   WebkitTouchCallout: 'none',
                   WebkitUserSelect: 'none',
                   userSelect: 'none',
-                  textDecorationLine: 'none',
-                  textDecorationStyle: 'none',
-                  textDecorationColor: 'transparent',
-                  borderBottom: 'none',
-                  borderTop: 'none',
-                  borderLeft: 'none',
-                  borderRight: 'none',
                   WebkitTextDecoration: 'none',
                   MozTextDecoration: 'none',
                   MsTextDecoration: 'none',
@@ -214,12 +242,6 @@ const CustomerDetail = ({
               >
                 {selectedCustomer.address}
               </div>
-              <button
-                onClick={handleAddressClick}
-                className="bg-blue-50 hover:bg-blue-100 p-2.5 rounded-lg transition-colors shrink-0 flex items-center justify-center"
-              >
-                <Navigation size={18} className="text-blue-600" />
-              </button>
             </div>
           )}
 
@@ -333,4 +355,3 @@ const CustomerDetail = ({
 };
 
 export default CustomerDetail;
-
