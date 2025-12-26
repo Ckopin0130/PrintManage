@@ -265,7 +265,7 @@ const SortableBigCategory = ({ category, count, onClick, isActive }) => {
     const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1, zIndex: isDragging ? 50 : 'auto' };
     const Icon = ICON_MAP[category.icon] || MapPin;
     return (
-        <div ref={setNodeRef} style={style} className={`w-full bg-white p-4 rounded-2xl shadow-sm border flex items-center active:scale-[0.98] transition-all group mb-3 relative cursor-pointer ${isActive ? 'border-blue-500 ring-2 ring-blue-100' : 'border-slate-100 hover:border-blue-200'}`} onClick={onClick}>
+        <div ref={setNodeRef} style={style} className={`w-full bg-white p-4 rounded-2xl shadow-sm border flex items-center active:scale-[0.98] transition-all group relative cursor-pointer ${isActive ? 'border-blue-500 ring-2 ring-blue-100' : 'border-slate-100 hover:border-blue-200'}`} onClick={onClick}>
             <div className={`p-3.5 rounded-2xl mr-4 border transition-colors shadow-sm ${category.bg} ${category.color} ${category.border}`}>
                 <Icon size={24} strokeWidth={2.5} />
             </div>
@@ -284,7 +284,7 @@ const SortableGroupRow = ({ id, title, count, onClick, index }) => {
     const color = getColor(index);
 
     return (
-        <div ref={setNodeRef} style={style} onClick={onClick} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-[0_1px_3px_rgb(0,0,0,0.02)] active:scale-[0.99] transition-all cursor-pointer flex items-center justify-between mb-3 hover:border-blue-200 hover:shadow-md group">
+        <div ref={setNodeRef} style={style} onClick={onClick} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-[0_1px_3px_rgb(0,0,0,0.02)] active:scale-[0.99] transition-all cursor-pointer flex items-center justify-between hover:border-blue-200 hover:shadow-md group">
             <div className="flex items-center flex-1 min-w-0">
                 <div className={`p-3.5 rounded-2xl mr-4 shrink-0 ${color.bg} ${color.text}`}><MapPin size={24} /></div>
                 <div className="min-w-0">
@@ -311,7 +311,7 @@ const SortableCustomerRow = ({ item, onClick, index }) => {
     const color = getColor(index);
 
     return (
-        <div ref={setNodeRef} style={style} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-[0_1px_3px_rgb(0,0,0,0.02)] active:scale-[0.99] transition-all cursor-pointer flex items-center justify-between mb-3 hover:border-blue-200 hover:shadow-md group">
+        <div ref={setNodeRef} style={style} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-[0_1px_3px_rgb(0,0,0,0.02)] active:scale-[0.99] transition-all cursor-pointer flex items-center justify-between hover:border-blue-200 hover:shadow-md group">
             <div className="flex items-center flex-1 mr-3 gap-4" onClick={() => onClick(item)}>
                 <div className={`w-12 h-12 rounded-full ${color.bg} ${color.text} flex items-center justify-center font-bold text-lg shrink-0`}>
                     {nameFirstChar}
@@ -554,14 +554,14 @@ const CustomerRoster = ({ customers, onAddCustomer, onUpdateCustomer, onDeleteCu
       <div className="p-4 flex-1">
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
               {!selectedCatId && !searchTerm && (
-                 <div className="space-y-1 animate-in slide-in-from-left-4 duration-300">
+                 <div className="flex flex-col gap-3 animate-in slide-in-from-left-4 duration-300">
                     <SortableContext items={categories.map(c => c.id)} strategy={verticalListSortingStrategy}>
                         {categories.map(cat => <SortableBigCategory key={cat.id} category={cat} count={catCounts[cat.id] || 0} onClick={() => setSelectedCatId(cat.id)} />)}
                     </SortableContext>
                  </div>
               )}
               {selectedCatId && !activeGroup && !searchTerm && (
-                  <div className="animate-in slide-in-from-right-4 duration-300 space-y-1">
+                  <div className="animate-in slide-in-from-right-4 duration-300 flex flex-col gap-3">
                       {groups.length === 0 ? <div className="col-span-full text-center text-slate-400 mt-20"><Box size={48} className="mx-auto mb-3 opacity-20"/><p className="font-bold">此分類無客戶</p></div> : (
                           <SortableContext items={groups} strategy={verticalListSortingStrategy}>
                               {groups.map((gName, index) => <SortableGroupRow key={gName} id={gName} title={gName} count={itemsInCurrentCat.filter(i => (i.L2_district || '未分區') === gName).length} onClick={() => setActiveGroup(gName)} index={index} />)}
@@ -570,7 +570,7 @@ const CustomerRoster = ({ customers, onAddCustomer, onUpdateCustomer, onDeleteCu
                   </div>
               )}
               {(activeGroup || (selectedCatId && searchTerm) || (!selectedCatId && searchTerm)) && (
-                  <div className="space-y-1 animate-in slide-in-from-right-4 duration-300">
+                  <div className="flex flex-col gap-3 animate-in slide-in-from-right-4 duration-300">
                        {currentItems.length === 0 ? <div className="p-8 text-center text-slate-400">沒有找到相符的客戶</div> : (
                            <SortableContext items={currentItems.map(i => i.customerID)} strategy={verticalListSortingStrategy}>
                                 {currentItems.map((item, index) => <SortableCustomerRow key={item.customerID} item={item} onClick={handleCustomerClick} index={index} />)}
