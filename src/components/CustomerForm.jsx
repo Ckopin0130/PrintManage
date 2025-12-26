@@ -1,15 +1,29 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save, Trash2, Building2, User, Phone, PhoneForwarded, MapPin, Navigation, Info, Printer, AlertTriangle } from 'lucide-react';
 
+// 清理函數：如果 addressNote 看起來像是錯誤的資料（例如只有數字或與 notes 相同），則清空
+const cleanAddressNote = (addressNote, notes) => {
+  if (!addressNote || addressNote.trim() === '') return '';
+  // 如果 addressNote 與 notes 相同，則清空（可能是舊資料錯誤）
+  if (notes && addressNote === notes) return '';
+  // 如果 addressNote 只有數字且長度很短（可能是錯誤的資料），則清空
+  if (/^\d+$/.test(addressNote.trim()) && addressNote.trim().length <= 3) return '';
+  return addressNote;
+};
+
 const CustomerForm = ({ mode, initialData, onSubmit, onCancel, onDelete }) => {
   const isEdit = mode === 'edit';
+
   const [formData, setFormData] = useState({
       name: initialData.name || '',
       L1_group: initialData.L1_group || '屏東區',
       L2_district: initialData.L2_district || '',
       address: initialData.address || '',
-      // 確保 addressNote 和 notes 完全分開，只使用 addressNote 欄位
-      addressNote: (initialData.addressNote !== undefined && initialData.addressNote !== null) ? initialData.addressNote : '',
+      // 確保 addressNote 和 notes 完全分開，並清理錯誤的資料
+      addressNote: cleanAddressNote(
+        (initialData.addressNote !== undefined && initialData.addressNote !== null) ? initialData.addressNote : '',
+        (initialData.notes !== undefined && initialData.notes !== null) ? initialData.notes : ''
+      ),
       phoneLabel: initialData.phones?.[0]?.label || '主要電話',
       phoneNumber: initialData.phones?.[0]?.number || '',
       model: initialData.assets?.[0]?.model || '',
@@ -21,18 +35,21 @@ const CustomerForm = ({ mode, initialData, onSubmit, onCancel, onDelete }) => {
   // 當 initialData 變化時，更新 formData
   useEffect(() => {
     if (initialData && Object.keys(initialData).length > 0) {
+      const notes = (initialData.notes !== undefined && initialData.notes !== null) ? initialData.notes : '';
+      const addressNote = (initialData.addressNote !== undefined && initialData.addressNote !== null) ? initialData.addressNote : '';
+      
       setFormData({
         name: initialData.name || '',
         L1_group: initialData.L1_group || '屏東區',
         L2_district: initialData.L2_district || '',
         address: initialData.address || '',
-        // 確保 addressNote 和 notes 完全分開，只使用 addressNote 欄位
-        addressNote: (initialData.addressNote !== undefined && initialData.addressNote !== null) ? initialData.addressNote : '',
+        // 確保 addressNote 和 notes 完全分開，並清理錯誤的資料
+        addressNote: cleanAddressNote(addressNote, notes),
         phoneLabel: initialData.phones?.[0]?.label || '主要電話',
         phoneNumber: initialData.phones?.[0]?.number || '',
         model: initialData.assets?.[0]?.model || '',
         // 確保 notes 和 addressNote 完全分開，只使用 notes 欄位
-        notes: (initialData.notes !== undefined && initialData.notes !== null) ? initialData.notes : '',
+        notes: notes,
         contactPerson: initialData.contactPerson || ''
       });
     }
