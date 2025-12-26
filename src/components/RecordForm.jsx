@@ -333,7 +333,6 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
                       />
                     </div>
                 </div>
-                </div>
             </section>
 
             {/* 3. 零件更換 - 優化設計 */}
