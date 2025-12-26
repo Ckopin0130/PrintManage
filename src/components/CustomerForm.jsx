@@ -8,11 +8,13 @@ const CustomerForm = ({ mode, initialData, onSubmit, onCancel, onDelete }) => {
       L1_group: initialData.L1_group || '屏東區',
       L2_district: initialData.L2_district || '',
       address: initialData.address || '',
-      addressNote: initialData.addressNote || '',
+      // 確保 addressNote 和 notes 完全分開，只使用 addressNote 欄位
+      addressNote: (initialData.addressNote !== undefined && initialData.addressNote !== null) ? initialData.addressNote : '',
       phoneLabel: initialData.phones?.[0]?.label || '主要電話',
       phoneNumber: initialData.phones?.[0]?.number || '',
       model: initialData.assets?.[0]?.model || '',
-      notes: initialData.notes || '',
+      // 確保 notes 和 addressNote 完全分開，只使用 notes 欄位
+      notes: (initialData.notes !== undefined && initialData.notes !== null) ? initialData.notes : '',
       contactPerson: initialData.contactPerson || ''
   });
 
@@ -24,11 +26,13 @@ const CustomerForm = ({ mode, initialData, onSubmit, onCancel, onDelete }) => {
         L1_group: initialData.L1_group || '屏東區',
         L2_district: initialData.L2_district || '',
         address: initialData.address || '',
-        addressNote: initialData.addressNote || '',
+        // 確保 addressNote 和 notes 完全分開，只使用 addressNote 欄位
+        addressNote: (initialData.addressNote !== undefined && initialData.addressNote !== null) ? initialData.addressNote : '',
         phoneLabel: initialData.phones?.[0]?.label || '主要電話',
         phoneNumber: initialData.phones?.[0]?.number || '',
         model: initialData.assets?.[0]?.model || '',
-        notes: initialData.notes || '',
+        // 確保 notes 和 addressNote 完全分開，只使用 notes 欄位
+        notes: (initialData.notes !== undefined && initialData.notes !== null) ? initialData.notes : '',
         contactPerson: initialData.contactPerson || ''
       });
     }

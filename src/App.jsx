@@ -428,7 +428,8 @@ export default function App() {
       L1_group: formData.L1_group !== undefined ? formData.L1_group : baseCustomer.L1_group,
       L2_district: formData.L2_district !== undefined ? formData.L2_district : baseCustomer.L2_district,
       address: formData.address !== undefined ? formData.address : baseCustomer.address,
-      addressNote: formData.addressNote !== undefined ? formData.addressNote : (baseCustomer.addressNote || ''),
+      // 確保 addressNote 和 notes 完全分開，只使用 addressNote 欄位
+      addressNote: formData.addressNote !== undefined ? formData.addressNote : ((baseCustomer.addressNote !== undefined && baseCustomer.addressNote !== null) ? baseCustomer.addressNote : ''),
       contactPerson: formData.contactPerson !== undefined ? formData.contactPerson : (baseCustomer.contactPerson || ''),
       phones: updatedPhones || baseCustomer.phones || [],
       assets: updatedAssets || baseCustomer.assets || [],
