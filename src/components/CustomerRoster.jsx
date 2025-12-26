@@ -284,9 +284,9 @@ const SortableGroupRow = ({ id, title, count, onClick, index }) => {
     const color = getColor(index);
 
     return (
-        <div ref={setNodeRef} style={style} onClick={onClick} className="bg-white p-3.5 rounded-xl border border-slate-100 shadow-[0_1px_3px_rgb(0,0,0,0.02)] active:scale-[0.99] transition-all cursor-pointer flex items-center justify-between mb-3 hover:border-blue-200 hover:shadow-md group">
+        <div ref={setNodeRef} style={style} onClick={onClick} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-[0_1px_3px_rgb(0,0,0,0.02)] active:scale-[0.99] transition-all cursor-pointer flex items-center justify-between mb-3 hover:border-blue-200 hover:shadow-md group">
             <div className="flex items-center flex-1 min-w-0">
-                <div className={`p-2.5 rounded-lg mr-3.5 shrink-0 ${color.bg} ${color.text}`}><MapPin size={20} /></div>
+                <div className={`p-3.5 rounded-2xl mr-4 shrink-0 ${color.bg} ${color.text}`}><MapPin size={24} /></div>
                 <div className="min-w-0">
                     <h3 className="text-base font-extrabold text-slate-800 truncate mb-0.5">{title}</h3>
                     <div className="flex items-center gap-2 text-xs font-bold text-slate-400">
@@ -311,9 +311,9 @@ const SortableCustomerRow = ({ item, onClick, index }) => {
     const color = getColor(index);
 
     return (
-        <div ref={setNodeRef} style={style} className="bg-white p-3.5 rounded-xl border border-slate-100 shadow-[0_1px_3px_rgb(0,0,0,0.02)] active:scale-[0.99] transition-all cursor-pointer flex items-center justify-between mb-3 hover:border-blue-200 hover:shadow-md group">
-            <div className="flex items-center flex-1 mr-3 gap-3" onClick={() => onClick(item)}>
-                <div className={`w-10 h-10 rounded-full ${color.bg} ${color.text} flex items-center justify-center font-bold text-base shrink-0`}>
+        <div ref={setNodeRef} style={style} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-[0_1px_3px_rgb(0,0,0,0.02)] active:scale-[0.99] transition-all cursor-pointer flex items-center justify-between mb-3 hover:border-blue-200 hover:shadow-md group">
+            <div className="flex items-center flex-1 mr-3 gap-4" onClick={() => onClick(item)}>
+                <div className={`w-12 h-12 rounded-full ${color.bg} ${color.text} flex items-center justify-center font-bold text-lg shrink-0`}>
                     {nameFirstChar}
                 </div>
                 <div className="flex-1 min-w-0">
