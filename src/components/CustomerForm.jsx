@@ -95,30 +95,21 @@ const CustomerForm = ({ mode, initialData, onSubmit, onCancel, onDelete }) => {
             <div className="bg-blue-50 p-2.5 rounded-xl text-blue-600 shrink-0 flex items-center justify-center">
               <Building2 size={20} strokeWidth={2.5} />
             </div>
-            <div className="flex-1 min-w-0 flex items-center gap-2">
+            <div className="flex-1 min-w-0">
               <input
                 required
                 type="text"
                 placeholder="輸入客戶名稱"
-                className="flex-1 text-base font-bold text-slate-800 bg-transparent border-none outline-none placeholder:text-slate-400"
+                className="w-full text-base font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300"
                 value={formData.name}
                 onChange={e => setFormData({...formData, name: e.target.value})}
               />
-              {isEdit && formData.L2_district && (
-                <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded flex-shrink-0">
-                  {formData.L2_district}
-                </span>
-              )}
-              {!isEdit && (
-                <input
-                  type="text"
-                  placeholder="地區"
-                  className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded flex-shrink-0 w-20"
-                  value={formData.L2_district}
-                  onChange={e => setFormData({...formData, L2_district: e.target.value})}
-                />
-              )}
             </div>
+            {isEdit && formData.L2_district && (
+              <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded shrink-0">
+                {formData.L2_district}
+              </span>
+            )}
           </div>
 
           {/* 第二行：聯絡人 + 電話（與詳情卡片一致） */}
@@ -130,7 +121,7 @@ const CustomerForm = ({ mode, initialData, onSubmit, onCancel, onDelete }) => {
               <input
                 type="text"
                 placeholder="聯絡人"
-                className="w-full text-base font-bold text-slate-800 bg-transparent border-none outline-none placeholder:text-slate-400"
+                className="w-full text-base font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-100 focus:border-emerald-300"
                 value={formData.contactPerson}
                 onChange={e => setFormData({...formData, contactPerson: e.target.value})}
               />
@@ -142,7 +133,7 @@ const CustomerForm = ({ mode, initialData, onSubmit, onCancel, onDelete }) => {
               <input
                 type="tel"
                 placeholder="電話號碼"
-                className="w-full text-base font-bold text-slate-800 bg-transparent border-none outline-none placeholder:text-slate-400"
+                className="w-full text-base font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-green-100 focus:border-green-300"
                 value={formData.phoneNumber}
                 onChange={e => setFormData({...formData, phoneNumber: e.target.value})}
               />
@@ -154,28 +145,32 @@ const CustomerForm = ({ mode, initialData, onSubmit, onCancel, onDelete }) => {
             <div className="bg-blue-50 p-2.5 rounded-xl text-blue-600 shrink-0 flex items-center justify-center">
               <MapPin size={20} strokeWidth={2.5} />
             </div>
-            <input
-              required
-              type="text"
-              placeholder="輸入完整地址"
-              className="flex-1 text-base text-slate-500 bg-transparent border-none outline-none placeholder:text-slate-400"
-              value={formData.address}
-              onChange={e => setFormData({...formData, address: e.target.value})}
-            />
+            <div className="flex-1 min-w-0">
+              <input
+                required
+                type="text"
+                placeholder="輸入完整地址"
+                className="w-full text-base text-slate-700 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300"
+                value={formData.address}
+                onChange={e => setFormData({...formData, address: e.target.value})}
+              />
+            </div>
           </div>
 
           {/* 第四行：備註 */}
           <div className="flex items-start gap-3">
-            <div className="bg-violet-50 p-2.5 rounded-xl text-violet-600 shrink-0 flex items-center justify-center">
+            <div className="bg-violet-50 p-2.5 rounded-xl text-violet-600 shrink-0 flex items-center justify-center mt-2">
               <Info size={20} strokeWidth={2.5} />
             </div>
-            <textarea
-              rows={3}
-              placeholder="其他備註..."
-              className="flex-1 text-base text-slate-700 bg-transparent border-none outline-none placeholder:text-slate-400 resize-none leading-relaxed"
-              value={formData.notes}
-              onChange={e => setFormData({...formData, notes: e.target.value})}
-            />
+            <div className="flex-1 min-w-0">
+              <textarea
+                rows={2}
+                placeholder="其他備註..."
+                className="w-full text-base text-slate-700 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-violet-100 focus:border-violet-300 resize-none leading-relaxed"
+                value={formData.notes}
+                onChange={e => setFormData({...formData, notes: e.target.value})}
+              />
+            </div>
           </div>
 
           {/* 第五行：機器型號 */}
@@ -183,13 +178,15 @@ const CustomerForm = ({ mode, initialData, onSubmit, onCancel, onDelete }) => {
             <div className="bg-amber-50 p-2.5 rounded-xl text-amber-600 shrink-0 flex items-center justify-center">
               <Printer size={20} strokeWidth={2.5} />
             </div>
-            <input
-              type="text"
-              placeholder="機器型號（例：MP 3352）"
-              className="flex-1 text-base font-bold text-slate-800 bg-transparent border-none outline-none placeholder:text-slate-400"
-              value={formData.model}
-              onChange={e => setFormData({...formData, model: e.target.value})}
-            />
+            <div className="flex-1 min-w-0">
+              <input
+                type="text"
+                placeholder="機器型號（例：MP 3352）"
+                className="w-full text-base font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-amber-100 focus:border-amber-300"
+                value={formData.model}
+                onChange={e => setFormData({...formData, model: e.target.value})}
+              />
+            </div>
           </div>
         </div>
 
