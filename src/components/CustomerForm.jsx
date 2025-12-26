@@ -121,28 +121,32 @@ const CustomerForm = ({ mode, initialData, onSubmit, onCancel, onDelete }) => {
             </div>
           </div>
 
-          {/* 第二行：聯絡人 + 電話 */}
+          {/* 第二行：聯絡人 + 電話（與詳情卡片一致） */}
           <div className="flex items-center gap-3">
             <div className="bg-emerald-50 p-2.5 rounded-xl text-emerald-600 shrink-0 flex items-center justify-center">
               <User size={20} strokeWidth={2.5} />
             </div>
-            <input
-              type="text"
-              placeholder="聯絡人"
-              className="flex-1 text-base font-bold text-slate-800 bg-transparent border-none outline-none placeholder:text-slate-400"
-              value={formData.contactPerson}
-              onChange={e => setFormData({...formData, contactPerson: e.target.value})}
-            />
+            <div className="flex-1 min-w-0">
+              <input
+                type="text"
+                placeholder="聯絡人"
+                className="w-full text-base font-bold text-slate-800 bg-transparent border-none outline-none placeholder:text-slate-400"
+                value={formData.contactPerson}
+                onChange={e => setFormData({...formData, contactPerson: e.target.value})}
+              />
+            </div>
             <div className="bg-green-50 p-2.5 rounded-xl text-green-600 shrink-0 flex items-center justify-center">
               <Phone size={20} strokeWidth={2.5} />
             </div>
-            <input
-              type="tel"
-              placeholder="電話號碼"
-              className="flex-1 text-base font-bold text-slate-800 bg-transparent border-none outline-none placeholder:text-slate-400 min-w-0"
-              value={formData.phoneNumber}
-              onChange={e => setFormData({...formData, phoneNumber: e.target.value})}
-            />
+            <div className="flex-1 min-w-0">
+              <input
+                type="tel"
+                placeholder="電話號碼"
+                className="w-full text-base font-bold text-slate-800 bg-transparent border-none outline-none placeholder:text-slate-400"
+                value={formData.phoneNumber}
+                onChange={e => setFormData({...formData, phoneNumber: e.target.value})}
+              />
+            </div>
           </div>
 
           {/* 第三行：地址 */}
