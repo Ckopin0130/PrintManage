@@ -119,6 +119,11 @@ const CustomerForm = ({ mode, initialData, onSubmit, onCancel, onDelete }) => {
                 />
               )}
             </div>
+            {/* 右側預留撥號、導航空間（表單不顯示功能鍵僅占位） */}
+            <div className="flex gap-1 ml-1">
+              <span className="inline-block w-10 h-10 align-middle" />
+              <span className="inline-block w-10 h-10 align-middle" />
+            </div>
           </div>
 
           {/* 第二行：聯絡人 */}

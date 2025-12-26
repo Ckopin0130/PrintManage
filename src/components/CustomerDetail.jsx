@@ -129,9 +129,28 @@ const CustomerDetail = ({
                 <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded">{selectedCustomer.L2_district}</span>
               )}
             </div>
+            {/* 右側撥號與導航鍵 */}
+            {(selectedCustomer.phones && selectedCustomer.phones[0]?.number) && (
+              <button
+                onClick={() => handlePhoneClick(selectedCustomer.phones[0].number)}
+                className="bg-green-50 hover:bg-green-100 p-2.5 rounded-lg transition-colors shrink-0 flex items-center justify-center ml-1"
+                title="撥號"
+              >
+                <PhoneForwarded size={18} className="text-green-600" />
+              </button>
+            )}
+            {selectedCustomer.address && (
+              <button
+                onClick={handleAddressClick}
+                className="bg-blue-50 hover:bg-blue-100 p-2.5 rounded-lg transition-colors shrink-0 flex items-center justify-center ml-1"
+                title="導航"
+              >
+                <Navigation size={18} className="text-blue-600" />
+              </button>
+            )}
           </div>
 
-          {/* 第二行：聯絡人圖標 + 欄位 + 電話符號 + 電話欄位 + 撥號鍵符號 */}
+          {/* 第二行：聯絡人圖標 + 欄位 + 電話符號 + 電話欄位 */}
           <div className="flex items-center gap-3">
             <div className="bg-emerald-50 p-2.5 rounded-xl text-emerald-600 shrink-0 flex items-center justify-center">
               <User size={20} strokeWidth={2.5} />
@@ -171,17 +190,11 @@ const CustomerDetail = ({
                 >
                   {selectedCustomer.phones[0].number}
                 </div>
-                <button
-                  onClick={() => handlePhoneClick(selectedCustomer.phones[0].number)}
-                  className="bg-green-50 hover:bg-green-100 p-2.5 rounded-lg transition-colors shrink-0 flex items-center justify-center"
-                >
-                  <PhoneForwarded size={18} className="text-green-600" />
-                </button>
               </>
             )}
           </div>
 
-          {/* 第三行：地址符號 + 地址 + 導航符號 */}
+          {/* 第三行：地址符號 + 地址 */}
           {selectedCustomer.address && (
             <div className="flex items-center gap-3">
               <div className="bg-blue-50 p-2.5 rounded-xl text-blue-600 shrink-0 flex items-center justify-center">
@@ -214,12 +227,6 @@ const CustomerDetail = ({
               >
                 {selectedCustomer.address}
               </div>
-              <button
-                onClick={handleAddressClick}
-                className="bg-blue-50 hover:bg-blue-100 p-2.5 rounded-lg transition-colors shrink-0 flex items-center justify-center"
-              >
-                <Navigation size={18} className="text-blue-600" />
-              </button>
             </div>
           )}
 
