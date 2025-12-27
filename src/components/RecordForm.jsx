@@ -1,26 +1,33 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { 
-  ArrowLeft, FileText, Zap, Trash2, Camera, Loader2, Save,
+  ArrowLeft, FileText, Trash2, Camera, Loader2, Save,
   CheckCircle, Clock, AlertCircle, ClipboardList, PhoneIncoming, Briefcase, 
-  Package, Search, Wrench, AlertTriangle, Image as ImageIcon, X, Plus, ChevronDown, ChevronUp
+  Package, Search, Wrench, AlertTriangle, Image as ImageIcon, X, Plus, 
+  Minus, Calendar, Eye, TriangleAlert, ChevronDown, Edit3, Settings
 } from 'lucide-react';
 import { ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { storage } from '../firebaseConfig'; 
 
-// --- 常數定義 ---
-const SYMPTOM_CATEGORIES = {
-  "卡紙/傳送": ["卡紙-紙匣", "卡紙-定影", "卡紙-ADF", "多張進紙", "無法進紙", "皺紙"],
-  "影像品質": ["黑線/黑帶", "白點/白線", "太淡/太濃", "底灰", "全黑/全白", "色彩偏移"],
-  "異音/硬體": ["異音-齒輪", "異音-風扇", "漏碳粉", "廢碳粉滿", "螢幕故障"],
-  "系統/網路": ["無法開機", "無法列印", "掃描失敗", "驅動問題", "韌體更新"]
+// --- 1. 常數定義 ---
+const FAULT_TABS = [
+  { id: 'sc', label: 'SC代碼', icon: TriangleAlert },
+  { id: 'jam', label: '📄 卡紙', icon: FileText },
+  { id: 'quality', label: '🖼️ 影像', icon: ImageIcon },
+  { id: 'other', label: '🔊 其他', icon: Settings },
+];
+
+const SYMPTOM_DATA = {
+  jam: ["卡紙-紙匣1", "卡紙-紙匣2", "卡紙-手送台", "卡紙-定影部", "卡紙-ADF", "卡紙-對位", "皺紙", "不進紙"],
+  quality: ["黑線/黑帶", "白點/白線", "太淡/太濃", "底灰", "全黑/全白", "色彩偏移", "定影不良", "鬼影"],
+  other: ["異音-齒輪", "異音-風扇", "漏碳粉", "廢碳粉滿", "觸控失靈", "無法開機", "網路不通", "驅動問題"]
 };
 
-const ACTION_TAGS = ["清潔", "調整", "潤滑", "更換", "韌體更新", "驅動重裝", "測試正常"];
+const ACTION_TAGS = ["清潔", "調整", "潤滑", "更換", "韌體更新", "驅動重裝", "測試正常", "保養歸零"];
 
 const STATUS_OPTIONS = [
-  { id: 'completed', label: '完修', activeColor: 'bg-emerald-600 text-white', icon: CheckCircle },
-  { id: 'pending', label: '待料', activeColor: 'bg-amber-500 text-white', icon: Clock },
-  { id: 'monitor', label: '觀察', activeColor: 'bg-blue-600 text-white', icon: AlertCircle },
+  { id: 'completed', label: '完修', color: 'text-emerald-600', activeBg: 'bg-emerald-600 text-white', icon: CheckCircle },
+  { id: 'pending', label: '待料', color: 'text-orange-500', activeBg: 'bg-orange-500 text-white', icon: Clock },
+  { id: 'monitor', label: '觀察', color: 'text-amber-500', activeBg: 'bg-amber-500 text-white', icon: Eye },
 ];
 
 const SOURCE_OPTIONS = [
@@ -29,7 +36,7 @@ const SOURCE_OPTIONS = [
   { id: 'invoice_check', label: '例行巡檢', icon: ClipboardList, color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200' },
 ];
 
-// --- 圖片處理函數 (保持原邏輯) ---
+// --- 2. 圖片處理函數 (保留原邏輯) ---
 const compressImage = (file) => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -67,42 +74,54 @@ const uploadImageToStorage = async (base64String, path) => {
   return await getDownloadURL(storageRef);
 };
 
-// --- 元件本體 ---
+// --- 3. 元件本體 ---
 const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
+    // --- State 定義 ---
     const [form, setForm] = useState(initialData);
     const [previews, setPreviews] = useState({ before: initialData.photoBefore || null, after: initialData.photoAfter || null });
     const [isSubmitting, setIsSubmitting] = useState(false);
     
-    // UI 狀態控制
-    const [hasFaultFound, setHasFaultFound] = useState(initialData.serviceSource !== 'invoice_check'); // 是否發現故障
-    const [faultCategory, setFaultCategory] = useState(initialData.errorCode ? 'sc' : 'general'); // sc, general
-    const [isPartModalOpen, setIsPartModalOpen] = useState(false); // 零件視窗開關
+    // UI 控制 State
+    const [isSourceSelected, setIsSourceSelected] = useState(!!initialData.id); // 編輯模式預設收合
+    const [hasFaultFound, setHasFaultFound] = useState(initialData.serviceSource !== 'invoice_check');
+    const [activeFaultTab, setActiveFaultTab] = useState(initialData.errorCode ? 'sc' : 'jam');
     
-    // 零件搜尋狀態
+    // 彈出視窗 State
+    const [isPartModalOpen, setIsPartModalOpen] = useState(false);
+    const [isPendingModalOpen, setIsPendingModalOpen] = useState(false);
+    const [isMonitorModalOpen, setIsMonitorModalOpen] = useState(false);
+    
+    // 攔截資料暫存 State
+    const [pendingData, setPendingData] = useState({ parts_needed: '', return_date: '' });
+    const [monitorData, setMonitorData] = useState({ tracking_days: '3' });
+    
+    // 零件搜尋 State
     const [selectedModel, setSelectedModel] = useState('ALL');
     const [partSearch, setPartSearch] = useState('');
 
     const pageTitle = form.id ? '編輯紀錄' : '新增紀錄';
-    
-    // --- 邏輯：切換任務來源 ---
+
+    // --- 4. 邏輯處理區 ---
+
+    // 任務來源切換與自動收合
     const handleSourceChange = (sourceId) => {
         let newAction = form.action;
         let isFaulty = true;
 
         if (sourceId === 'invoice_check') {
             newAction = '送發票、例行性清潔保養';
-            isFaulty = false; // 預設無故障
+            isFaulty = false; 
         } else {
-            // 如果原本是例行保養文字，切換回叫修時清空，方便工程師輸入
             if (newAction === '送發票、例行性清潔保養') newAction = '';
-            isFaulty = true; // 叫修和派工預設有故障
+            isFaulty = true;
         }
 
         setForm(prev => ({ ...prev, serviceSource: sourceId, action: newAction }));
         setHasFaultFound(isFaulty);
+        setIsSourceSelected(true); // 選完後自動收合
     };
 
-    // --- 邏輯：處理標籤點擊 ---
+    // 標籤追加邏輯 (逗號分隔)
     const appendText = (field, text) => {
         setForm(prev => {
             const currentVal = prev[field] || '';
@@ -114,7 +133,138 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
         });
     };
 
-    // --- 邏輯：零件選擇 (保持原邏輯) ---
+    // 零件邏輯：新增/減少/移除
+    const updatePartQty = (index, delta) => {
+        setForm(prev => {
+            const updatedParts = [...prev.parts];
+            const newQty = updatedParts[index].qty + delta;
+            
+            if (newQty <= 0) {
+                // 如果減到0，詢問是否移除
+                if(window.confirm('確定要移除此零件嗎？')) updatedParts.splice(index, 1);
+            } else {
+                // 檢查是否超過庫存 (只有增加時檢查)
+                if (delta > 0) {
+                    const originalItem = inventory.find(i => i.name === updatedParts[index].name);
+                    if (originalItem && newQty > originalItem.qty) {
+                        alert(`庫存不足！目前僅剩 ${originalItem.qty}`);
+                        return prev;
+                    }
+                }
+                updatedParts[index].qty = newQty;
+            }
+            return { ...prev, parts: updatedParts };
+        });
+    };
+
+    const handleAddPart = (item) => {
+        if (item.qty <= 0) return;
+        setForm(prev => {
+            const currentParts = prev.parts || [];
+            const existingIndex = currentParts.findIndex(p => p.name === item.name);
+            
+            if (existingIndex >= 0) {
+                // 已存在，數量+1
+                const updatedParts = [...currentParts];
+                if (updatedParts[existingIndex].qty + 1 > item.qty) {
+                    alert('庫存不足');
+                    return prev;
+                }
+                updatedParts[existingIndex].qty += 1;
+                return { ...prev, parts: updatedParts };
+            } else {
+                // 新增
+                return { ...prev, parts: [...currentParts, { id: Date.now(), name: item.name, qty: 1, model: item.model }] };
+            }
+        });
+    };
+
+    // 圖片邏輯
+    const handleFileChange = async (e, type) => {
+        const file = e.target.files[0];
+        if (file) {
+            try {
+                const compressedBase64 = await compressImage(file);
+                setPreviews(prev => ({ ...prev, [type]: compressedBase64 }));
+                setForm(prev => ({ ...prev, [`photo${type === 'before' ? 'Before' : 'After'}`]: compressedBase64 }));
+            } catch (err) { console.error("圖片壓縮失敗", err); alert("圖片處理失敗"); }
+        }
+    };
+    const handleRemovePhoto = (e, type) => {
+        e.preventDefault(); e.stopPropagation();
+        setPreviews(prev => ({ ...prev, [type]: null }));
+        setForm(prev => ({ ...prev, [`photo${type === 'before' ? 'Before' : 'After'}`]: null }));
+    };
+
+    // --- 5. 核心送出邏輯 (包含攔截) ---
+
+    // 真正的上傳與資料庫寫入
+    const executeSubmit = async (finalData) => {
+        setIsSubmitting(true);
+        try {
+            const uploadTasks = [];
+            let dataToSubmit = { ...finalData };
+
+            if (dataToSubmit.photoBefore && dataToSubmit.photoBefore.startsWith('data:image')) {
+                const task = uploadImageToStorage(dataToSubmit.photoBefore, `repairs/${Date.now()}_before.jpg`)
+                    .then(url => { dataToSubmit.photoBefore = url; });
+                uploadTasks.push(task);
+            }
+            if (dataToSubmit.photoAfter && dataToSubmit.photoAfter.startsWith('data:image')) {
+                const task = uploadImageToStorage(dataToSubmit.photoAfter, `repairs/${Date.now()}_after.jpg`)
+                    .then(url => { dataToSubmit.photoAfter = url; });
+                uploadTasks.push(task);
+            }
+
+            await Promise.all(uploadTasks);
+            await onSubmit(dataToSubmit); // 呼叫父層的 Firebase 寫入
+        } catch (e) {
+            console.error("存檔錯誤:", e);
+            alert(`錯誤: ${e.message}`);
+            setIsSubmitting(false);
+        }
+    };
+
+    // 預送出檢查 (Status Intercept)
+    const handlePreSubmit = () => {
+        if (isSubmitting) return;
+
+        // 1. 驗證
+        if (!form.symptom && !form.action && hasFaultFound) {
+            alert("請輸入故障情形或處理過程");
+            return;
+        }
+
+        // 2. 狀態攔截
+        if (form.status === 'pending') {
+            setIsPendingModalOpen(true);
+            return;
+        }
+        if (form.status === 'monitor') {
+            setIsMonitorModalOpen(true);
+            return;
+        }
+
+        // 3. 完修直接送出
+        executeSubmit(form);
+    };
+
+    // 待料確認送出
+    const confirmPendingSubmit = () => {
+        if (!pendingData.parts_needed) { alert('請輸入缺料名稱'); return; }
+        const mergedData = { ...form, ...pendingData };
+        setIsPendingModalOpen(false);
+        executeSubmit(mergedData);
+    };
+
+    // 觀察確認送出
+    const confirmMonitorSubmit = () => {
+        const mergedData = { ...form, ...monitorData };
+        setIsMonitorModalOpen(false);
+        executeSubmit(mergedData);
+    };
+
+    // --- 輔助計算 ---
     const uniqueModels = useMemo(() => {
         const models = new Set(inventory.map(i => i.model).filter(Boolean));
         return ['ALL', ...Array.from(models).sort()];
@@ -130,207 +280,128 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
         });
     }, [inventory, selectedModel, partSearch]);
 
-    const handleAddPart = (item) => {
-        if (item.qty <= 0) return; 
-        setForm(prev => {
-            const currentParts = prev.parts || [];
-            const existingIndex = currentParts.findIndex(p => p.name === item.name);
-            if (existingIndex >= 0) {
-                const updatedParts = [...currentParts];
-                const newQty = updatedParts[existingIndex].qty + 1;
-                if (newQty > item.qty) {
-                    alert(`庫存不足！\n目前庫存：${item.qty}`);
-                    return prev;
-                }
-                updatedParts[existingIndex].qty = newQty;
-                return { ...prev, parts: updatedParts };
-            } else {
-                return { ...prev, parts: [...currentParts, { id: Date.now(), name: item.name, qty: 1, model: item.model }] };
-            }
-        });
-        // 不關閉視窗，方便連續加入
-    };
-
-    const handleRemovePart = (index) => {
-        setForm(prev => {
-            const updatedParts = [...prev.parts];
-            if (updatedParts[index].qty > 1) {
-                updatedParts[index].qty -= 1;
-            } else {
-                updatedParts.splice(index, 1);
-            }
-            return { ...prev, parts: updatedParts };
-        });
-    };
-
-    // --- 邏輯：圖片處理 (保持原邏輯，加入 capture) ---
-    const handleFileChange = async (e, type) => {
-        const file = e.target.files[0];
-        if (file) {
-            try {
-                const compressedBase64 = await compressImage(file);
-                setPreviews(prev => ({ ...prev, [type]: compressedBase64 }));
-                setForm(prev => ({ ...prev, [`photo${type === 'before' ? 'Before' : 'After'}`]: compressedBase64 }));
-            } catch (err) { 
-                console.error("圖片壓縮失敗", err); 
-                alert("圖片處理失敗");
-            }
-        }
-    };
-
-    const handleRemovePhoto = (e, type) => {
-        e.preventDefault(); e.stopPropagation();
-        setPreviews(prev => ({ ...prev, [type]: null }));
-        setForm(prev => ({ ...prev, [`photo${type === 'before' ? 'Before' : 'After'}`]: null }));
-    };
-
-    const handleConfirm = async () => {
-        if (isSubmitting) return; 
-        if (!form.symptom && !form.action && hasFaultFound) {
-             alert("故障案件請輸入故障情形");
-             return;
-        }
-        setIsSubmitting(true);
-        let finalForm = { ...form };
-        // 如果是例行檢查且未發現故障，確保 symptom 為空，避免資料混淆
-        if (!hasFaultFound) {
-            finalForm.symptom = '';
-            finalForm.errorCode = '';
-        }
-
-        try {
-            const uploadTasks = [];
-            if (finalForm.photoBefore && finalForm.photoBefore.startsWith('data:image')) {
-                const task = uploadImageToStorage(finalForm.photoBefore, `repairs/${Date.now()}_before.jpg`)
-                    .then(url => { finalForm.photoBefore = url; });
-                uploadTasks.push(task);
-            }
-            if (finalForm.photoAfter && finalForm.photoAfter.startsWith('data:image')) {
-                const task = uploadImageToStorage(finalForm.photoAfter, `repairs/${Date.now()}_after.jpg`)
-                    .then(url => { finalForm.photoAfter = url; });
-                uploadTasks.push(task);
-            }
-            await Promise.all(uploadTasks);
-            await onSubmit(finalForm);
-        } catch (e) { 
-            console.error("表單處理錯誤:", e); 
-            alert(`存檔發生錯誤: ${e.message}`);
-            setIsSubmitting(false); 
-        }
-    };
-
+    // --- 6. UI Render ---
     return (
       <div className="bg-gray-100 min-h-screen pb-32 font-sans selection:bg-blue-100">
-        {/* Top Bar */}
-        <div className="bg-white px-4 py-3 flex items-center shadow-sm sticky top-0 z-20">
+        {/* Top Navigation */}
+        <div className="bg-white px-4 py-3 flex items-center shadow-sm sticky top-0 z-40">
             <button onClick={onCancel} className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-full"><ArrowLeft /></button>
             <h2 className="text-lg font-bold flex-1 text-center pr-8 text-slate-800">{pageTitle}</h2>
             <div className="text-sm font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded-lg">{form.date}</div>
         </div>
 
-        <main className="max-w-lg mx-auto p-3 space-y-4">
+        <main className="max-w-lg mx-auto p-3 space-y-3">
             
-            {/* 1. 任務來源 (Task Origin) */}
-            <section className="grid grid-cols-3 gap-2">
-                {SOURCE_OPTIONS.map((option) => {
-                    const Icon = option.icon;
-                    const isSelected = form.serviceSource === option.id;
-                    return (
-                        <button 
-                            key={option.id} 
-                            type="button" 
-                            onClick={() => handleSourceChange(option.id)} 
-                            className={`flex flex-col items-center justify-center py-4 rounded-xl border-2 transition-all ${isSelected ? `${option.bg} ${option.border} ${option.color} ring-1 ring-offset-1` : 'bg-white border-transparent text-gray-400 hover:bg-gray-50 shadow-sm'}`}
-                        >
-                            <Icon className="w-6 h-6 mb-1" strokeWidth={isSelected ? 2.5 : 2} />
-                            <span className="text-xs font-bold">{option.label}</span>
-                        </button>
-                     );
-                })}
+            {/* 1. 任務來源 (自動收合設計) */}
+            <section className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden transition-all duration-300">
+                {!isSourceSelected ? (
+                    // 展開模式 (Full)
+                    <div className="p-4 grid grid-cols-3 gap-2 animate-in fade-in slide-in-from-top-2">
+                        {SOURCE_OPTIONS.map((option) => {
+                            const Icon = option.icon;
+                            return (
+                                <button 
+                                    key={option.id} 
+                                    type="button" 
+                                    onClick={() => handleSourceChange(option.id)} 
+                                    className={`flex flex-col items-center justify-center py-6 rounded-xl border-2 transition-all active:scale-95 ${form.serviceSource === option.id ? `${option.bg} ${option.border} ${option.color}` : 'bg-white border-transparent text-gray-400 hover:bg-gray-50 shadow-sm'}`}
+                                >
+                                    <Icon className="w-8 h-8 mb-2" strokeWidth={2} />
+                                    <span className="text-sm font-bold">{option.label}</span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                ) : (
+                    // 收合模式 (Compact Header)
+                    <div className="flex items-center justify-between p-3 bg-blue-50/50 cursor-pointer" onClick={() => setIsSourceSelected(false)}>
+                        <div className="flex items-center gap-2">
+                            {SOURCE_OPTIONS.find(o => o.id === form.serviceSource)?.icon && 
+                                React.createElement(SOURCE_OPTIONS.find(o => o.id === form.serviceSource).icon, { className: "w-5 h-5 text-blue-600" })
+                            }
+                            <span className="font-bold text-slate-700">{SOURCE_OPTIONS.find(o => o.id === form.serviceSource)?.label || '選擇任務'}</span>
+                        </div>
+                        <div className="flex items-center gap-1 text-xs text-blue-500 font-bold">
+                            變更 <Edit3 size={12}/>
+                        </div>
+                    </div>
+                )}
+
+                {/* 例行巡檢的特殊開關 */}
+                {form.serviceSource === 'invoice_check' && isSourceSelected && (
+                    <div className="px-4 py-3 border-t border-slate-100">
+                        <div onClick={() => setHasFaultFound(!hasFaultFound)} className={`flex items-center justify-between p-3 rounded-xl border-2 cursor-pointer transition-all ${hasFaultFound ? 'bg-amber-50 border-amber-300' : 'bg-gray-50 border-transparent'}`}>
+                            <div className="flex items-center gap-3">
+                                <div className={`p-2 rounded-full ${hasFaultFound ? 'bg-amber-100 text-amber-600' : 'bg-white text-gray-400'}`}><TriangleAlert size={20} /></div>
+                                <div><div className={`font-bold text-sm ${hasFaultFound ? 'text-amber-800' : 'text-gray-600'}`}>發現故障？</div></div>
+                            </div>
+                            <div className={`w-10 h-5 rounded-full p-1 transition-colors ${hasFaultFound ? 'bg-amber-500' : 'bg-gray-300'}`}>
+                                <div className={`w-3 h-3 rounded-full bg-white shadow-sm transition-transform ${hasFaultFound ? 'translate-x-5' : 'translate-x-0'}`}></div>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </section>
 
-            {/* 例行巡檢的特殊開關 */}
-            {form.serviceSource === 'invoice_check' && (
-                <div 
-                    onClick={() => setHasFaultFound(!hasFaultFound)}
-                    className={`flex items-center justify-between p-4 rounded-xl border-2 cursor-pointer transition-all shadow-sm ${hasFaultFound ? 'bg-amber-50 border-amber-300' : 'bg-white border-white'}`}
-                >
-                    <div className="flex items-center gap-3">
-                        <div className={`p-2 rounded-full ${hasFaultFound ? 'bg-amber-100 text-amber-600' : 'bg-gray-100 text-gray-400'}`}>
-                            <AlertTriangle size={24} />
-                        </div>
-                        <div>
-                            <div className={`font-bold text-base ${hasFaultFound ? 'text-amber-800' : 'text-gray-600'}`}>發現機器故障？</div>
-                            <div className="text-xs text-gray-400">開啟後可輸入故障碼與更換零件</div>
-                        </div>
-                    </div>
-                    <div className={`w-12 h-6 rounded-full p-1 transition-colors ${hasFaultFound ? 'bg-amber-500' : 'bg-gray-200'}`}>
-                        <div className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${hasFaultFound ? 'translate-x-6' : 'translate-x-0'}`}></div>
-                    </div>
-                </div>
-            )}
-
-            {/* 2. 故障類別 (動態輸入) */}
+            {/* 2. 故障類別 (Tabs 分類) */}
             {hasFaultFound && (
-                <section className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 animate-in slide-in-from-bottom duration-300">
-                    <div className="flex gap-2 mb-4 p-1 bg-gray-100 rounded-lg">
-                        {[
-                            { id: 'sc', label: '🚨 SC代碼' },
-                            { id: 'general', label: '⚙️ 一般問題' }
-                        ].map(type => (
-                            <button 
-                                key={type.id}
-                                onClick={() => setFaultCategory(type.id)}
-                                className={`flex-1 py-2 text-sm font-bold rounded-md transition-all ${faultCategory === type.id ? 'bg-white text-slate-800 shadow-sm' : 'text-gray-400'}`}
-                            >
-                                {type.label}
-                            </button>
-                        ))}
+                <section className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden animate-in slide-in-from-bottom duration-300">
+                    {/* Tabs Header */}
+                    <div className="flex border-b border-gray-100">
+                        {FAULT_TABS.map(tab => {
+                            const Icon = tab.icon;
+                            const isActive = activeFaultTab === tab.id;
+                            return (
+                                <button key={tab.id} onClick={() => setActiveFaultTab(tab.id)} className={`flex-1 py-3 flex flex-col items-center gap-1 text-[10px] font-bold transition-colors ${isActive ? 'text-blue-600 bg-blue-50/50 border-b-2 border-blue-600' : 'text-gray-400 hover:bg-gray-50'}`}>
+                                    <Icon size={18} strokeWidth={isActive ? 2.5 : 2}/> {tab.label}
+                                </button>
+                            )
+                        })}
                     </div>
 
-                    {faultCategory === 'sc' ? (
-                        <div className="flex flex-col items-center">
-                            <label className="text-xs font-bold text-gray-400 mb-1 w-full text-left">SC CODE</label>
-                            <input 
-                                type="number" 
-                                inputMode="numeric"
-                                placeholder="例: 552" 
-                                className="w-full text-5xl font-mono font-bold text-center text-slate-800 bg-slate-50 border-b-2 border-slate-200 focus:border-blue-500 outline-none py-4 placeholder-slate-200"
-                                value={form.errorCode} 
-                                onChange={(e) => setForm({...form, errorCode: e.target.value})} 
-                            />
-                        </div>
-                    ) : (
-                        <div className="space-y-3">
-                            <input 
-                                type="text" 
-                                className="w-full text-lg font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-100" 
-                                placeholder="故障描述 (如: 卡紙)" 
-                                value={form.symptom} 
-                                onChange={(e) => setForm({...form, symptom: e.target.value})} 
-                            />
-                            {/* 快速標籤 (Chips) */}
-                            <div className="flex overflow-x-auto gap-2 pb-2 no-scrollbar">
-                                {Object.entries(SYMPTOM_CATEGORIES).map(([cat, items]) => (
-                                    items.map(item => (
+                    {/* Tabs Content */}
+                    <div className="p-4">
+                        {activeFaultTab === 'sc' ? (
+                            <div className="flex flex-col items-center py-2">
+                                <label className="text-xs font-bold text-gray-400 mb-2 w-full text-center">輸入 SC 代碼</label>
+                                <input 
+                                    type="number" 
+                                    inputMode="numeric"
+                                    placeholder="552" 
+                                    className="w-full text-6xl font-mono font-bold text-center text-slate-800 bg-transparent border-b-2 border-slate-200 focus:border-blue-500 outline-none py-2 placeholder-slate-200"
+                                    value={form.errorCode} 
+                                    onChange={(e) => setForm({...form, errorCode: e.target.value, symptom: `SC${e.target.value}`})} 
+                                />
+                            </div>
+                        ) : (
+                            <div className="space-y-3">
+                                <textarea 
+                                    rows={2}
+                                    className="w-full text-lg font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-100 resize-none" 
+                                    placeholder="描述故障狀況..." 
+                                    value={form.symptom} 
+                                    onChange={(e) => setForm({...form, symptom: e.target.value})} 
+                                />
+                                {/* Chips */}
+                                <div className="flex flex-wrap gap-2">
+                                    {(SYMPTOM_DATA[activeFaultTab] || []).map(item => (
                                         <button 
                                             key={item} 
                                             onClick={() => appendText('symptom', item)}
-                                            className="px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold whitespace-nowrap border border-slate-200 active:scale-95 active:bg-blue-100 active:text-blue-600"
+                                            className="px-3 py-1.5 bg-white text-slate-600 rounded-full text-xs font-bold border border-slate-200 shadow-sm active:scale-95 active:bg-blue-50 active:text-blue-600 active:border-blue-200"
                                         >
                                             {item}
                                         </button>
-                                    ))
-                                ))}
+                                    ))}
+                                </div>
                             </div>
-                        </div>
-                    )}
+                        )}
+                    </div>
                 </section>
             )}
 
-            {/* 3. 處理過程與零件 */}
+            {/* 3. 處理過程與零件 (合併區塊) */}
             <section className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 space-y-4">
-                {/* 處理過程 */}
                 <div>
                     <div className="flex justify-between items-center mb-2">
                         <label className="text-sm font-bold text-slate-700 flex items-center"><Wrench size={16} className="mr-1.5 text-blue-500"/> 處理過程</label>
@@ -342,7 +413,6 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
                         value={form.action} 
                         onChange={(e) => setForm({...form, action: e.target.value})} 
                     ></textarea>
-                    {/* 處理過程的快速標籤 */}
                     <div className="flex flex-wrap gap-2">
                         {ACTION_TAGS.map(tag => (
                              <button key={tag} onClick={() => appendText('action', tag)} className="px-2 py-1 bg-gray-50 text-gray-500 rounded text-xs border border-gray-200 font-bold active:bg-blue-50 active:text-blue-600">
@@ -352,90 +422,69 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
                     </div>
                 </div>
 
-                {/* 零件更換區塊 (只有發現故障才顯示) */}
+                {/* 零件更換按鈕與列表 */}
                 {(hasFaultFound || form.parts?.length > 0) && (
                     <div className="pt-4 border-t border-dashed border-gray-200">
-                        <div className="flex justify-between items-center mb-3">
-                             <label className="text-sm font-bold text-slate-700 flex items-center"><Package size={16} className="mr-1.5 text-orange-500"/> 更換零件</label>
-                             <button 
-                                onClick={() => setIsPartModalOpen(true)}
-                                className="flex items-center gap-1 bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-md shadow-blue-200 active:scale-95 transition-transform"
-                             >
-                                <Plus size={14} /> 新增零件
-                             </button>
-                        </div>
+                        <button 
+                            onClick={() => setIsPartModalOpen(true)}
+                            className="w-full py-3 bg-blue-50 text-blue-600 border border-blue-100 rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-blue-100 transition-colors"
+                        >
+                            <Package size={18} /> 新增更換零件
+                        </button>
                         
-                        {/* 已選零件列表 */}
-                        {form.parts && form.parts.length > 0 ? (
-                            <div className="space-y-2">
+                        {/* 已選零件列表 (增減器) */}
+                        {form.parts && form.parts.length > 0 && (
+                            <div className="mt-3 space-y-2">
                                 {form.parts.map((part, index) => (
-                                    <div key={index} className="flex justify-between items-center bg-blue-50 border border-blue-100 rounded-xl p-3">
-                                        <div className="flex items-center gap-2">
-                                            <div className="bg-white p-1.5 rounded-lg text-blue-500"><Package size={16}/></div>
-                                            <div>
-                                                <div className="text-sm font-bold text-slate-800">{part.name}</div>
-                                                <div className="text-[10px] text-slate-500">{part.model || '共用'}</div>
+                                    <div key={index} className="flex justify-between items-center bg-white border border-slate-200 rounded-xl p-2 shadow-sm">
+                                        <div className="flex items-center gap-2 pl-1">
+                                            <div className="bg-slate-100 p-1.5 rounded-lg text-slate-500"><Package size={16}/></div>
+                                            <div className="min-w-0 max-w-[120px]">
+                                                <div className="text-sm font-bold text-slate-800 truncate">{part.name}</div>
                                             </div>
                                         </div>
-                                        <div className="flex items-center gap-3">
-                                            <span className="font-mono font-bold text-blue-700 text-lg">x{part.qty}</span>
-                                            <button onClick={() => handleRemovePart(index)} className="p-1.5 bg-white text-rose-500 rounded-lg shadow-sm border border-rose-100"><Trash2 size={14}/></button>
+                                        <div className="flex items-center gap-3 bg-slate-50 rounded-lg p-1 border border-slate-100">
+                                            <button onClick={() => updatePartQty(index, -1)} className="p-1 text-slate-400 hover:text-rose-500 active:scale-90"><Minus size={16}/></button>
+                                            <span className="font-mono font-bold text-slate-800 w-6 text-center">{part.qty}</span>
+                                            <button onClick={() => updatePartQty(index, 1)} className="p-1 text-slate-400 hover:text-blue-500 active:scale-90"><Plus size={16}/></button>
                                         </div>
                                     </div>
                                 ))}
-                            </div>
-                        ) : (
-                            <div className="text-center py-4 bg-gray-50 rounded-xl border border-dashed border-gray-200 text-gray-400 text-xs">
-                                無更換零件
                             </div>
                         )}
                     </div>
                 )}
             </section>
 
-            {/* 4. 照片紀錄 (左右並排) */}
+            {/* 4. 照片紀錄 (並排設計) */}
             <section className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
-                <div className="flex items-center mb-3 text-sm font-bold text-slate-700"><ImageIcon size={16} className="mr-1.5 text-purple-500"/> 照片紀錄</div>
+                <div className="flex items-center mb-3 text-sm font-bold text-slate-700"><ImageIcon size={16} className="mr-1.5 text-purple-500"/> 現場照片</div>
                 <div className="grid grid-cols-2 gap-3">
-                    {/* 左：維修前 */}
-                    <div className="relative group aspect-square">
-                        <label className={`flex flex-col items-center justify-center w-full h-full border-2 border-dashed border-gray-300 rounded-xl bg-gray-50 hover:bg-white hover:border-blue-400 transition cursor-pointer overflow-hidden`}>
-                            <input type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => handleFileChange(e, 'before')} />
-                            {previews.before ? (
-                                <img src={previews.before} alt="Before" className="w-full h-full object-cover" />
-                            ) : (
-                                <>
-                                    <Camera className="w-8 h-8 mb-2 text-gray-300" />
-                                    <span className="text-xs font-bold text-gray-400">維修前</span>
-                                </>
-                            )}
-                        </label>
-                        {previews.before && <button onClick={(e) => handleRemovePhoto(e, 'before')} className="absolute top-1 right-1 bg-black/50 text-white p-1 rounded-full"><X size={12} /></button>}
-                    </div>
-                    {/* 右：完修後 */}
-                    <div className="relative group aspect-square">
-                        <label className={`flex flex-col items-center justify-center w-full h-full border-2 border-dashed border-gray-300 rounded-xl bg-gray-50 hover:bg-white hover:border-blue-400 transition cursor-pointer overflow-hidden`}>
-                            <input type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => handleFileChange(e, 'after')} />
-                            {previews.after ? (
-                                <img src={previews.after} alt="After" className="w-full h-full object-cover" />
-                            ) : (
-                                <>
-                                    <Camera className="w-8 h-8 mb-2 text-gray-300" />
-                                    <span className="text-xs font-bold text-gray-400">完修後</span>
-                                </>
-                            )}
-                        </label>
-                        {previews.after && <button onClick={(e) => handleRemovePhoto(e, 'after')} className="absolute top-1 right-1 bg-black/50 text-white p-1 rounded-full"><X size={12} /></button>}
-                    </div>
+                    {['before', 'after'].map(type => (
+                        <div key={type} className="relative group aspect-[4/3]">
+                            <label className={`flex flex-col items-center justify-center w-full h-full border-2 border-dashed border-gray-300 rounded-xl bg-gray-50 hover:bg-white hover:border-blue-400 transition cursor-pointer overflow-hidden`}>
+                                <input type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => handleFileChange(e, type)} />
+                                {previews[type] ? (
+                                    <img src={previews[type]} alt={type} className="w-full h-full object-cover" />
+                                ) : (
+                                    <>
+                                        <Camera className="w-8 h-8 mb-2 text-gray-300" />
+                                        <span className="text-xs font-bold text-gray-400">{type === 'before' ? '維修前' : '完修後'}</span>
+                                    </>
+                                )}
+                            </label>
+                            {previews[type] && <button onClick={(e) => handleRemovePhoto(e, type)} className="absolute top-1 right-1 bg-black/50 text-white p-1 rounded-full"><X size={12} /></button>}
+                        </div>
+                    ))}
                 </div>
             </section>
         </main>
 
-        {/* 5. Sticky Footer (結案與狀態) */}
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 shadow-[0_-5px_20px_-5px_rgba(0,0,0,0.1)] z-50 safe-area-bottom">
-            <div className="max-w-lg mx-auto flex flex-col gap-3">
-                {/* 狀態選擇 (縮小顯示) */}
-                <div className="flex bg-gray-100 p-1 rounded-xl">
+        {/* 5. Sticky Footer (結案狀態與送出) */}
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-3 pb-5 shadow-[0_-5px_20px_-5px_rgba(0,0,0,0.1)] z-50">
+            <div className="max-w-lg mx-auto flex gap-3 items-center">
+                {/* 狀態切換 */}
+                <div className="flex bg-gray-100 p-1 rounded-xl shrink-0">
                     {STATUS_OPTIONS.map(option => {
                         const isSelected = form.status === option.id;
                         return (
@@ -443,9 +492,10 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
                                 key={option.id} 
                                 type="button" 
                                 onClick={() => setForm({...form, status: option.id})} 
-                                className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${isSelected ? 'bg-white text-slate-800 shadow-sm' : 'text-gray-400'}`}
+                                className={`px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${isSelected ? option.activeBg + ' shadow-md' : 'text-gray-400'}`}
                             >
-                                {option.label}
+                                <option.icon size={14} />
+                                {isSelected && option.label}
                             </button>
                          )
                     })}
@@ -453,76 +503,101 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
                 
                 {/* 送出按鈕 */}
                 <button 
-                    className={`w-full py-3.5 text-white font-bold rounded-xl shadow-lg shadow-blue-200 transition-all flex items-center justify-center active:scale-[0.98] ${isSubmitting ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`} 
-                    onClick={handleConfirm} 
+                    className={`flex-1 py-3 text-white font-bold rounded-xl shadow-lg transition-all flex items-center justify-center active:scale-[0.98] ${
+                        form.status === 'pending' ? 'bg-orange-500 shadow-orange-200' : 
+                        form.status === 'monitor' ? 'bg-amber-500 shadow-amber-200' : 
+                        'bg-emerald-600 shadow-emerald-200'
+                    } ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    onClick={handlePreSubmit} 
                     disabled={isSubmitting}
                 >
                     {isSubmitting ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Save className="w-5 h-5 mr-2" />}
-                    {isSubmitting ? '資料上傳中...' : '確認並結案'}
+                    {form.status === 'pending' ? '下一步: 缺料登記' : form.status === 'monitor' ? '下一步: 設定追蹤' : '確認結案'}
                 </button>
             </div>
         </div>
 
-        {/* --- 零件選擇 Modal --- */}
+        {/* --- Modals 區塊 --- */}
+
+        {/* 1. 零件選擇 Modal */}
         {isPartModalOpen && (
             <div className="fixed inset-0 bg-black/60 z-[60] flex items-end sm:items-center justify-center animate-in fade-in" onClick={() => setIsPartModalOpen(false)}>
-                <div className="bg-white w-full max-w-lg h-[85vh] sm:h-[80vh] sm:rounded-2xl rounded-t-2xl flex flex-col shadow-2xl" onClick={e => e.stopPropagation()}>
-                    {/* Modal Header */}
+                <div className="bg-white w-full max-w-lg h-[80vh] rounded-t-2xl flex flex-col shadow-2xl" onClick={e => e.stopPropagation()}>
                     <div className="p-4 border-b border-gray-100 flex justify-between items-center">
                         <h3 className="font-bold text-lg text-slate-800">選擇零件</h3>
                         <button onClick={() => setIsPartModalOpen(false)} className="p-2 bg-gray-100 rounded-full text-gray-500"><X size={20}/></button>
                     </div>
-                    
-                    {/* Modal Search & Filter */}
                     <div className="p-4 bg-gray-50 space-y-3">
                         <div className="relative">
                             <Search className="absolute left-3 top-2.5 text-gray-400 w-4 h-4" />
-                            <input 
-                                type="text" 
-                                className="w-full bg-white border border-gray-200 rounded-xl py-2 pl-9 pr-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none" 
-                                placeholder="搜尋零件名稱..." 
-                                value={partSearch}
-                                onChange={(e) => setPartSearch(e.target.value)}
-                            />
+                            <input type="text" className="w-full bg-white border border-gray-200 rounded-xl py-2 pl-9 pr-3 text-sm outline-none" placeholder="搜尋零件..." value={partSearch} onChange={(e) => setPartSearch(e.target.value)}/>
                         </div>
                         <div className="flex overflow-x-auto gap-2 pb-1 no-scrollbar">
                             {uniqueModels.map(model => (
-                                <button key={model} onClick={() => setSelectedModel(model)} className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap border transition-all ${selectedModel === model ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-gray-500 border-gray-200'}`}>
-                                    {model === 'ALL' ? '全部型號' : model}
-                                </button>
+                                <button key={model} onClick={() => setSelectedModel(model)} className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap border ${selectedModel === model ? 'bg-slate-800 text-white' : 'bg-white text-gray-500'}`}>{model === 'ALL' ? '全部' : model}</button>
                             ))}
                         </div>
                     </div>
-
-                    {/* Inventory List */}
                     <div className="flex-1 overflow-y-auto p-4 space-y-2">
                         {filteredInventory.map(item => {
                             const outOfStock = item.qty <= 0;
-                            const isLow = item.qty < 3 && !outOfStock;
                             return (
-                                <button 
-                                    key={item.id} 
-                                    onClick={() => handleAddPart(item)} 
-                                    disabled={outOfStock} 
-                                    className={`w-full flex items-center justify-between p-3 rounded-xl border text-left transition-all ${outOfStock ? 'bg-gray-50 border-gray-100 opacity-50' : 'bg-white border-gray-100 hover:border-blue-300 hover:shadow-md active:scale-[0.98]'}`}
-                                >
+                                <button key={item.id} onClick={() => handleAddPart(item)} disabled={outOfStock} className={`w-full flex items-center justify-between p-3 rounded-xl border text-left active:scale-[0.98] ${outOfStock ? 'bg-gray-50 opacity-50' : 'bg-white hover:border-blue-300'}`}>
                                     <div className="flex-1 mr-3 min-w-0">
                                         <div className="font-bold text-slate-800 text-sm mb-1">{item.name}</div>
                                         <div className="text-[10px] text-slate-400 bg-slate-50 px-2 py-0.5 rounded w-fit">{item.model || '通用'}</div>
                                     </div>
-                                    <div className={`flex flex-col items-end flex-shrink-0`}>
-                                        <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${outOfStock ? 'bg-rose-100 text-rose-600' : (isLow ? 'bg-amber-100 text-amber-600' : 'bg-emerald-100 text-emerald-600')}`}>
-                                            {outOfStock ? '缺貨' : `庫存 ${item.qty}`}
-                                        </span>
-                                    </div>
+                                    <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${outOfStock ? 'bg-rose-100 text-rose-600' : 'bg-emerald-100 text-emerald-600'}`}>{outOfStock ? '缺貨' : `庫存 ${item.qty}`}</span>
                                 </button>
                             );
                         })}
-                        {filteredInventory.length === 0 && <div className="text-center py-10 text-gray-400 text-sm">找不到相關零件</div>}
                     </div>
                 </div>
             </div>
         )}
+
+        {/* 2. 待料資訊 Modal */}
+        {isPendingModalOpen && (
+            <div className="fixed inset-0 bg-black/60 z-[70] flex items-center justify-center p-4 animate-in fade-in">
+                <div className="bg-white w-full max-w-sm rounded-2xl p-6 shadow-xl space-y-4">
+                    <h3 className="text-lg font-bold text-slate-800 flex items-center"><Clock className="mr-2 text-orange-500"/> 待料登記</h3>
+                    <div>
+                        <label className="text-sm font-bold text-slate-600 mb-1 block">缺料名稱</label>
+                        <input type="text" className="w-full border border-gray-300 rounded-lg p-2 font-bold" autoFocus placeholder="請輸入缺什麼零件..." value={pendingData.parts_needed} onChange={e => setPendingData({...pendingData, parts_needed: e.target.value})} />
+                    </div>
+                    <div>
+                        <label className="text-sm font-bold text-slate-600 mb-1 block">預計回訪日 (選填)</label>
+                        <input type="date" className="w-full border border-gray-300 rounded-lg p-2" value={pendingData.return_date} onChange={e => setPendingData({...pendingData, return_date: e.target.value})} />
+                    </div>
+                    <div className="flex gap-3 pt-2">
+                        <button onClick={() => setIsPendingModalOpen(false)} className="flex-1 py-3 bg-gray-100 font-bold text-gray-500 rounded-xl">取消</button>
+                        <button onClick={confirmPendingSubmit} className="flex-1 py-3 bg-orange-500 text-white font-bold rounded-xl shadow-lg shadow-orange-200">確認並送出</button>
+                    </div>
+                </div>
+            </div>
+        )}
+
+        {/* 3. 觀察追蹤 Modal */}
+        {isMonitorModalOpen && (
+            <div className="fixed inset-0 bg-black/60 z-[70] flex items-center justify-center p-4 animate-in fade-in">
+                <div className="bg-white w-full max-w-sm rounded-2xl p-6 shadow-xl space-y-4">
+                    <h3 className="text-lg font-bold text-slate-800 flex items-center"><Eye className="mr-2 text-amber-500"/> 設定觀察期</h3>
+                    <div>
+                        <label className="text-sm font-bold text-slate-600 mb-1 block">追蹤天數</label>
+                        <div className="flex gap-2">
+                            {['1','3','7','14'].map(d => (
+                                <button key={d} onClick={() => setMonitorData({...monitorData, tracking_days: d})} className={`flex-1 py-2 rounded-lg font-bold border ${monitorData.tracking_days === d ? 'bg-amber-500 text-white border-amber-500' : 'bg-white text-slate-600 border-gray-200'}`}>{d}天</button>
+                            ))}
+                        </div>
+                    </div>
+                    <div className="flex gap-3 pt-2">
+                        <button onClick={() => setIsMonitorModalOpen(false)} className="flex-1 py-3 bg-gray-100 font-bold text-gray-500 rounded-xl">取消</button>
+                        <button onClick={confirmMonitorSubmit} className="flex-1 py-3 bg-amber-500 text-white font-bold rounded-xl shadow-lg shadow-amber-200">確認並送出</button>
+                    </div>
+                </div>
+            </div>
+        )}
+
       </div>
     );
 };
