@@ -3,31 +3,31 @@ import {
   ArrowLeft, FileText, Trash2, Camera, Loader2, Save,
   CheckCircle, Clock, AlertCircle, ClipboardList, PhoneIncoming, Briefcase, 
   Package, Search, Wrench, AlertTriangle, Image as ImageIcon, X, Plus, 
-  Minus, Calendar, Eye, TriangleAlert, ChevronDown, Edit3, Settings
+  Minus, Eye, Settings, Edit3, ChevronRight
 } from 'lucide-react';
 import { ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { storage } from '../firebaseConfig'; 
 
-// --- 1. 常數定義 ---
+// --- 1. 常數定義 (已修正：移除鬼影，新增專業詞彙) ---
 const FAULT_TABS = [
   { id: 'sc', label: 'SC代碼', icon: TriangleAlert },
-  { id: 'jam', label: '📄 卡紙', icon: FileText },
-  { id: 'quality', label: '🖼️ 影像', icon: ImageIcon },
-  { id: 'other', label: '🔊 其他', icon: Settings },
+  { id: 'jam', label: '卡紙', icon: FileText },
+  { id: 'quality', label: '影像', icon: ImageIcon },
+  { id: 'other', label: '其他', icon: Settings },
 ];
 
-const SYMPTOM_DATA = {
-  jam: ["卡紙-紙匣1", "卡紙-紙匣2", "卡紙-手送台", "卡紙-定影部", "卡紙-ADF", "卡紙-對位", "皺紙", "不進紙"],
-  quality: ["黑線/黑帶", "白點/白線", "太淡/太濃", "底灰", "全黑/全白", "色彩偏移", "定影不良", "鬼影"],
-  other: ["異音-齒輪", "異音-風扇", "漏碳粉", "廢碳粉滿", "觸控失靈", "無法開機", "網路不通", "驅動問題"]
+const DEFAULT_SYMPTOM_DATA = {
+  jam: ["卡紙-紙匣1", "卡紙-紙匣2", "卡紙-手送台", "卡紙-定影部", "卡紙-ADF", "卡紙-對位", "卡紙-雙面單元", "不進紙"],
+  quality: ["黑線/黑帶", "白點/白線", "列印太淡", "底灰", "全黑/全白", "色彩偏移", "定影不良", "碳粉噴濺"],
+  other: ["異音-齒輪", "異音-風扇", "漏碳粉", "廢碳粉滿", "觸控失靈", "無法開機", "網路不通", "驅動問題", "ADF磨損"]
 };
 
-const ACTION_TAGS = ["清潔", "調整", "潤滑", "更換", "韌體更新", "驅動重裝", "測試正常", "保養歸零"];
+const ACTION_TAGS = ["清潔", "調整", "潤滑", "更換", "韌體更新", "驅動重裝", "測試正常", "保養歸零", "更換滾輪"];
 
 const STATUS_OPTIONS = [
-  { id: 'completed', label: '完修', color: 'text-emerald-600', activeBg: 'bg-emerald-600 text-white', icon: CheckCircle },
-  { id: 'pending', label: '待料', color: 'text-orange-500', activeBg: 'bg-orange-500 text-white', icon: Clock },
-  { id: 'monitor', label: '觀察', color: 'text-amber-500', activeBg: 'bg-amber-500 text-white', icon: Eye },
+  { id: 'completed', label: '完修', color: 'text-emerald-600', activeBg: 'bg-emerald-600 text-white', borderColor: 'border-emerald-600', icon: CheckCircle },
+  { id: 'pending', label: '待料', color: 'text-orange-500', activeBg: 'bg-orange-500 text-white', borderColor: 'border-orange-500', icon: Clock },
+  { id: 'monitor', label: '觀察', color: 'text-amber-500', activeBg: 'bg-amber-500 text-white', borderColor: 'border-amber-500', icon: Eye },
 ];
 
 const SOURCE_OPTIONS = [
@@ -82,10 +82,17 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     
     // UI 控制 State
-    const [isSourceSelected, setIsSourceSelected] = useState(!!initialData.id); // 編輯模式預設收合
+    const [isSourceSelected, setIsSourceSelected] = useState(!!initialData.id); 
     const [hasFaultFound, setHasFaultFound] = useState(initialData.serviceSource !== 'invoice_check');
     const [activeFaultTab, setActiveFaultTab] = useState(initialData.errorCode ? 'sc' : 'jam');
     
+    // 自訂標籤 State (讀取 LocalStorage)
+    const [customTags, setCustomTags] = useState(() => {
+        try {
+            return JSON.parse(localStorage.getItem('my_custom_tags')) || {};
+        } catch { return {}; }
+    });
+
     // 彈出視窗 State
     const [isPartModalOpen, setIsPartModalOpen] = useState(false);
     const [isPendingModalOpen, setIsPendingModalOpen] = useState(false);
@@ -118,7 +125,7 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
 
         setForm(prev => ({ ...prev, serviceSource: sourceId, action: newAction }));
         setHasFaultFound(isFaulty);
-        setIsSourceSelected(true); // 選完後自動收合
+        setIsSourceSelected(true); 
     };
 
     // 標籤追加邏輯 (逗號分隔)
@@ -133,17 +140,41 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
         });
     };
 
-    // 零件邏輯：新增/減少/移除
+    // 新增自訂標籤邏輯
+    const handleAddCustomTag = (category) => {
+        const newTag = window.prompt("請輸入新的標籤名稱：");
+        if (newTag && newTag.trim() !== "") {
+            const trimmedTag = newTag.trim();
+            const currentCategoryTags = customTags[category] || [];
+            if (!currentCategoryTags.includes(trimmedTag)) {
+                const updatedTags = { ...customTags, [category]: [...currentCategoryTags, trimmedTag] };
+                setCustomTags(updatedTags);
+                localStorage.setItem('my_custom_tags', JSON.stringify(updatedTags)); // 儲存到手機
+                // 自動選取剛新增的標籤
+                appendText(category === 'action' ? 'action' : 'symptom', trimmedTag);
+            }
+        }
+    };
+
+    // SC 代碼輸入邏輯
+    const handleSCTyping = (e) => {
+        const val = e.target.value;
+        setForm({
+            ...form, 
+            errorCode: val, 
+            symptom: val ? `故障碼 ${val}` : '' // 修正：改成使用者要求的格式
+        });
+    };
+
+    // 零件邏輯
     const updatePartQty = (index, delta) => {
         setForm(prev => {
             const updatedParts = [...prev.parts];
             const newQty = updatedParts[index].qty + delta;
             
             if (newQty <= 0) {
-                // 如果減到0，詢問是否移除
                 if(window.confirm('確定要移除此零件嗎？')) updatedParts.splice(index, 1);
             } else {
-                // 檢查是否超過庫存 (只有增加時檢查)
                 if (delta > 0) {
                     const originalItem = inventory.find(i => i.name === updatedParts[index].name);
                     if (originalItem && newQty > originalItem.qty) {
@@ -162,9 +193,7 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
         setForm(prev => {
             const currentParts = prev.parts || [];
             const existingIndex = currentParts.findIndex(p => p.name === item.name);
-            
             if (existingIndex >= 0) {
-                // 已存在，數量+1
                 const updatedParts = [...currentParts];
                 if (updatedParts[existingIndex].qty + 1 > item.qty) {
                     alert('庫存不足');
@@ -173,7 +202,6 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
                 updatedParts[existingIndex].qty += 1;
                 return { ...prev, parts: updatedParts };
             } else {
-                // 新增
                 return { ...prev, parts: [...currentParts, { id: Date.now(), name: item.name, qty: 1, model: item.model }] };
             }
         });
@@ -198,7 +226,6 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
 
     // --- 5. 核心送出邏輯 (包含攔截) ---
 
-    // 真正的上傳與資料庫寫入
     const executeSubmit = async (finalData) => {
         setIsSubmitting(true);
         try {
@@ -217,7 +244,7 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
             }
 
             await Promise.all(uploadTasks);
-            await onSubmit(dataToSubmit); // 呼叫父層的 Firebase 寫入
+            await onSubmit(dataToSubmit);
         } catch (e) {
             console.error("存檔錯誤:", e);
             alert(`錯誤: ${e.message}`);
@@ -225,17 +252,14 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
         }
     };
 
-    // 預送出檢查 (Status Intercept)
     const handlePreSubmit = () => {
         if (isSubmitting) return;
 
-        // 1. 驗證
         if (!form.symptom && !form.action && hasFaultFound) {
             alert("請輸入故障情形或處理過程");
             return;
         }
 
-        // 2. 狀態攔截
         if (form.status === 'pending') {
             setIsPendingModalOpen(true);
             return;
@@ -245,11 +269,9 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
             return;
         }
 
-        // 3. 完修直接送出
         executeSubmit(form);
     };
 
-    // 待料確認送出
     const confirmPendingSubmit = () => {
         if (!pendingData.parts_needed) { alert('請輸入缺料名稱'); return; }
         const mergedData = { ...form, ...pendingData };
@@ -257,7 +279,6 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
         executeSubmit(mergedData);
     };
 
-    // 觀察確認送出
     const confirmMonitorSubmit = () => {
         const mergedData = { ...form, ...monitorData };
         setIsMonitorModalOpen(false);
@@ -280,22 +301,35 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
         });
     }, [inventory, selectedModel, partSearch]);
 
+    // 取得當前類別的所有標籤 (預設 + 自訂)
+    const getCurrentTabTags = () => {
+        if (activeFaultTab === 'sc') return [];
+        const defaultTags = DEFAULT_SYMPTOM_DATA[activeFaultTab] || [];
+        const userTags = customTags[activeFaultTab] || [];
+        return [...defaultTags, ...userTags];
+    };
+
+    const getActionTags = () => {
+        const userTags = customTags['action'] || [];
+        return [...ACTION_TAGS, ...userTags];
+    }
+
     // --- 6. UI Render ---
     return (
-      <div className="bg-gray-100 min-h-screen pb-32 font-sans selection:bg-blue-100">
+      <div className="bg-gray-100 min-h-screen pb-28 font-sans selection:bg-blue-100 flex flex-col">
         {/* Top Navigation */}
-        <div className="bg-white px-4 py-3 flex items-center shadow-sm sticky top-0 z-40">
+        <div className="bg-white px-4 py-3 flex items-center shadow-sm sticky top-0 z-40 shrink-0">
             <button onClick={onCancel} className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-full"><ArrowLeft /></button>
             <h2 className="text-lg font-bold flex-1 text-center pr-8 text-slate-800">{pageTitle}</h2>
             <div className="text-sm font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded-lg">{form.date}</div>
         </div>
 
-        <main className="max-w-lg mx-auto p-3 space-y-3">
+        {/* Scrollable Content */}
+        <div className="flex-1 overflow-y-auto p-3 space-y-3">
             
-            {/* 1. 任務來源 (自動收合設計) */}
+            {/* 1. 任務來源 */}
             <section className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden transition-all duration-300">
                 {!isSourceSelected ? (
-                    // 展開模式 (Full)
                     <div className="p-4 grid grid-cols-3 gap-2 animate-in fade-in slide-in-from-top-2">
                         {SOURCE_OPTIONS.map((option) => {
                             const Icon = option.icon;
@@ -313,7 +347,6 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
                         })}
                     </div>
                 ) : (
-                    // 收合模式 (Compact Header)
                     <div className="flex items-center justify-between p-3 bg-blue-50/50 cursor-pointer" onClick={() => setIsSourceSelected(false)}>
                         <div className="flex items-center gap-2">
                             {SOURCE_OPTIONS.find(o => o.id === form.serviceSource)?.icon && 
@@ -327,7 +360,6 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
                     </div>
                 )}
 
-                {/* 例行巡檢的特殊開關 */}
                 {form.serviceSource === 'invoice_check' && isSourceSelected && (
                     <div className="px-4 py-3 border-t border-slate-100">
                         <div onClick={() => setHasFaultFound(!hasFaultFound)} className={`flex items-center justify-between p-3 rounded-xl border-2 cursor-pointer transition-all ${hasFaultFound ? 'bg-amber-50 border-amber-300' : 'bg-gray-50 border-transparent'}`}>
@@ -343,56 +375,56 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
                 )}
             </section>
 
-            {/* 2. 故障類別 (Tabs 分類) */}
+            {/* 2. 故障類別 (Tabs 分類 - 修正：圖示加大) */}
             {hasFaultFound && (
                 <section className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden animate-in slide-in-from-bottom duration-300">
-                    {/* Tabs Header */}
                     <div className="flex border-b border-gray-100">
                         {FAULT_TABS.map(tab => {
                             const Icon = tab.icon;
                             const isActive = activeFaultTab === tab.id;
                             return (
-                                <button key={tab.id} onClick={() => setActiveFaultTab(tab.id)} className={`flex-1 py-3 flex flex-col items-center gap-1 text-[10px] font-bold transition-colors ${isActive ? 'text-blue-600 bg-blue-50/50 border-b-2 border-blue-600' : 'text-gray-400 hover:bg-gray-50'}`}>
-                                    <Icon size={18} strokeWidth={isActive ? 2.5 : 2}/> {tab.label}
+                                <button key={tab.id} onClick={() => setActiveFaultTab(tab.id)} className={`flex-1 py-3 flex items-center justify-center gap-2 text-sm font-bold transition-colors ${isActive ? 'text-blue-600 bg-blue-50/50 border-b-2 border-blue-600' : 'text-gray-400 hover:bg-gray-50'}`}>
+                                    <Icon size={20} strokeWidth={isActive ? 2.5 : 2}/> {tab.label}
                                 </button>
                             )
                         })}
                     </div>
 
-                    {/* Tabs Content */}
                     <div className="p-4">
                         {activeFaultTab === 'sc' ? (
-                            <div className="flex flex-col items-center py-2">
-                                <label className="text-xs font-bold text-gray-400 mb-2 w-full text-center">輸入 SC 代碼</label>
+                            // 修正：SC 代碼靠左輸入
+                            <div className="flex items-center gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                                <label className="font-bold text-slate-500 whitespace-nowrap text-lg">輸入代碼</label>
+                                <div className="h-8 w-px bg-slate-300 mx-1"></div>
                                 <input 
                                     type="number" 
                                     inputMode="numeric"
                                     placeholder="552" 
-                                    className="w-full text-6xl font-mono font-bold text-center text-slate-800 bg-transparent border-b-2 border-slate-200 focus:border-blue-500 outline-none py-2 placeholder-slate-200"
+                                    className="flex-1 text-4xl font-mono font-bold text-slate-800 bg-transparent outline-none placeholder-slate-200"
                                     value={form.errorCode} 
-                                    onChange={(e) => setForm({...form, errorCode: e.target.value, symptom: `SC${e.target.value}`})} 
+                                    onChange={handleSCTyping} 
                                 />
                             </div>
                         ) : (
                             <div className="space-y-3">
+                                {/* 修正：Textarea 高度加大，防止第4行變小 */}
                                 <textarea 
-                                    rows={2}
-                                    className="w-full text-lg font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-100 resize-none" 
+                                    rows={4}
+                                    className="w-full text-lg font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-100 resize-none min-h-[120px]" 
                                     placeholder="描述故障狀況..." 
                                     value={form.symptom} 
                                     onChange={(e) => setForm({...form, symptom: e.target.value})} 
                                 />
-                                {/* Chips */}
                                 <div className="flex flex-wrap gap-2">
-                                    {(SYMPTOM_DATA[activeFaultTab] || []).map(item => (
-                                        <button 
-                                            key={item} 
-                                            onClick={() => appendText('symptom', item)}
-                                            className="px-3 py-1.5 bg-white text-slate-600 rounded-full text-xs font-bold border border-slate-200 shadow-sm active:scale-95 active:bg-blue-50 active:text-blue-600 active:border-blue-200"
-                                        >
+                                    {getCurrentTabTags().map(item => (
+                                        <button key={item} onClick={() => appendText('symptom', item)} className="px-3 py-1.5 bg-white text-slate-600 rounded-full text-xs font-bold border border-slate-200 shadow-sm active:scale-95 active:bg-blue-50 active:text-blue-600">
                                             {item}
                                         </button>
                                     ))}
+                                    {/* 新增：自訂標籤按鈕 */}
+                                    <button onClick={() => handleAddCustomTag(activeFaultTab)} className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-full text-xs font-bold border border-blue-100 flex items-center gap-1">
+                                        <Plus size={12}/>自訂
+                                    </button>
                                 </div>
                             </div>
                         )}
@@ -400,39 +432,38 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
                 </section>
             )}
 
-            {/* 3. 處理過程與零件 (合併區塊) */}
+            {/* 3. 處理過程 */}
             <section className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 space-y-4">
                 <div>
                     <div className="flex justify-between items-center mb-2">
                         <label className="text-sm font-bold text-slate-700 flex items-center"><Wrench size={16} className="mr-1.5 text-blue-500"/> 處理過程</label>
                     </div>
+                    {/* 修正：Textarea 高度加大 */}
                     <textarea 
-                        rows="3" 
-                        className="w-full text-base text-slate-800 bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none focus:bg-white focus:ring-2 focus:ring-blue-100 resize-none mb-2" 
+                        rows={4}
+                        className="w-full text-base text-slate-800 bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none focus:bg-white focus:ring-2 focus:ring-blue-100 resize-none mb-2 min-h-[120px]" 
                         placeholder="詳細維修內容..." 
                         value={form.action} 
                         onChange={(e) => setForm({...form, action: e.target.value})} 
                     ></textarea>
                     <div className="flex flex-wrap gap-2">
-                        {ACTION_TAGS.map(tag => (
+                        {getActionTags().map(tag => (
                              <button key={tag} onClick={() => appendText('action', tag)} className="px-2 py-1 bg-gray-50 text-gray-500 rounded text-xs border border-gray-200 font-bold active:bg-blue-50 active:text-blue-600">
                                 {tag}
                              </button>
                         ))}
+                        {/* 新增：自訂標籤按鈕 */}
+                        <button onClick={() => handleAddCustomTag('action')} className="px-2 py-1 bg-blue-50 text-blue-600 rounded text-xs border border-blue-100 font-bold flex items-center gap-1">
+                            <Plus size={10}/>自訂
+                        </button>
                     </div>
                 </div>
 
-                {/* 零件更換按鈕與列表 */}
                 {(hasFaultFound || form.parts?.length > 0) && (
                     <div className="pt-4 border-t border-dashed border-gray-200">
-                        <button 
-                            onClick={() => setIsPartModalOpen(true)}
-                            className="w-full py-3 bg-blue-50 text-blue-600 border border-blue-100 rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-blue-100 transition-colors"
-                        >
+                        <button onClick={() => setIsPartModalOpen(true)} className="w-full py-3 bg-blue-50 text-blue-600 border border-blue-100 rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-blue-100 transition-colors">
                             <Package size={18} /> 新增更換零件
                         </button>
-                        
-                        {/* 已選零件列表 (增減器) */}
                         {form.parts && form.parts.length > 0 && (
                             <div className="mt-3 space-y-2">
                                 {form.parts.map((part, index) => (
@@ -456,7 +487,7 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
                 )}
             </section>
 
-            {/* 4. 照片紀錄 (並排設計) */}
+            {/* 4. 照片紀錄 */}
             <section className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
                 <div className="flex items-center mb-3 text-sm font-bold text-slate-700"><ImageIcon size={16} className="mr-1.5 text-purple-500"/> 現場照片</div>
                 <div className="grid grid-cols-2 gap-3">
@@ -478,13 +509,14 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
                     ))}
                 </div>
             </section>
-        </main>
+        </div>
 
-        {/* 5. Sticky Footer (結案狀態與送出) */}
+        {/* 5. Sticky Footer (修正：左右 50/50 分割) */}
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-3 pb-5 shadow-[0_-5px_20px_-5px_rgba(0,0,0,0.1)] z-50">
-            <div className="max-w-lg mx-auto flex gap-3 items-center">
-                {/* 狀態切換 */}
-                <div className="flex bg-gray-100 p-1 rounded-xl shrink-0">
+            <div className="max-w-lg mx-auto flex gap-3 h-14">
+                
+                {/* 左邊 50%：狀態選擇 (Grid 佈局，按鈕變大) */}
+                <div className="w-1/2 grid grid-cols-3 gap-1 bg-gray-100 p-1 rounded-xl">
                     {STATUS_OPTIONS.map(option => {
                         const isSelected = form.status === option.id;
                         return (
@@ -492,18 +524,18 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
                                 key={option.id} 
                                 type="button" 
                                 onClick={() => setForm({...form, status: option.id})} 
-                                className={`px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${isSelected ? option.activeBg + ' shadow-md' : 'text-gray-400'}`}
+                                className={`flex flex-col items-center justify-center rounded-lg text-xs font-bold transition-all ${isSelected ? `bg-white text-slate-800 shadow-sm border border-gray-200` : 'text-gray-400'}`}
                             >
-                                <option.icon size={14} />
-                                {isSelected && option.label}
+                                <option.icon size={16} className={`mb-0.5 ${isSelected ? option.color : ''}`}/>
+                                {option.label}
                             </button>
                          )
                     })}
                 </div>
                 
-                {/* 送出按鈕 */}
+                {/* 右邊 50%：送出按鈕 */}
                 <button 
-                    className={`flex-1 py-3 text-white font-bold rounded-xl shadow-lg transition-all flex items-center justify-center active:scale-[0.98] ${
+                    className={`w-1/2 rounded-xl shadow-lg transition-all flex items-center justify-center font-bold text-white text-lg active:scale-[0.98] ${
                         form.status === 'pending' ? 'bg-orange-500 shadow-orange-200' : 
                         form.status === 'monitor' ? 'bg-amber-500 shadow-amber-200' : 
                         'bg-emerald-600 shadow-emerald-200'
@@ -511,15 +543,16 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
                     onClick={handlePreSubmit} 
                     disabled={isSubmitting}
                 >
-                    {isSubmitting ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Save className="w-5 h-5 mr-2" />}
-                    {form.status === 'pending' ? '下一步: 缺料登記' : form.status === 'monitor' ? '下一步: 設定追蹤' : '確認結案'}
+                    {isSubmitting ? <Loader2 className="w-6 h-6 animate-spin" /> : 
+                     form.status === 'pending' ? <span className="flex items-center">下一步 <ChevronRight size={20}/></span> :
+                     form.status === 'monitor' ? <span className="flex items-center">下一步 <ChevronRight size={20}/></span> :
+                     <span className="flex items-center"><Save className="mr-2" size={20}/>確認結案</span>
+                    }
                 </button>
             </div>
         </div>
 
         {/* --- Modals 區塊 --- */}
-
-        {/* 1. 零件選擇 Modal */}
         {isPartModalOpen && (
             <div className="fixed inset-0 bg-black/60 z-[60] flex items-end sm:items-center justify-center animate-in fade-in" onClick={() => setIsPartModalOpen(false)}>
                 <div className="bg-white w-full max-w-lg h-[80vh] rounded-t-2xl flex flex-col shadow-2xl" onClick={e => e.stopPropagation()}>
@@ -556,7 +589,6 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
             </div>
         )}
 
-        {/* 2. 待料資訊 Modal */}
         {isPendingModalOpen && (
             <div className="fixed inset-0 bg-black/60 z-[70] flex items-center justify-center p-4 animate-in fade-in">
                 <div className="bg-white w-full max-w-sm rounded-2xl p-6 shadow-xl space-y-4">
@@ -577,7 +609,6 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
             </div>
         )}
 
-        {/* 3. 觀察追蹤 Modal */}
         {isMonitorModalOpen && (
             <div className="fixed inset-0 bg-black/60 z-[70] flex items-center justify-center p-4 animate-in fade-in">
                 <div className="bg-white w-full max-w-sm rounded-2xl p-6 shadow-xl space-y-4">
@@ -597,7 +628,6 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
                 </div>
             </div>
         )}
-
       </div>
     );
 };
