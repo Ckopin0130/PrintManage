@@ -3,14 +3,14 @@ import {
   ArrowLeft, FileText, Trash2, Camera, Loader2, Save,
   CheckCircle, Clock, Eye, ClipboardList, PhoneIncoming, Briefcase, 
   Package, Search, Wrench, AlertTriangle, Image as ImageIcon, X, Plus, 
-  Minus, Settings, Edit3, ChevronRight
+  Minus, Settings, Edit3, ChevronRight, List
 } from 'lucide-react';
 import { ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { storage } from '../firebaseConfig'; 
 
 // --- 1. 常數定義 ---
 const FAULT_TABS = [
-  { id: 'sc', label: 'SC代碼', icon: AlertTriangle }, // 修正：使用 AlertTriangle
+  { id: 'sc', label: 'SC代碼', icon: AlertTriangle },
   { id: 'jam', label: '卡紙', icon: FileText },
   { id: 'quality', label: '影像', icon: ImageIcon },
   { id: 'other', label: '其他', icon: Settings },
@@ -25,9 +25,9 @@ const DEFAULT_SYMPTOM_DATA = {
 const ACTION_TAGS = ["清潔", "調整", "潤滑", "更換", "韌體更新", "驅動重裝", "測試正常", "保養歸零", "更換滾輪"];
 
 const STATUS_OPTIONS = [
-  { id: 'completed', label: '完修', color: 'text-emerald-600', activeBg: 'bg-emerald-600 text-white', borderColor: 'border-emerald-600', icon: CheckCircle },
-  { id: 'pending', label: '待料', color: 'text-orange-500', activeBg: 'bg-orange-500 text-white', borderColor: 'border-orange-500', icon: Clock },
-  { id: 'monitor', label: '觀察', color: 'text-amber-500', activeBg: 'bg-amber-500 text-white', borderColor: 'border-amber-500', icon: Eye },
+  { id: 'completed', label: '完修', color: 'text-emerald-600', activeBg: 'bg-emerald-600 text-white', icon: CheckCircle },
+  { id: 'pending', label: '待料', color: 'text-orange-500', activeBg: 'bg-orange-500 text-white', icon: Clock },
+  { id: 'monitor', label: '觀察', color: 'text-amber-500', activeBg: 'bg-amber-500 text-white', icon: Eye },
 ];
 
 const SOURCE_OPTIONS = [
@@ -98,6 +98,11 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
     const [isPendingModalOpen, setIsPendingModalOpen] = useState(false);
     const [isMonitorModalOpen, setIsMonitorModalOpen] = useState(false);
     
+    // 標籤管理視窗 State
+    const [isTagManagerOpen, setIsTagManagerOpen] = useState(false);
+    const [managingCategory, setManagingCategory] = useState(null); // 'action' or activeFaultTab
+    const [newTagInput, setNewTagInput] = useState('');
+
     // 攔截資料暫存 State
     const [pendingData, setPendingData] = useState({ parts_needed: '', return_date: '' });
     const [monitorData, setMonitorData] = useState({ tracking_days: '3' });
@@ -140,20 +145,35 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
         });
     };
 
-    // 新增自訂標籤邏輯
-    const handleAddCustomTag = (category) => {
-        const newTag = window.prompt("請輸入新的標籤名稱：");
-        if (newTag && newTag.trim() !== "") {
-            const trimmedTag = newTag.trim();
-            const currentCategoryTags = customTags[category] || [];
-            if (!currentCategoryTags.includes(trimmedTag)) {
-                const updatedTags = { ...customTags, [category]: [...currentCategoryTags, trimmedTag] };
-                setCustomTags(updatedTags);
-                localStorage.setItem('my_custom_tags', JSON.stringify(updatedTags)); // 儲存到手機
-                // 自動選取剛新增的標籤
-                appendText(category === 'action' ? 'action' : 'symptom', trimmedTag);
-            }
+    // --- 標籤管理邏輯 (新增/刪除) ---
+    const openTagManager = (category) => {
+        setManagingCategory(category);
+        setNewTagInput('');
+        setIsTagManagerOpen(true);
+    };
+
+    const handleAddTagInManager = () => {
+        if (!newTagInput.trim()) return;
+        const tagName = newTagInput.trim();
+        const currentCategoryTags = customTags[managingCategory] || [];
+        
+        if (!currentCategoryTags.includes(tagName)) {
+            const updatedTags = { ...customTags, [managingCategory]: [...currentCategoryTags, tagName] };
+            setCustomTags(updatedTags);
+            localStorage.setItem('my_custom_tags', JSON.stringify(updatedTags));
+            setNewTagInput('');
         }
+    };
+
+    const handleDeleteTagInManager = (tagToDelete) => {
+        if (!window.confirm(`確定要刪除標籤「${tagToDelete}」嗎？`)) return;
+        const currentCategoryTags = customTags[managingCategory] || [];
+        const updatedTags = { 
+            ...customTags, 
+            [managingCategory]: currentCategoryTags.filter(t => t !== tagToDelete) 
+        };
+        setCustomTags(updatedTags);
+        localStorage.setItem('my_custom_tags', JSON.stringify(updatedTags));
     };
 
     // SC 代碼輸入邏輯
@@ -224,7 +244,7 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
         setForm(prev => ({ ...prev, [`photo${type === 'before' ? 'Before' : 'After'}`]: null }));
     };
 
-    // --- 5. 核心送出邏輯 (包含攔截) ---
+    // --- 5. 核心送出邏輯 (包含攔截與強制狀態修正) ---
 
     const executeSubmit = async (finalData) => {
         setIsSubmitting(true);
@@ -269,18 +289,21 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
             return;
         }
 
-        executeSubmit(form);
+        // 完修狀態直接送出
+        executeSubmit({...form, status: 'completed'}); 
     };
 
     const confirmPendingSubmit = () => {
         if (!pendingData.parts_needed) { alert('請輸入缺料名稱'); return; }
-        const mergedData = { ...form, ...pendingData };
+        // 強制設定 status 為 'pending'，防止 UI 狀態未同步
+        const mergedData = { ...form, ...pendingData, status: 'pending' };
         setIsPendingModalOpen(false);
         executeSubmit(mergedData);
     };
 
     const confirmMonitorSubmit = () => {
-        const mergedData = { ...form, ...monitorData };
+        // 強制設定 status 為 'monitor'，防止 UI 狀態未同步
+        const mergedData = { ...form, ...monitorData, status: 'monitor' };
         setIsMonitorModalOpen(false);
         executeSubmit(mergedData);
     };
@@ -364,7 +387,7 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
                     <div className="px-4 py-3 border-t border-slate-100">
                         <div onClick={() => setHasFaultFound(!hasFaultFound)} className={`flex items-center justify-between p-3 rounded-xl border-2 cursor-pointer transition-all ${hasFaultFound ? 'bg-amber-50 border-amber-300' : 'bg-gray-50 border-transparent'}`}>
                             <div className="flex items-center gap-3">
-                                <div className={`p-2 rounded-full ${hasFaultFound ? 'bg-amber-100 text-amber-600' : 'bg-white text-gray-400'}`}><AlertTriangle size={20} /></div> {/* 修正：使用 AlertTriangle */}
+                                <div className={`p-2 rounded-full ${hasFaultFound ? 'bg-amber-100 text-amber-600' : 'bg-white text-gray-400'}`}><AlertTriangle size={20} /></div>
                                 <div><div className={`font-bold text-sm ${hasFaultFound ? 'text-amber-800' : 'text-gray-600'}`}>發現故障？</div></div>
                             </div>
                             <div className={`w-10 h-5 rounded-full p-1 transition-colors ${hasFaultFound ? 'bg-amber-500' : 'bg-gray-300'}`}>
@@ -419,7 +442,8 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
                                             {item}
                                         </button>
                                     ))}
-                                    <button onClick={() => handleAddCustomTag(activeFaultTab)} className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-full text-xs font-bold border border-blue-100 flex items-center gap-1">
+                                    {/* 修正：點擊後開啟管理視窗 */}
+                                    <button onClick={() => openTagManager(activeFaultTab)} className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-full text-xs font-bold border border-blue-100 flex items-center gap-1 active:bg-blue-100">
                                         <Plus size={12}/>自訂
                                     </button>
                                 </div>
@@ -448,7 +472,8 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
                                 {tag}
                              </button>
                         ))}
-                        <button onClick={() => handleAddCustomTag('action')} className="px-2 py-1 bg-blue-50 text-blue-600 rounded text-xs border border-blue-100 font-bold flex items-center gap-1">
+                        {/* 修正：點擊後開啟管理視窗 */}
+                        <button onClick={() => openTagManager('action')} className="px-2 py-1 bg-blue-50 text-blue-600 rounded text-xs border border-blue-100 font-bold flex items-center gap-1 active:bg-blue-100">
                             <Plus size={10}/>自訂
                         </button>
                     </div>
@@ -548,6 +573,53 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
         </div>
 
         {/* --- Modals 區塊 --- */}
+
+        {/* 0. 標籤管理 Modal (新增功能) */}
+        {isTagManagerOpen && (
+            <div className="fixed inset-0 bg-black/60 z-[80] flex items-center justify-center p-4 animate-in fade-in" onClick={() => setIsTagManagerOpen(false)}>
+                <div className="bg-white w-full max-w-sm rounded-2xl p-5 shadow-xl flex flex-col max-h-[70vh]" onClick={e => e.stopPropagation()}>
+                    <div className="flex justify-between items-center mb-4 border-b border-gray-100 pb-2">
+                        <h3 className="text-lg font-bold text-slate-800 flex items-center">
+                            <Settings size={18} className="mr-2 text-blue-600"/> 
+                            管理{managingCategory === 'action' ? '處理' : '故障'}標籤
+                        </h3>
+                        <button onClick={() => setIsTagManagerOpen(false)}><X size={20} className="text-gray-400"/></button>
+                    </div>
+                    
+                    {/* 標籤列表 */}
+                    <div className="flex-1 overflow-y-auto space-y-2 mb-4">
+                        {(customTags[managingCategory] || []).length === 0 ? (
+                            <div className="text-center text-gray-400 text-sm py-8">尚無自訂標籤</div>
+                        ) : (
+                            (customTags[managingCategory] || []).map((tag, idx) => (
+                                <div key={idx} className="flex justify-between items-center bg-gray-50 p-3 rounded-xl border border-gray-100">
+                                    <span className="font-bold text-slate-700">{tag}</span>
+                                    <button onClick={() => handleDeleteTagInManager(tag)} className="p-2 bg-white text-rose-500 rounded-lg shadow-sm border border-rose-100 hover:bg-rose-50"><Trash2 size={16}/></button>
+                                </div>
+                            ))
+                        )}
+                    </div>
+
+                    {/* 新增輸入框 */}
+                    <div className="flex gap-2 pt-2 border-t border-gray-100">
+                        <input 
+                            type="text" 
+                            className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 font-bold text-slate-700"
+                            placeholder="輸入新標籤名稱..."
+                            value={newTagInput}
+                            onChange={(e) => setNewTagInput(e.target.value)}
+                        />
+                        <button 
+                            onClick={handleAddTagInManager}
+                            className="bg-blue-600 text-white px-4 rounded-xl font-bold shadow-md shadow-blue-200 active:scale-95"
+                        >
+                            新增
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
+
         {isPartModalOpen && (
             <div className="fixed inset-0 bg-black/60 z-[60] flex items-end sm:items-center justify-center animate-in fade-in" onClick={() => setIsPartModalOpen(false)}>
                 <div className="bg-white w-full max-w-lg h-[80vh] rounded-t-2xl flex flex-col shadow-2xl" onClick={e => e.stopPropagation()}>
