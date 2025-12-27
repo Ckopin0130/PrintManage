@@ -1,16 +1,16 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { 
   ArrowLeft, FileText, Trash2, Camera, Loader2, Save,
-  CheckCircle, Clock, AlertCircle, ClipboardList, PhoneIncoming, Briefcase, 
+  CheckCircle, Clock, Eye, ClipboardList, PhoneIncoming, Briefcase, 
   Package, Search, Wrench, AlertTriangle, Image as ImageIcon, X, Plus, 
-  Minus, Eye, Settings, Edit3, ChevronRight
+  Minus, Settings, Edit3, ChevronRight
 } from 'lucide-react';
 import { ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { storage } from '../firebaseConfig'; 
 
-// --- 1. 常數定義 (已修正：移除鬼影，新增專業詞彙) ---
+// --- 1. 常數定義 ---
 const FAULT_TABS = [
-  { id: 'sc', label: 'SC代碼', icon: TriangleAlert },
+  { id: 'sc', label: 'SC代碼', icon: AlertTriangle }, // 修正：使用 AlertTriangle
   { id: 'jam', label: '卡紙', icon: FileText },
   { id: 'quality', label: '影像', icon: ImageIcon },
   { id: 'other', label: '其他', icon: Settings },
@@ -162,7 +162,7 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
         setForm({
             ...form, 
             errorCode: val, 
-            symptom: val ? `故障碼 ${val}` : '' // 修正：改成使用者要求的格式
+            symptom: val ? `故障碼 ${val}` : '' 
         });
     };
 
@@ -364,7 +364,7 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
                     <div className="px-4 py-3 border-t border-slate-100">
                         <div onClick={() => setHasFaultFound(!hasFaultFound)} className={`flex items-center justify-between p-3 rounded-xl border-2 cursor-pointer transition-all ${hasFaultFound ? 'bg-amber-50 border-amber-300' : 'bg-gray-50 border-transparent'}`}>
                             <div className="flex items-center gap-3">
-                                <div className={`p-2 rounded-full ${hasFaultFound ? 'bg-amber-100 text-amber-600' : 'bg-white text-gray-400'}`}><TriangleAlert size={20} /></div>
+                                <div className={`p-2 rounded-full ${hasFaultFound ? 'bg-amber-100 text-amber-600' : 'bg-white text-gray-400'}`}><AlertTriangle size={20} /></div> {/* 修正：使用 AlertTriangle */}
                                 <div><div className={`font-bold text-sm ${hasFaultFound ? 'text-amber-800' : 'text-gray-600'}`}>發現故障？</div></div>
                             </div>
                             <div className={`w-10 h-5 rounded-full p-1 transition-colors ${hasFaultFound ? 'bg-amber-500' : 'bg-gray-300'}`}>
@@ -375,7 +375,7 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
                 )}
             </section>
 
-            {/* 2. 故障類別 (Tabs 分類 - 修正：圖示加大) */}
+            {/* 2. 故障類別 (Tabs 分類) */}
             {hasFaultFound && (
                 <section className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden animate-in slide-in-from-bottom duration-300">
                     <div className="flex border-b border-gray-100">
@@ -392,7 +392,6 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
 
                     <div className="p-4">
                         {activeFaultTab === 'sc' ? (
-                            // 修正：SC 代碼靠左輸入
                             <div className="flex items-center gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
                                 <label className="font-bold text-slate-500 whitespace-nowrap text-lg">輸入代碼</label>
                                 <div className="h-8 w-px bg-slate-300 mx-1"></div>
@@ -407,7 +406,6 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
                             </div>
                         ) : (
                             <div className="space-y-3">
-                                {/* 修正：Textarea 高度加大，防止第4行變小 */}
                                 <textarea 
                                     rows={4}
                                     className="w-full text-lg font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-100 resize-none min-h-[120px]" 
@@ -421,7 +419,6 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
                                             {item}
                                         </button>
                                     ))}
-                                    {/* 新增：自訂標籤按鈕 */}
                                     <button onClick={() => handleAddCustomTag(activeFaultTab)} className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-full text-xs font-bold border border-blue-100 flex items-center gap-1">
                                         <Plus size={12}/>自訂
                                     </button>
@@ -438,7 +435,6 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
                     <div className="flex justify-between items-center mb-2">
                         <label className="text-sm font-bold text-slate-700 flex items-center"><Wrench size={16} className="mr-1.5 text-blue-500"/> 處理過程</label>
                     </div>
-                    {/* 修正：Textarea 高度加大 */}
                     <textarea 
                         rows={4}
                         className="w-full text-base text-slate-800 bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none focus:bg-white focus:ring-2 focus:ring-blue-100 resize-none mb-2 min-h-[120px]" 
@@ -452,7 +448,6 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
                                 {tag}
                              </button>
                         ))}
-                        {/* 新增：自訂標籤按鈕 */}
                         <button onClick={() => handleAddCustomTag('action')} className="px-2 py-1 bg-blue-50 text-blue-600 rounded text-xs border border-blue-100 font-bold flex items-center gap-1">
                             <Plus size={10}/>自訂
                         </button>
@@ -511,11 +506,11 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
             </section>
         </div>
 
-        {/* 5. Sticky Footer (修正：左右 50/50 分割) */}
+        {/* 5. Sticky Footer (左右 50/50 分割) */}
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-3 pb-5 shadow-[0_-5px_20px_-5px_rgba(0,0,0,0.1)] z-50">
             <div className="max-w-lg mx-auto flex gap-3 h-14">
                 
-                {/* 左邊 50%：狀態選擇 (Grid 佈局，按鈕變大) */}
+                {/* 左邊 50%：狀態選擇 */}
                 <div className="w-1/2 grid grid-cols-3 gap-1 bg-gray-100 p-1 rounded-xl">
                     {STATUS_OPTIONS.map(option => {
                         const isSelected = form.status === option.id;
