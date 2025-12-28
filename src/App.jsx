@@ -674,7 +674,7 @@ export default function App() {
         />
       )}
 
-      {(currentView === 'records' || (activeTab === 'records' && currentView !== 'detail')) && (
+      {(currentView === 'records' || (activeTab === 'records' && currentView !== 'detail' && currentView !== 'add_record' && currentView !== 'edit_record')) && (
         <RecordList 
           records={records} customers={customers} setCurrentView={setCurrentView} setActiveTab={setActiveTab}
           startEditRecord={startEditRecord} handleDeleteRecord={handleDeleteRecord} setViewingImage={setViewingImage}
