@@ -172,7 +172,6 @@ const QuickActionView = ({ customers, onSaveRecord, onCancel }) => {
             <div className="relative">
               <Search className="absolute left-3 top-3 text-slate-400" size={18} />
               <input 
-                autoFocus
                 placeholder="搜尋客戶名稱、電話..." 
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 pl-10 pr-4 font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300"
                 value={searchText}
@@ -281,16 +280,13 @@ const QuickActionView = ({ customers, onSaveRecord, onCancel }) => {
         </div>
 
         {/* 5. 建立任務表單按鈕 */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4">
-          <label className="text-sm font-bold text-slate-500 flex items-center mb-3">
-            <Check size={16} className="mr-1"/> 建立任務表單
-          </label>
+        <div className="pt-2 pb-4">
           <button 
             onClick={handleSubmit}
-            className={`w-full py-3 rounded-xl flex items-center justify-center font-bold text-base active:scale-[0.98] transition-all ${
+            className={`w-full py-3.5 rounded-xl flex items-center justify-center font-bold text-base active:scale-[0.98] transition-all ${
               selectedCustomer && description
                 ? 'bg-blue-600 text-white hover:bg-blue-700'
-                : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                : 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
             }`}
             disabled={!selectedCustomer || !description}
           >
