@@ -282,7 +282,7 @@ const QuickActionView = ({ customers, onSaveRecord, onCancel }) => {
       </div>
 
       {/* Footer Actions */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-4 pb-safe shadow-[0_-5px_20px_-5px_rgba(0,0,0,0.1)] z-40">
+      <div className="fixed bottom-16 left-0 right-0 bg-white border-t border-slate-200 p-4 shadow-[0_-5px_20px_-5px_rgba(0,0,0,0.1)] z-50">
         <div className="max-w-md mx-auto">
           <button 
             onClick={handleSubmit}
