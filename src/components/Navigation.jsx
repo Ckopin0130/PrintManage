@@ -20,20 +20,19 @@ const BottomNavigation = ({ activeTab, onTabChange, onOpenQuickAction }) => {
       <button
         key={tab.id}
         onClick={() => onTabChange(tab.id)}
-        className={`flex flex-col items-center justify-center w-16 h-full transition-all duration-300 ${
-          isActive ? '-translate-y-1' : ''
-        }`}
+        // 修正：移除 translate-y 避免跑版，改用單純的顏色變化
+        className="flex flex-col items-center justify-center flex-1 h-full active:scale-95 transition-transform"
       >
         <div 
-          className={`p-2 rounded-2xl transition-all duration-300 ${
+          className={`p-1.5 rounded-xl transition-all duration-200 ${
             isActive 
-              ? 'bg-blue-50 text-blue-600 shadow-sm ring-1 ring-blue-100 scale-110' 
-              : 'text-gray-400 hover:text-gray-600 bg-transparent'
+              ? 'bg-blue-50 text-blue-600' // 選中狀態：不放大，僅變色
+              : 'text-slate-400 bg-transparent'
           }`}
         >
-          <tab.icon size={24} strokeWidth={isActive ? 2.5 : 2} />
+          <tab.icon size={26} strokeWidth={isActive ? 2.5 : 2} />
         </div>
-        <span className={`text-[10px] font-bold mt-1 transition-colors ${isActive ? 'text-blue-600' : 'text-gray-400'}`}>
+        <span className={`text-[10px] font-bold mt-0.5 transition-colors ${isActive ? 'text-blue-600' : 'text-slate-400'}`}>
             {tab.label}
         </span>
       </button>
@@ -41,28 +40,28 @@ const BottomNavigation = ({ activeTab, onTabChange, onOpenQuickAction }) => {
   };
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-gray-100 pb-safe z-40 shadow-[0_-10px_40px_-10px_rgba(0,0,0,0.05)] h-[80px]">
-      <div className="flex justify-between items-center max-w-md mx-auto h-16 px-4 relative">
+    // 容器設定：固定高度 80px (h-20)，背景模糊，陰影
+    <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-100 pb-safe z-40 shadow-[0_-4px_20px_-4px_rgba(0,0,0,0.05)] h-20">
+      <div className="flex justify-between items-center max-w-md mx-auto h-full px-2 relative">
         
-        {/* 左側 Tabs */}
-        <div className="flex gap-2">
+        {/* 左側 Tabs (佔 40% 寬度) */}
+        <div className="flex flex-1 justify-around">
           {leftTabs.map(renderTab)}
         </div>
 
-        {/* 中間凸出的 + 號按鈕 (浮動) */}
-        <div className="absolute left-1/2 -translate-x-1/2 -top-6">
+        {/* 中間凸出的 + 號按鈕 (佔 20% 寬度，絕對定位) */}
+        <div className="w-20 relative flex justify-center">
            <button
              onClick={onOpenQuickAction}
-             className="w-16 h-16 rounded-full bg-blue-600 text-white shadow-lg shadow-blue-200 flex items-center justify-center transform transition-transform active:scale-90 hover:bg-blue-700 border-4 border-gray-50"
+             // 修正：顏色改為 bg-blue-400 (較淡)，移除下方文字
+             className="absolute -top-10 w-14 h-14 rounded-full bg-blue-400 text-white shadow-lg shadow-blue-200 flex items-center justify-center transform transition-transform active:scale-90 hover:bg-blue-500 border-4 border-slate-50"
            >
-             <Plus size={32} strokeWidth={3} />
+             <Plus size={30} strokeWidth={3} />
            </button>
-           {/* 下方文字 */}
-           <div className="text-[10px] font-bold text-gray-400 text-center mt-1">快速</div>
         </div>
 
-        {/* 右側 Tabs */}
-        <div className="flex gap-2">
+        {/* 右側 Tabs (佔 40% 寬度) */}
+        <div className="flex flex-1 justify-around">
           {rightTabs.map(renderTab)}
         </div>
 

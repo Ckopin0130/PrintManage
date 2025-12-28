@@ -8,6 +8,7 @@ const QuickActionModal = ({
   isOpen, onClose, customers, records, 
   onQuickAdd, onQuickEdit 
 }) => {
+  // 1. 所有 Hooks 必須放在最上面，不能被 return 中斷
   const [activeTab, setActiveTab] = useState('create'); // 'create' | 'recent'
   const [custSearch, setCustSearch] = useState('');
   
@@ -15,17 +16,16 @@ const QuickActionModal = ({
   const [selectedCust, setSelectedCust] = useState(null);
   const [symptom, setSymptom] = useState('');
 
-  if (!isOpen) return null;
-
   // --- 邏輯 A: 客戶搜尋 (用於新增) ---
   const filteredCustomers = useMemo(() => {
+    // 即使 isOpen 為 false，這裡也要能執行（雖然結果沒用到），以符合 React 規則
     if (!custSearch) return [];
     const lowerSearch = custSearch.toLowerCase();
     return customers.filter(c => 
       (c.name || '').toLowerCase().includes(lowerSearch) || 
       (c.phones && c.phones.some(p => (p.number || '').includes(lowerSearch))) ||
       (c.address && c.address.includes(lowerSearch))
-    ).slice(0, 5); // 只顯示前 5 筆避免太長
+    ).slice(0, 5);
   }, [customers, custSearch]);
 
   // --- 邏輯 B: 近期/未結案紀錄 (用於修改) ---
@@ -38,7 +38,6 @@ const QuickActionModal = ({
     ).sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 10);
   }, [records]);
 
-  // --- 動作處理 ---
   const handleCreateConfirm = () => {
     if (!selectedCust) return alert('請先選擇客戶');
     onQuickAdd(selectedCust, symptom);
@@ -51,6 +50,9 @@ const QuickActionModal = ({
     setCustSearch('');
     onClose();
   };
+
+  // 2. 判斷是否顯示的邏輯移到所有 Hook 之後
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black/60 z-[90] flex items-end sm:items-center justify-center animate-in fade-in" onClick={resetForm}>
