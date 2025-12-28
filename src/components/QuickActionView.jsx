@@ -134,7 +134,7 @@ const QuickActionView = ({ customers, onSaveRecord, onCancel }) => {
       </div>
 
       {/* Scrollable Content */}
-      <div className="flex-1 overflow-y-auto px-4 pt-4 space-y-4">
+      <div className="flex-1 overflow-y-auto px-4 pt-4 pb-24 space-y-4">
         
         {/* 1. 任務來源 */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4">
@@ -279,11 +279,9 @@ const QuickActionView = ({ customers, onSaveRecord, onCancel }) => {
             onChange={handlePhotoChange}
           />
         </div>
-      </div>
 
-      {/* Footer Actions */}
-      <div className="fixed bottom-16 left-0 right-0 bg-white border-t border-slate-200 p-4 shadow-[0_-5px_20px_-5px_rgba(0,0,0,0.1)] z-50">
-        <div className="max-w-md mx-auto">
+        {/* 5. 建立任務表單按鈕 */}
+        <div className="pb-4">
           <button 
             onClick={handleSubmit}
             className={`w-full py-3.5 rounded-xl flex items-center justify-center font-bold text-lg shadow-lg shadow-blue-200 active:scale-[0.98] transition-all ${
