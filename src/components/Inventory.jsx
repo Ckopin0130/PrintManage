@@ -259,8 +259,30 @@ const EditInventoryModal = ({ isOpen, onClose, onSave, onDelete, initialItem, ca
 
            <div><label className="text-sm font-bold text-slate-500 block mb-2">品名</label><input placeholder="例: 黃色碳粉" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none text-base text-slate-800 font-bold placeholder:font-normal" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} /></div>
            <div className="grid grid-cols-3 gap-3">
-              <div className="col-span-1"><label className="text-xs font-bold text-slate-400 block mb-1.5 text-center">數量</label><input type="number" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none text-center font-mono font-bold text-xl text-blue-600" value={formData.qty} onChange={e => setFormData({...formData, qty: Number(e.target.value)})} /></div>
-              <div className="col-span-1"><label className="text-xs font-bold text-slate-400 block mb-1.5 text-center">應備</label><input type="number" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none text-center font-mono font-bold text-base" value={formData.max} onChange={e => setFormData({...formData, max: Number(e.target.value)})} /></div>
+              <div className="col-span-1">
+                <label className="text-xs font-bold text-slate-400 block mb-1.5 text-center">數量</label>
+                <input 
+                  type="number"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none text-center font-mono font-bold text-xl text-blue-600" 
+                  value={formData.qty} 
+                  onChange={e => setFormData({...formData, qty: Number(e.target.value)})}
+                  onFocus={e => e.target.select()}
+                />
+              </div>
+              <div className="col-span-1">
+                <label className="text-xs font-bold text-slate-400 block mb-1.5 text-center">應備</label>
+                <input 
+                  type="number"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none text-center font-mono font-bold text-base" 
+                  value={formData.max} 
+                  onChange={e => setFormData({...formData, max: Number(e.target.value)})}
+                  onFocus={e => e.target.select()}
+                />
+              </div>
               <div className="col-span-1"><label className="text-xs font-bold text-slate-400 block mb-1.5 text-center">單位</label><input placeholder="個" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none text-center font-bold text-base" value={formData.unit} onChange={e => setFormData({...formData, unit: e.target.value})} /></div>
            </div>
         </div>

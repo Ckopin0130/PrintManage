@@ -7,7 +7,7 @@ import {
 
 const Dashboard = ({ 
   today, dbStatus, pendingTasks, todayCompletedCount, totalCustomers, 
-  setCurrentView, setActiveTab, setRosterLevel 
+  setCurrentView, setActiveTab, onQuickAction
 }) => {
 
   const [weather, setWeather] = useState({ temp: '--', condition: 'Sunny', location: '屏東市' });
@@ -69,7 +69,11 @@ const Dashboard = ({
       iconBg: 'bg-blue-50',
       info: `${totalCustomers} 戶資料`, 
       infoColor: 'text-blue-600 font-extrabold',
-      action: () => { setActiveTab('roster'); setCurrentView('roster'); setRosterLevel('l1'); } 
+      action: () => { 
+        sessionStorage.setItem('roster_from_home', 'true');
+        setActiveTab('roster'); 
+        setCurrentView('roster'); 
+      } 
     },
     { 
       id: 'records', 

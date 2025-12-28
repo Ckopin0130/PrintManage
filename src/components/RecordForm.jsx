@@ -3,7 +3,7 @@ import {
   ArrowLeft, FileText, Trash2, Camera, Loader2, Save,
   CheckCircle, Clock, Eye, ClipboardList, PhoneIncoming, Briefcase, 
   Package, Search, Wrench, AlertTriangle, Image as ImageIcon, X, Plus, 
-  Minus, Settings, Edit3, ChevronRight, RefreshCw, Pencil
+  Minus, Settings, Edit3, ChevronRight, RefreshCw, Pencil, Calendar
 } from 'lucide-react';
 import { ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { storage } from '../firebaseConfig'; 
@@ -26,7 +26,7 @@ const FAULT_TABS = [
 
 const STATUS_OPTIONS = [
   { id: 'completed', label: '完修', color: 'text-emerald-600', activeBg: 'bg-emerald-600 text-white', icon: CheckCircle },
-  { id: 'pending', label: '待料', color: 'text-orange-500', activeBg: 'bg-orange-500 text-white', icon: Clock },
+  { id: 'tracking', label: '追蹤', color: 'text-orange-500', activeBg: 'bg-orange-500 text-white', icon: Clock },
   { id: 'monitor', label: '觀察', color: 'text-amber-500', activeBg: 'bg-amber-500 text-white', icon: Eye },
 ];
 
@@ -103,8 +103,6 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
 
     // 彈出視窗 State
     const [isPartModalOpen, setIsPartModalOpen] = useState(false);
-    const [isPendingModalOpen, setIsPendingModalOpen] = useState(false);
-    const [isMonitorModalOpen, setIsMonitorModalOpen] = useState(false);
     
     // 標籤管理視窗 State
     const [isTagManagerOpen, setIsTagManagerOpen] = useState(false);
@@ -113,13 +111,40 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
     const [editingTagIndex, setEditingTagIndex] = useState(-1); // -1 means adding new
     const [editTagInput, setEditTagInput] = useState('');
 
-    // 攔截資料暫存 State
-    const [pendingData, setPendingData] = useState({ parts_needed: '', return_date: '' });
-    const [monitorData, setMonitorData] = useState({ tracking_days: '3' });
+    // 回訪日期 State
+    const [nextVisitDate, setNextVisitDate] = useState('');
     
     // 零件搜尋 State
     const [selectedModel, setSelectedModel] = useState('ALL');
     const [partSearch, setPartSearch] = useState('');
+
+    // 日期計算函數
+    const getFutureDate = (days) => {
+        const date = new Date();
+        date.setDate(date.getDate() + days);
+        return date.toISOString().split('T')[0];
+    };
+
+    // 初始化資料
+    useEffect(() => {
+        if (initialData) {
+            setForm({
+                ...initialData,
+                parts: initialData.parts || [],
+                photos: initialData.photos || [],
+                // 舊資料的 pending 轉為 tracking
+                status: initialData.status === 'pending' ? 'tracking' : (initialData.status || 'completed')
+            });
+            // 初始化回訪日期
+            if (initialData.nextVisitDate) {
+                setNextVisitDate(initialData.nextVisitDate);
+            } else if (initialData.return_date) {
+                setNextVisitDate(initialData.return_date);
+            } else {
+                setNextVisitDate('');
+            }
+        }
+    }, [initialData]);
 
     const pageTitle = form.id ? '編輯紀錄' : '新增紀錄';
 
@@ -321,29 +346,22 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
             return;
         }
 
-        if (form.status === 'pending') {
-            setIsPendingModalOpen(true);
+        // 如果是追蹤或觀察，必須要有日期
+        if ((form.status === 'tracking' || form.status === 'monitor') && !nextVisitDate) {
+            alert('請設定預計回訪日期');
+            return;
+        }
+
+        if (form.status === 'tracking') {
+            executeSubmit({...form, status: 'tracking', nextVisitDate});
             return;
         }
         if (form.status === 'monitor') {
-            setIsMonitorModalOpen(true);
+            executeSubmit({...form, status: 'monitor', nextVisitDate});
             return;
         }
 
         executeSubmit({...form, status: 'completed'}); 
-    };
-
-    const confirmPendingSubmit = () => {
-        if (!pendingData.parts_needed) { alert('請輸入缺料名稱'); return; }
-        const mergedData = { ...form, ...pendingData, status: 'pending' };
-        setIsPendingModalOpen(false);
-        executeSubmit(mergedData);
-    };
-
-    const confirmMonitorSubmit = () => {
-        const mergedData = { ...form, ...monitorData, status: 'monitor' };
-        setIsMonitorModalOpen(false);
-        executeSubmit(mergedData);
     };
 
     // --- 輔助計算 ---
@@ -570,6 +588,50 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
             </section>
         </div>
 
+        {/* 回訪日期設定區塊 */}
+        {(form.status === 'tracking' || form.status === 'monitor') && (
+          <div className="px-4 pb-4 animate-in fade-in slide-in-from-top-2">
+            <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
+              <div className="flex items-center gap-2 mb-3 text-slate-600 font-bold text-sm">
+                <Calendar size={16} /> 預計回訪日期
+              </div>
+              
+              {/* 快速按鈕 */}
+              <div className="flex gap-2 mb-3">
+                {[1, 3, 5].map(days => (
+                  <button 
+                    key={days}
+                    onClick={() => setNextVisitDate(getFutureDate(days))}
+                    className="flex-1 py-2 bg-white border border-slate-200 rounded-lg text-sm font-bold text-slate-600 shadow-sm active:bg-blue-50 active:text-blue-600 transition-colors"
+                  >
+                    {days}天
+                  </button>
+                ))}
+                <button 
+                  onClick={() => setNextVisitDate('')}
+                  className="flex-1 py-2 bg-white border border-slate-200 rounded-lg text-sm font-bold text-slate-600 shadow-sm"
+                >
+                  自訂
+                </button>
+              </div>
+
+              {/* 日期輸入框 */}
+              <input 
+                type="date" 
+                value={nextVisitDate}
+                onChange={e => setNextVisitDate(e.target.value)}
+                className="w-full p-3 bg-white border border-slate-200 rounded-xl font-bold text-slate-700 outline-none focus:border-blue-400"
+              />
+              
+              {form.status === 'tracking' && (
+                <p className="mt-2 text-xs text-orange-600 font-bold flex items-center">
+                  <AlertTriangle size={12} className="mr-1"/> 案件將進入「待辦追蹤」列表
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* 5. Sticky Footer */}
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-3 pb-5 shadow-[0_-5px_20px_-5px_rgba(0,0,0,0.1)] z-50">
             <div className="max-w-lg mx-auto flex gap-3 h-14">
@@ -591,7 +653,7 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
                 </div>
                 <button 
                     className={`w-1/2 rounded-xl shadow-lg transition-all flex items-center justify-center font-bold text-white text-lg active:scale-[0.98] ${
-                        form.status === 'pending' ? 'bg-orange-500 shadow-orange-200' : 
+                        form.status === 'tracking' ? 'bg-orange-500 shadow-orange-200' : 
                         form.status === 'monitor' ? 'bg-amber-500 shadow-amber-200' : 
                         'bg-emerald-600 shadow-emerald-200'
                     } ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
@@ -599,7 +661,7 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
                     disabled={isSubmitting}
                 >
                     {isSubmitting ? <Loader2 className="w-6 h-6 animate-spin" /> : 
-                     form.status === 'pending' ? <span className="flex items-center">下一步 <ChevronRight size={20}/></span> :
+                     form.status === 'tracking' ? <span className="flex items-center">下一步 <ChevronRight size={20}/></span> :
                      form.status === 'monitor' ? <span className="flex items-center">下一步 <ChevronRight size={20}/></span> :
                      <span className="flex items-center"><Save className="mr-2" size={20}/>確認結案</span>
                     }
@@ -712,45 +774,6 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
             </div>
         )}
 
-        {isPendingModalOpen && (
-            <div className="fixed inset-0 bg-black/60 z-[70] flex items-center justify-center p-4 animate-in fade-in">
-                <div className="bg-white w-full max-w-sm rounded-2xl p-6 shadow-xl space-y-4">
-                    <h3 className="text-lg font-bold text-slate-800 flex items-center"><Clock className="mr-2 text-orange-500"/> 待料登記</h3>
-                    <div>
-                        <label className="text-sm font-bold text-slate-600 mb-1 block">缺料名稱</label>
-                        <input type="text" className="w-full border border-gray-300 rounded-lg p-2 font-bold" autoFocus placeholder="請輸入缺什麼零件..." value={pendingData.parts_needed} onChange={e => setPendingData({...pendingData, parts_needed: e.target.value})} />
-                    </div>
-                    <div>
-                        <label className="text-sm font-bold text-slate-600 mb-1 block">預計回訪日 (選填)</label>
-                        <input type="date" className="w-full border border-gray-300 rounded-lg p-2" value={pendingData.return_date} onChange={e => setPendingData({...pendingData, return_date: e.target.value})} />
-                    </div>
-                    <div className="flex gap-3 pt-2">
-                        <button onClick={() => setIsPendingModalOpen(false)} className="flex-1 py-3 bg-gray-100 font-bold text-gray-500 rounded-xl">取消</button>
-                        <button onClick={confirmPendingSubmit} className="flex-1 py-3 bg-orange-500 text-white font-bold rounded-xl shadow-lg shadow-orange-200">確認並送出</button>
-                    </div>
-                </div>
-            </div>
-        )}
-
-        {isMonitorModalOpen && (
-            <div className="fixed inset-0 bg-black/60 z-[70] flex items-center justify-center p-4 animate-in fade-in">
-                <div className="bg-white w-full max-w-sm rounded-2xl p-6 shadow-xl space-y-4">
-                    <h3 className="text-lg font-bold text-slate-800 flex items-center"><Eye className="mr-2 text-amber-500"/> 設定觀察期</h3>
-                    <div>
-                        <label className="text-sm font-bold text-slate-600 mb-1 block">追蹤天數</label>
-                        <div className="flex gap-2">
-                            {['1','3','7','14'].map(d => (
-                                <button key={d} onClick={() => setMonitorData({...monitorData, tracking_days: d})} className={`flex-1 py-2 rounded-lg font-bold border ${monitorData.tracking_days === d ? 'bg-amber-500 text-white border-amber-500' : 'bg-white text-slate-600 border-gray-200'}`}>{d}天</button>
-                            ))}
-                        </div>
-                    </div>
-                    <div className="flex gap-3 pt-2">
-                        <button onClick={() => setIsMonitorModalOpen(false)} className="flex-1 py-3 bg-gray-100 font-bold text-gray-500 rounded-xl">取消</button>
-                        <button onClick={confirmMonitorSubmit} className="flex-1 py-3 bg-amber-500 text-white font-bold rounded-xl shadow-lg shadow-amber-200">確認並送出</button>
-                    </div>
-                </div>
-            </div>
-        )}
       </div>
     );
 };

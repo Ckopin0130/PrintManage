@@ -2,7 +2,14 @@ import React from 'react';
 import { ArrowLeft, AlertCircle } from 'lucide-react';
 
 const TrackingView = ({ records, customers, setCurrentView, startEditRecord }) => {
-  const trackingRecords = records.filter(r => r.status === 'pending' || r.status === 'monitor');
+  const trackingRecords = records.filter(r => 
+    r.status === 'tracking' || r.status === 'monitor' || r.status === 'pending'
+  ).sort((a, b) => {
+    const dateA = a.nextVisitDate || a.return_date || '9999-99-99';
+    const dateB = b.nextVisitDate || b.return_date || '9999-99-99';
+    return dateA.localeCompare(dateB);
+  });
+  
   return (
      <div className="bg-gray-50 min-h-screen pb-24 animate-in">
       <div className="bg-white px-4 py-4 flex items-center shadow-sm sticky top-0 z-10 border-b border-gray-100">
@@ -13,14 +20,32 @@ const TrackingView = ({ records, customers, setCurrentView, startEditRecord }) =
          {trackingRecords.length === 0 ? 
           <div className="text-center text-gray-400 mt-10">目前無待辦事項</div> : trackingRecords.map(r => {
            const cust = customers.find(c => c.customerID === r.customerID);
+           const isMonitor = r.status === 'monitor';
+           const isTracking = r.status === 'tracking';
+           const visitDate = r.nextVisitDate || r.return_date;
            return (
-             <div key={r.id} onClick={(e) => startEditRecord(e, r)} className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-amber-400 cursor-pointer hover:shadow-md transition-shadow">
+             <div key={r.id} onClick={(e) => startEditRecord(e, r)} className={`bg-white p-4 rounded-xl shadow-sm border-l-4 cursor-pointer hover:shadow-md transition-shadow ${isMonitor ? 'border-blue-400' : 'border-amber-400'}`}>
                 <div className="flex justify-between items-start mb-2">
                    <span className="text-xs font-bold text-gray-500">{r.date}</span>
-                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${r.status==='pending'?'bg-amber-100 text-amber-700':'bg-blue-100 text-blue-700'}`}>{r.status === 'pending' ? '待料' : '觀察中'}</span>
+                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                     isTracking ? 'bg-orange-100 text-orange-700' : 
+                     isMonitor ? 'bg-blue-100 text-blue-700' : 
+                     'bg-amber-100 text-amber-700'
+                   }`}>
+                     {isTracking ? '待追蹤' : isMonitor ? '觀察中' : '待料'}
+                   </span>
                 </div>
                 <h3 className="font-bold text-gray-800">{cust ? cust.name : '未知客戶'}</h3>
-                <div className="text-sm text-gray-600 mt-1">{r.fault}</div>
+                <div className="text-sm text-gray-600 mt-1">{r.fault || r.description || r.symptom}</div>
+                {visitDate && (
+                  <div className={`text-xs mt-2 font-bold ${
+                    new Date(visitDate) <= new Date() ? 'text-red-600' : 
+                    new Date(visitDate) <= new Date(Date.now() + 3 * 24 * 60 * 60 * 1000) ? 'text-orange-600' : 
+                    'text-gray-500'
+                  }`}>
+                    預計回訪: {visitDate}
+                  </div>
+                )}
                 <div className="text-xs text-gray-400 mt-2 flex items-center"><AlertCircle size={12} className="mr-1"/> 點擊編輯後續處置</div>
              </div>
            )

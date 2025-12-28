@@ -363,9 +363,24 @@ const SortableCustomerRow = ({ item, onClick, index }) => {
 // --- Main ---
 const CustomerRoster = ({ customers, onAddCustomer, onUpdateCustomer, onDeleteCustomer, onBack, setTargetCustomer, setShowAddressAlert, setShowPhoneSheet, showToast, setCurrentView, setSelectedCustomer, onRenameGroup, onDeleteGroup }) => {
   const [categories, setCategories] = useState(() => { try { return JSON.parse(localStorage.getItem('customerCategories')) || DEFAULT_CATEGORIES; } catch { return DEFAULT_CATEGORIES; } });
-  // 修正：移除 localStorage 讀取，讓每次進入都重置為第一層
-  const [selectedCatId, setSelectedCatId] = useState(null); 
-  const [activeGroup, setActiveGroup] = useState(null); 
+  // 修正：使用 sessionStorage 臨時保存，從首頁進入時清除
+  const [selectedCatId, setSelectedCatId] = useState(() => {
+    // 檢查是否是從首頁進入（通過檢查 sessionStorage 標記）
+    const fromHome = sessionStorage.getItem('roster_from_home');
+    if (fromHome === 'true') {
+      sessionStorage.removeItem('roster_from_home');
+      sessionStorage.removeItem('roster_catId');
+      sessionStorage.removeItem('roster_group');
+      return null;
+    }
+    // 從 detail 返回時，恢復狀態
+    return sessionStorage.getItem('roster_catId') || null;
+  }); 
+  const [activeGroup, setActiveGroup] = useState(() => {
+    const fromHome = sessionStorage.getItem('roster_from_home');
+    if (fromHome === 'true') return null;
+    return sessionStorage.getItem('roster_group') || null;
+  }); 
   const [editingItem, setEditingItem] = useState(null);
   const [isAddMode, setIsAddMode] = useState(false);
   const [isCatManagerOpen, setIsCatManagerOpen] = useState(false);
@@ -377,9 +392,17 @@ const CustomerRoster = ({ customers, onAddCustomer, onUpdateCustomer, onDeleteCu
   useEffect(() => { localStorage.setItem('customerCategories', JSON.stringify(categories)); }, [categories]);
   useEffect(() => { localStorage.setItem('custGroupOrder', JSON.stringify(groupOrder)); }, [groupOrder]);
   useEffect(() => { localStorage.setItem('custOrder', JSON.stringify(customerOrder)); }, [customerOrder]);
-  // 修正：移除寫入 localStorage 的副作用
-  // useEffect(() => { if (selectedCatId) localStorage.setItem('rosterSelectedCatId', selectedCatId); else localStorage.removeItem('rosterSelectedCatId'); }, [selectedCatId]);
-  // useEffect(() => { if (activeGroup) localStorage.setItem('rosterActiveGroup', activeGroup); else localStorage.removeItem('rosterActiveGroup'); }, [activeGroup]);
+  
+  // 使用 sessionStorage 保存當前層級（臨時保存，從 detail 返回時恢復）
+  useEffect(() => {
+    if (selectedCatId) sessionStorage.setItem('roster_catId', selectedCatId);
+    else sessionStorage.removeItem('roster_catId');
+  }, [selectedCatId]);
+
+  useEffect(() => {
+    if (activeGroup) sessionStorage.setItem('roster_group', activeGroup);
+    else sessionStorage.removeItem('roster_group');
+  }, [activeGroup]);
 
   // 自動遷移
   useEffect(() => {
@@ -518,6 +541,9 @@ const CustomerRoster = ({ customers, onAddCustomer, onUpdateCustomer, onDeleteCu
   };
 
   const handleCustomerClick = (item) => {
+      // 保存當前層級到 sessionStorage，以便從 detail 返回時恢復
+      if (selectedCatId) sessionStorage.setItem('roster_catId', selectedCatId);
+      if (activeGroup) sessionStorage.setItem('roster_group', activeGroup);
       if (setSelectedCustomer) setSelectedCustomer(item);
       if (setCurrentView) setCurrentView('detail');
   };

@@ -72,7 +72,7 @@ export default function App() {
   // --- 2. 輔助函數 ---
   const showToast = (message, type = 'success') => setToast({ message, type });
   const today = new Date().toLocaleDateString('zh-TW', { month: 'long', day: 'numeric', weekday: 'long' });
-  const pendingTasks = records.filter(r => r.status === 'pending').length;
+  const pendingTasks = records.filter(r => r.status === 'tracking' || r.status === 'monitor' || r.status === 'pending').length;
   const currentLocalTime = new Date().toLocaleDateString('en-CA'); 
   const todayCompletedCount = records.filter(r => r.date === currentLocalTime).length;
   
@@ -341,8 +341,13 @@ export default function App() {
     const finalCustomerID = selectedCustomer?.customerID || formData.customerID || 'unknown';
     const newRecord = {
         ...formData, id: recId, customerID: finalCustomerID,
-        fault: formData.symptom || '', solution: formData.action || '',
-        type: 'repair', isTracking: formData.status === 'pending'
+        fault: formData.symptom || formData.description || '', 
+        solution: formData.action || '',
+        type: formData.type || 'repair', 
+        isTracking: formData.status === 'tracking' || formData.status === 'monitor',
+        // 確保 tracking 和 monitor 狀態正確處理
+        status: formData.status || 'completed',
+        nextVisitDate: formData.nextVisitDate || formData.return_date || ''
     };
     Object.keys(newRecord).forEach(key => newRecord[key] === undefined && delete newRecord[key]);
     
@@ -595,7 +600,8 @@ export default function App() {
         <Dashboard 
           today={today} dbStatus={dbStatus} pendingTasks={pendingTasks} 
           todayCompletedCount={todayCompletedCount} totalCustomers={customers.length} 
-          setCurrentView={setCurrentView} setActiveTab={setActiveTab} 
+          setCurrentView={setCurrentView} setActiveTab={setActiveTab}
+          onQuickAction={() => setShowQuickAction(true)}
         />
       )}
 
@@ -605,7 +611,11 @@ export default function App() {
           onAddCustomer={handleAddSubmit}
           onUpdateCustomer={handleEditSubmit}
           onDeleteCustomer={(item) => handleDeleteCustomer(null, item)}
-          onBack={() => { setCurrentView('dashboard'); setActiveTab('dashboard'); }} 
+          onBack={() => { 
+            sessionStorage.setItem('roster_from_home', 'true');
+            setCurrentView('dashboard'); 
+            setActiveTab('dashboard'); 
+          }} 
           setCurrentView={setCurrentView} 
           setSelectedCustomer={setSelectedCustomer}
           setTargetCustomer={setTargetCustomer}
@@ -702,9 +712,7 @@ export default function App() {
         isOpen={showQuickAction}
         onClose={() => setShowQuickAction(false)}
         customers={customers}
-        records={records}
-        onQuickAdd={handleQuickAddRecord}
-        onQuickEdit={handleQuickEditRecord}
+        onSaveRecord={handleSaveRecord}
       />
 
       {showPhoneSheet && <PhoneActionSheet phones={targetCustomer?.phones} onClose={() => setShowPhoneSheet(false)} />}
