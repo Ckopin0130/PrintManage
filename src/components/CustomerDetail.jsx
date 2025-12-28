@@ -283,14 +283,9 @@ const CustomerDetail = ({
         </div>
 
         {/* 分隔線 - 讓名片和履歷明顯分開 */}
-        <div className="relative py-4">
+        <div className="relative py-2">
           <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t-2 border-slate-300"></div>
-          </div>
-          <div className="relative flex justify-center">
-            <div className="bg-slate-50 px-6 py-1 rounded-full border-2 border-slate-300">
-              <span className="text-xs font-extrabold text-slate-600 uppercase tracking-wider">維修履歷</span>
-            </div>
+            <div className="w-full border-t border-slate-200"></div>
           </div>
         </div>
         {/* 維修履歷區域 */}

@@ -9,47 +9,67 @@ const QuickActionModal = ({ isOpen, onClose, customers, onSaveRecord }) => {
   const [searchText, setSearchText] = useState('');
   const [description, setDescription] = useState('');
   const [source, setSource] = useState('call'); // 'call', 'dispatch', 'patrol'
-  const [photo, setPhoto] = useState(null);
-  const [photoPreview, setPhotoPreview] = useState(null);
+  const [photos, setPhotos] = useState([]);
+  const [photoPreviews, setPhotoPreviews] = useState([]);
   
   const fileInputRef = useRef(null);
 
   const handlePhotoChange = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
 
-    if (file.size > 5 * 1024 * 1024) {
-      alert('圖片過大，請選擇小於 5MB 的圖片');
-      return;
-    }
+    const newPhotos = [];
+    const newPreviews = [];
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        let width = img.width;
-        let height = img.height;
-        
-        const MAX_SIZE = 1024;
-        if (width > height) {
-          if (width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; }
-        } else {
-          if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; }
-        }
-        
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, width, height);
-        
-        const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.7);
-        setPhoto(compressedDataUrl);
-        setPhotoPreview(compressedDataUrl);
+    for (const file of files) {
+      if (file.size > 5 * 1024 * 1024) {
+        alert(`${file.name} 圖片過大，請選擇小於 5MB 的圖片`);
+        continue;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          
+          const MAX_SIZE = 1024;
+          if (width > height) {
+            if (width > MAX_SIZE) { height *= MAX_SIZE / width; width = MAX_SIZE; }
+          } else {
+            if (height > MAX_SIZE) { width *= MAX_SIZE / height; height = MAX_SIZE; }
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.7);
+          newPhotos.push(compressedDataUrl);
+          newPreviews.push(compressedDataUrl);
+          
+          if (newPhotos.length === files.length) {
+            setPhotos(prev => [...prev, ...newPhotos]);
+            setPhotoPreviews(prev => [...prev, ...newPreviews]);
+          }
+        };
+        img.src = event.target.result;
       };
-      img.src = event.target.result;
-    };
-    reader.readAsDataURL(file);
+      reader.readAsDataURL(file);
+    }
+    
+    // 重置 input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const removePhoto = (index) => {
+    setPhotos(prev => prev.filter((_, i) => i !== index));
+    setPhotoPreviews(prev => prev.filter((_, i) => i !== index));
   };
 
   const filteredCustomers = useMemo(() => {
@@ -82,7 +102,7 @@ const QuickActionModal = ({ isOpen, onClose, customers, onSaveRecord }) => {
       source: source,
       date: new Date().toISOString().split('T')[0],
       timestamp: Date.now(),
-      photos: photo ? [photo] : [],
+      photos: photos,
       parts: [],
       isQuickAction: true
     };
@@ -98,8 +118,8 @@ const QuickActionModal = ({ isOpen, onClose, customers, onSaveRecord }) => {
     setSearchText('');
     setDescription('');
     setSource('call');
-    setPhoto(null);
-    setPhotoPreview(null);
+    setPhotos([]);
+    setPhotoPreviews([]);
   };
 
   if (!isOpen) return null;
@@ -111,15 +131,16 @@ const QuickActionModal = ({ isOpen, onClose, customers, onSaveRecord }) => {
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
         
-        {/* Header: 只有關閉按鈕，無標題 */}
-        <div className="flex justify-end items-center p-4 border-b border-slate-100 flex-shrink-0">
+        {/* Header: 標題 + 關閉按鈕 */}
+        <div className="flex justify-between items-center p-4 border-b border-slate-100 flex-shrink-0">
+          <h2 className="text-lg font-bold text-slate-800">新增任務</h2>
           <button onClick={onClose} className="p-2 bg-slate-100 rounded-full text-slate-500 hover:bg-slate-200">
             <X size={20} />
           </button>
         </div>
 
         {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-5 min-h-0">
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
           
           {/* 1. 任務來源 */}
           <div className="space-y-2">
@@ -224,28 +245,41 @@ const QuickActionModal = ({ isOpen, onClose, customers, onSaveRecord }) => {
               <Camera size={16} className="mr-1"/> 照片 (選填)
             </label>
             
-            {!photoPreview ? (
+            {photoPreviews.length === 0 ? (
                <button 
                  onClick={() => fileInputRef.current?.click()}
-                 className="w-full py-4 border-2 border-dashed border-slate-200 rounded-xl text-slate-400 font-bold flex flex-col items-center justify-center hover:bg-slate-50 transition-colors"
+                 className="w-full py-3 border-2 border-dashed border-slate-200 rounded-xl text-slate-400 font-bold flex flex-col items-center justify-center hover:bg-slate-50 transition-colors"
                >
-                 <Camera size={24} className="mb-1 opacity-50"/>
+                 <Camera size={20} className="mb-1 opacity-50"/>
                  <span className="text-xs">點擊拍攝或上傳檔案</span>
                </button>
             ) : (
-               <div className="relative rounded-xl overflow-hidden border border-slate-200 bg-slate-100">
-                  <img src={photoPreview} alt="Preview" className="w-full h-40 object-cover opacity-90" />
-                  <button 
-                    onClick={() => { setPhoto(null); setPhotoPreview(null); }}
-                    className="absolute top-2 right-2 p-1.5 bg-black/50 text-white rounded-full backdrop-blur-sm"
-                  >
-                    <X size={16}/>
-                  </button>
+               <div className="grid grid-cols-3 gap-2">
+                 {photoPreviews.map((preview, index) => (
+                   <div key={index} className="relative aspect-square rounded-lg overflow-hidden border border-slate-200 bg-slate-100">
+                     <img src={preview} alt={`Preview ${index + 1}`} className="w-full h-full object-cover" />
+                     <button 
+                       onClick={() => removePhoto(index)}
+                       className="absolute top-1 right-1 p-1 bg-black/50 text-white rounded-full backdrop-blur-sm"
+                     >
+                       <X size={12}/>
+                     </button>
+                   </div>
+                 ))}
+                 {photoPreviews.length < 9 && (
+                   <button 
+                     onClick={() => fileInputRef.current?.click()}
+                     className="aspect-square border-2 border-dashed border-slate-200 rounded-lg text-slate-400 flex flex-col items-center justify-center hover:bg-slate-50 transition-colors"
+                   >
+                     <Camera size={20} className="opacity-50"/>
+                   </button>
+                 )}
                </div>
             )}
             <input 
               type="file" 
               accept="image/*"
+              multiple
               className="hidden" 
               ref={fileInputRef}
               onChange={handlePhotoChange}
@@ -254,7 +288,7 @@ const QuickActionModal = ({ isOpen, onClose, customers, onSaveRecord }) => {
         </div>
 
         {/* Footer Actions */}
-        <div className="p-4 border-t border-slate-100 bg-white rounded-b-2xl flex-shrink-0">
+        <div className="p-4 border-t border-slate-100 bg-white rounded-b-2xl flex-shrink-0 mt-0">
           <button 
             onClick={handleSubmit}
             className={`w-full py-3.5 rounded-xl flex items-center justify-center font-bold text-lg shadow-lg shadow-blue-200 active:scale-[0.98] transition-all ${

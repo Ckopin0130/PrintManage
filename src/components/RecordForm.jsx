@@ -26,8 +26,8 @@ const FAULT_TABS = [
 
 const STATUS_OPTIONS = [
   { id: 'completed', label: '完修', color: 'text-emerald-600', activeBg: 'bg-emerald-600 text-white', icon: CheckCircle },
-  { id: 'tracking', label: '追蹤', color: 'text-orange-500', activeBg: 'bg-orange-500 text-white', icon: Clock },
-  { id: 'monitor', label: '觀察', color: 'text-amber-500', activeBg: 'bg-amber-500 text-white', icon: Eye },
+  { id: 'tracking', label: '追蹤', color: 'text-orange-600', activeBg: 'bg-orange-500 text-white', icon: Clock },
+  { id: 'monitor', label: '觀察', color: 'text-blue-600', activeBg: 'bg-blue-500 text-white', icon: Eye },
 ];
 
 const SOURCE_OPTIONS = [
@@ -417,7 +417,7 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
             {/* 1. 任務來源 */}
             <section className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden transition-all duration-300">
                 {!isSourceSelected ? (
-                    <div className="p-4 grid grid-cols-3 gap-2 animate-in fade-in slide-in-from-top-2">
+                    <div className="p-3 grid grid-cols-3 gap-2 animate-in fade-in slide-in-from-top-2">
                         {SOURCE_OPTIONS.map((option) => {
                             const Icon = option.icon;
                             return (
@@ -425,10 +425,10 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
                                     key={option.id} 
                                     type="button" 
                                     onClick={() => handleSourceChange(option.id)} 
-                                    className={`flex flex-col items-center justify-center py-6 rounded-xl border-2 transition-all active:scale-95 ${form.serviceSource === option.id ? `${option.bg} ${option.border} ${option.color}` : 'bg-white border-transparent text-gray-400 hover:bg-gray-50 shadow-sm'}`}
+                                    className={`flex flex-col items-center justify-center py-3 rounded-xl border-2 transition-all active:scale-95 ${form.serviceSource === option.id ? `${option.bg} ${option.border} ${option.color}` : 'bg-white border-transparent text-gray-400 hover:bg-gray-50 shadow-sm'}`}
                                 >
-                                    <Icon className="w-8 h-8 mb-2" strokeWidth={2} />
-                                    <span className="text-sm font-bold">{option.label}</span>
+                                    <Icon className="w-6 h-6 mb-1" strokeWidth={2} />
+                                    <span className="text-xs font-bold">{option.label}</span>
                                 </button>
                             );
                         })}
@@ -616,7 +616,7 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
                 <button 
                     className={`w-1/2 rounded-xl shadow-lg transition-all flex items-center justify-center font-bold text-white text-lg active:scale-[0.98] ${
                         form.status === 'tracking' ? 'bg-orange-500 shadow-orange-200' : 
-                        form.status === 'monitor' ? 'bg-amber-500 shadow-amber-200' : 
+                        form.status === 'monitor' ? 'bg-blue-500 shadow-blue-200' : 
                         'bg-emerald-600 shadow-emerald-200'
                     } ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
                     onClick={handlePreSubmit} 
@@ -790,7 +790,7 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
                             className={`flex-1 py-3 text-white font-bold rounded-xl shadow-lg ${
                                 form.status === 'tracking' 
                                     ? 'bg-orange-500 shadow-orange-200' 
-                                    : 'bg-amber-500 shadow-amber-200'
+                                    : 'bg-blue-500 shadow-blue-200'
                             }`}
                         >
                             建立{form.status === 'tracking' ? '追蹤' : '觀察'}任務
