@@ -29,6 +29,9 @@ import TrackingView from './components/TrackingView';
 import WorkLog from './components/WorkLog';
 import RecordList from './components/RecordList';
 
+// [新增] 引入快速操作視窗
+import QuickActionModal from './components/QuickActionModal';
+
 export default function App() {
   // --- 1. 狀態管理 ---
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -47,6 +50,9 @@ export default function App() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [showPhoneSheet, setShowPhoneSheet] = useState(false);
   const [showAddressAlert, setShowAddressAlert] = useState(false);
+  
+  // [新增] 快速操作選單狀態
+  const [showQuickAction, setShowQuickAction] = useState(false);
   
   // 雲端備份列表
   const [cloudBackups, setCloudBackups] = useState([]);
@@ -177,6 +183,45 @@ export default function App() {
     setCurrentView('edit_record');
   };
 
+  // --- [新增] 處理快速新增任務 (從 + 號彈窗來的) ---
+  const handleQuickAddRecord = (customer, symptom) => {
+    if (!customer) return;
+    
+    // 設定表單預設值，並帶入彈窗輸入的故障描述
+    setEditingRecordData({ 
+        ...defaultRecordForm, 
+        customerID: customer.customerID,
+        symptom: symptom || '',
+        serviceSource: 'customer_call' // 預設為客戶來電
+    });
+
+    // 關鍵：設定當前選中客戶，確保 RecordForm 取消時能回到正確的 Detail
+    setSelectedCustomer(customer); 
+
+    // 切換視窗
+    setCurrentView('add_record');
+    setShowQuickAction(false);
+  };
+
+  // --- [新增] 處理快速編輯紀錄 (從 + 號彈窗來的) ---
+  const handleQuickEditRecord = (record) => {
+    // 帶入要編輯的紀錄
+    setEditingRecordData(record);
+    
+    // 關鍵：找出這筆紀錄的客戶並設定為 selectedCustomer
+    const parentCustomer = customers.find(c => c.customerID === record.customerID);
+    if (parentCustomer) {
+        setSelectedCustomer(parentCustomer);
+    } else {
+        // 如果找不到客戶 (極端情況)，至少不讓程式掛掉
+        console.warn('找不到該紀錄對應的客戶資料');
+    }
+
+    // 切換視窗
+    setCurrentView('edit_record');
+    setShowQuickAction(false);
+  };
+
   // --- 5. 資料庫操作 (CRUD) ---
   
   // 更新庫存
@@ -207,10 +252,7 @@ export default function App() {
 
   // 重新命名庫存群組 (Batch Update)
   const renameModelGroup = async (oldModel, newModel, categoryId) => {
-    // 這裡我們只更新屬於該 category 的項目 (更嚴謹)
-    // 但因為 inventory 結構，model 是跨 item 的，所以還是 filter model
     setInventory(prev => prev.map(item => item.model === oldModel ? { ...item, model: newModel } : item));
-    
     if (dbStatus === 'demo' || !user) { showToast(`分類已更新：${newModel} (離線)`); return; }
     try {
       const batch = writeBatch(db);
@@ -225,38 +267,27 @@ export default function App() {
   const deleteModelGroup = async (modelName) => {
       const itemsToDelete = inventory.filter(i => i.model === modelName);
       if (itemsToDelete.length === 0) return;
-
       if(dbStatus === 'demo' || !user) {
           setInventory(prev => prev.filter(i => i.model !== modelName));
           showToast(`群組 ${modelName} 已刪除 (離線)`);
           return;
       }
-
       try {
           const batch = writeBatch(db);
-          itemsToDelete.forEach(item => {
-              const ref = doc(db, 'inventory', item.id);
-              batch.delete(ref);
-          });
-          await batch.commit();
-          showToast(`群組 ${modelName} 已刪除`);
-      } catch (e) {
-          console.error(e);
-          showToast('刪除失敗', 'error');
-      }
+          itemsToDelete.forEach(item => { const ref = doc(db, 'inventory', item.id); batch.delete(ref); });
+          await batch.commit(); showToast(`群組 ${modelName} 已刪除`);
+      } catch (e) { console.error(e); showToast('刪除失敗', 'error'); }
   };
 
   // 重新命名客戶群組 (Batch Update)
   const renameCustomerGroup = async (oldGroup, newGroup) => {
       setCustomers(prev => prev.map(c => c.L2_district === oldGroup ? { ...c, L2_district: newGroup } : c));
-      
       if (dbStatus === 'demo' || !user) { showToast(`群組已更新 (離線)`); return; }
       try {
           const batch = writeBatch(db);
           const itemsToUpdate = customers.filter(c => c.L2_district === oldGroup);
           itemsToUpdate.forEach(item => { const ref = doc(db, 'customers', item.customerID); batch.update(ref, { L2_district: newGroup }); });
-          await batch.commit();
-          showToast(`群組名稱已更新`);
+          await batch.commit(); showToast(`群組名稱已更新`);
       } catch (e) { console.error(e); showToast('更新失敗', 'error'); }
   };
 
@@ -264,25 +295,16 @@ export default function App() {
   const deleteCustomerGroup = async (groupName) => {
       const itemsToDelete = customers.filter(c => c.L2_district === groupName);
       if (itemsToDelete.length === 0) return;
-
       if (dbStatus === 'demo' || !user) {
           setCustomers(prev => prev.filter(c => c.L2_district !== groupName));
           showToast(`群組已刪除 (離線)`);
           return;
       }
-
       try {
           const batch = writeBatch(db);
-          itemsToDelete.forEach(item => {
-              const ref = doc(db, 'customers', item.customerID);
-              batch.delete(ref);
-          });
-          await batch.commit();
-          showToast(`群組 ${groupName} 已刪除`);
-      } catch (e) {
-          console.error(e);
-          showToast('刪除失敗', 'error');
-      }
+          itemsToDelete.forEach(item => { const ref = doc(db, 'customers', item.customerID); batch.delete(ref); });
+          await batch.commit(); showToast(`群組 ${groupName} 已刪除`);
+      } catch (e) { console.error(e); showToast('刪除失敗', 'error'); }
   };
 
   // 重置資料
@@ -394,120 +416,71 @@ export default function App() {
     });
   };
 
-  // 編輯客戶 (相容新舊格式)
+  // 編輯客戶
   const handleEditSubmit = async (formData) => {
     if (isProcessing) return;
     setIsProcessing(true);
-
-    // 判斷是從 CustomerDetail 還是 CustomerRoster 編輯
     const sourceCustomer = selectedCustomer || (formData.customerID ? customers.find(c => c.customerID === formData.customerID) : null);
-    if (!sourceCustomer && !formData.customerID) {
-      setIsProcessing(false);
-      showToast('找不到客戶資料', 'error');
-      return;
-    }
+    if (!sourceCustomer && !formData.customerID) { setIsProcessing(false); showToast('找不到客戶資料', 'error'); return; }
 
     const customerId = sourceCustomer?.customerID || formData.customerID;
     const baseCustomer = sourceCustomer || formData;
 
     let updatedPhones = formData.phones;
-    if (!updatedPhones && (formData.phoneNumber || formData.phone)) {
-        updatedPhones = [{ label: formData.phoneLabel || '公司', number: formData.phoneNumber || formData.phone }];
-    }
+    if (!updatedPhones && (formData.phoneNumber || formData.phone)) { updatedPhones = [{ label: formData.phoneLabel || '公司', number: formData.phoneNumber || formData.phone }]; }
     let updatedAssets = formData.assets;
-    if (!updatedAssets && formData.model) {
-        updatedAssets = [{ model: formData.model }];
-    }
+    if (!updatedAssets && formData.model) { updatedAssets = [{ model: formData.model }]; }
 
-    // 明確處理所有欄位，確保正確更新
     const updatedEntry = {
       ...baseCustomer,
       customerID: customerId,
-      // 直接使用 formData 的值，如果不存在則使用 baseCustomer 的值
       name: formData.name !== undefined ? formData.name : baseCustomer.name,
       L1_group: formData.L1_group !== undefined ? formData.L1_group : baseCustomer.L1_group,
       L2_district: formData.L2_district !== undefined ? formData.L2_district : baseCustomer.L2_district,
       address: formData.address !== undefined ? formData.address : baseCustomer.address,
-      // CustomerForm 中已移除 addressNote 欄位，所以設為空字串
       addressNote: '',
       contactPerson: formData.contactPerson !== undefined ? formData.contactPerson : (baseCustomer.contactPerson || ''),
       phones: updatedPhones || baseCustomer.phones || [],
       assets: updatedAssets || baseCustomer.assets || [],
-      // notes 和 addressNote 完全分開處理，只使用 notes 欄位
       notes: formData.notes !== undefined ? formData.notes : (baseCustomer.notes !== undefined ? baseCustomer.notes : '')
     };
-    // 明確刪除舊的 note 欄位，避免重疊
     delete updatedEntry.note;
 
     try {
         if (dbStatus === 'demo' || !user) {
             setCustomers(prev => prev.map(c => c.customerID === customerId ? updatedEntry : c));
-            if (selectedCustomer && selectedCustomer.customerID === customerId) {
-                setSelectedCustomer(updatedEntry);
-            }
+            if (selectedCustomer && selectedCustomer.customerID === customerId) setSelectedCustomer(updatedEntry);
         } else {
-            // 在 Firestore 中明確刪除 note 欄位（如果存在）
-            const firestoreData = {
-                ...updatedEntry
-            };
-            // 如果原本有 note 欄位，則明確刪除它
-            if (baseCustomer.note !== undefined) {
-                firestoreData.note = deleteField();
-            }
+            const firestoreData = { ...updatedEntry };
+            if (baseCustomer.note !== undefined) firestoreData.note = deleteField();
             await setDoc(doc(db, 'customers', customerId), firestoreData);
-            if (selectedCustomer && selectedCustomer.customerID === customerId) {
-                setSelectedCustomer(updatedEntry);
-            }
+            if (selectedCustomer && selectedCustomer.customerID === customerId) setSelectedCustomer(updatedEntry);
             setCustomers(prev => prev.map(c => c.customerID === customerId ? updatedEntry : c));
         }
-        if (selectedCustomer) {
-            setCurrentView('detail'); 
-        }
+        if (selectedCustomer) setCurrentView('detail'); 
         showToast('資料已更新');
-    } catch (err) { 
-        console.error('更新失敗:', err);
-        showToast('更新失敗', 'error'); 
-    } finally { 
-        setIsProcessing(false); 
-    }
+    } catch (err) { console.error('更新失敗:', err); showToast('更新失敗', 'error'); } finally { setIsProcessing(false); }
   };
 
-  // 新增客戶 (相容新舊格式)
+  // 新增客戶
   const handleAddSubmit = async (formData) => {
     if (isProcessing) return;
     setIsProcessing(true);
     const newId = `cust-${Date.now()}`;
-
     let phones = formData.phones;
-    if (!phones && (formData.phoneNumber || formData.phone)) {
-        phones = [{ label: formData.phoneLabel || '公司', number: formData.phoneNumber || formData.phone }];
-    }
+    if (!phones && (formData.phoneNumber || formData.phone)) { phones = [{ label: formData.phoneLabel || '公司', number: formData.phoneNumber || formData.phone }]; }
     let assets = formData.assets;
-    if (!assets && formData.model) {
-        assets = [{ model: formData.model }];
-    }
+    if (!assets && formData.model) { assets = [{ model: formData.model }]; }
 
     const newEntry = {
-      customerID: newId, 
-      name: formData.name, 
-      L1_group: formData.L1_group || '未分類', 
-      L2_district: formData.L2_district || '未分區',
-      address: formData.address || '', 
-      addressNote: formData.addressNote || '',
-      phones: phones || [],
-      assets: assets || [], 
-      // 只使用 notes 欄位，不使用舊的 note 欄位
-      notes: formData.notes || '', 
-      categoryId: formData.categoryId || '', 
-      serviceCount: 0
+      customerID: newId, name: formData.name, L1_group: formData.L1_group || '未分類', L2_district: formData.L2_district || '未分區',
+      address: formData.address || '', addressNote: formData.addressNote || '', phones: phones || [],
+      assets: assets || [], notes: formData.notes || '', categoryId: formData.categoryId || '', serviceCount: 0
     };
 
     try {
-        if (dbStatus === 'demo' || !user) {
-            setCustomers(prev => [...prev, newEntry]);
-        } else {
-            await setDoc(doc(db, 'customers', newId), newEntry);
-        }
+        if (dbStatus === 'demo' || !user) setCustomers(prev => [...prev, newEntry]);
+        else await setDoc(doc(db, 'customers', newId), newEntry);
         showToast('新增成功');
         setSelectedCustomer(newEntry); setCurrentView('detail');
     } catch (err) { showToast('新增失敗', 'error'); } finally { setIsProcessing(false); }
@@ -717,7 +690,22 @@ export default function App() {
         />
       )}
 
-      <BottomNavigation activeTab={activeTab} onTabChange={handleTabChange} />
+      {/* --- 修改：BottomNavigation 傳入開啟彈窗的函數 --- */}
+      <BottomNavigation 
+         activeTab={activeTab} 
+         onTabChange={handleTabChange} 
+         onOpenQuickAction={() => setShowQuickAction(true)} 
+      />
+
+      {/* --- 新增：QuickActionModal 元件 --- */}
+      <QuickActionModal 
+        isOpen={showQuickAction}
+        onClose={() => setShowQuickAction(false)}
+        customers={customers}
+        records={records}
+        onQuickAdd={handleQuickAddRecord}
+        onQuickEdit={handleQuickEditRecord}
+      />
 
       {showPhoneSheet && <PhoneActionSheet phones={targetCustomer?.phones} onClose={() => setShowPhoneSheet(false)} />}
       {showAddressAlert && <AddressAlertDialog customer={targetCustomer} onClose={() => setShowAddressAlert(false)} />}
