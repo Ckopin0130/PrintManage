@@ -139,7 +139,7 @@ const RecordList = ({
                 if(r.status === 'monitor') statusConfig = { color: "bg-blue-50 text-blue-600 border-blue-100", text: "觀察" };
            
                 return (
-                    <div key={r.id} className="bg-white p-4 rounded-2xl shadow-[0_2px_8px_rgb(0,0,0,0.04)] border border-slate-100 hover:border-blue-200 transition-all active:scale-[0.99] group cursor-pointer" onClick={(e) => startEditRecord(e, r)}>
+                    <div key={r.id} className="bg-white p-4 rounded-2xl shadow-[0_2px_8px_rgb(0,0,0,0.04)] border border-slate-100 hover:border-blue-200 transition-all group">
                         <div className="flex justify-between items-start mb-2">
                             <span className="text-[10px] font-bold text-slate-400 bg-slate-50 px-2 py-1 rounded-md border border-slate-100 flex items-center font-mono">
                                 <Calendar size={10} className="mr-1.5"/>{r.date}
@@ -157,7 +157,6 @@ const RecordList = ({
                           className="mb-2"
                           onClick={(e) => {
                             e.stopPropagation();
-                            e.preventDefault();
                             if (cust) {
                               setSelectedCustomer(cust);
                               setCurrentView('detail');
@@ -170,8 +169,24 @@ const RecordList = ({
                             <div className="text-xs text-slate-400 font-bold">{cust?.assets?.[0]?.model || ''}</div>
                         </div>
 
-                        <div className="text-sm text-slate-700 font-bold mb-1">{r.fault || r.symptom}</div>
-                        <div className="text-xs text-slate-500 leading-relaxed mb-2 line-clamp-2">{r.solution || r.action}</div>
+                        <div 
+                          className="text-sm text-slate-700 font-bold mb-1 cursor-pointer hover:text-blue-600 transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            startEditRecord(e, r);
+                          }}
+                        >
+                          {r.fault || r.symptom}
+                        </div>
+                        <div 
+                          className="text-xs text-slate-500 leading-relaxed mb-2 line-clamp-2 cursor-pointer hover:text-blue-600 transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            startEditRecord(e, r);
+                          }}
+                        >
+                          {r.solution || r.action}
+                        </div>
                         
                         {r.parts && r.parts.length > 0 && (
                             <div className="mt-2 flex flex-wrap gap-1.5 border-t border-slate-50 pt-2">
