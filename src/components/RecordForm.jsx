@@ -113,6 +113,7 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
 
     // 回訪日期 State
     const [nextVisitDate, setNextVisitDate] = useState('');
+    const [showVisitDateModal, setShowVisitDateModal] = useState(false);
     
     // 零件搜尋 State
     const [selectedModel, setSelectedModel] = useState('ALL');
@@ -346,22 +347,26 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
             return;
         }
 
-        // 如果是追蹤或觀察，必須要有日期
-        if ((form.status === 'tracking' || form.status === 'monitor') && !nextVisitDate) {
-            alert('請設定預計回訪日期');
-            return;
-        }
-
-        if (form.status === 'tracking') {
-            executeSubmit({...form, status: 'tracking', nextVisitDate});
-            return;
-        }
-        if (form.status === 'monitor') {
-            executeSubmit({...form, status: 'monitor', nextVisitDate});
+        // 如果是追蹤或觀察，先彈出日期選擇視窗
+        if (form.status === 'tracking' || form.status === 'monitor') {
+            setShowVisitDateModal(true);
             return;
         }
 
         executeSubmit({...form, status: 'completed'}); 
+    };
+
+    const handleConfirmVisitDate = () => {
+        if (!nextVisitDate) {
+            alert('請設定預計回訪日期');
+            return;
+        }
+        if (form.status === 'tracking') {
+            executeSubmit({...form, status: 'tracking', nextVisitDate});
+        } else if (form.status === 'monitor') {
+            executeSubmit({...form, status: 'monitor', nextVisitDate});
+        }
+        setShowVisitDateModal(false);
     };
 
     // --- 輔助計算 ---
@@ -571,7 +576,7 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
                     {['before', 'after'].map(type => (
                         <div key={type} className="relative group aspect-[4/3]">
                             <label className={`flex flex-col items-center justify-center w-full h-full border-2 border-dashed border-gray-300 rounded-xl bg-gray-50 hover:bg-white hover:border-blue-400 transition cursor-pointer overflow-hidden`}>
-                                <input type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => handleFileChange(e, type)} />
+                                <input type="file" accept="image/*" className="hidden" onChange={(e) => handleFileChange(e, type)} />
                                 {previews[type] ? (
                                     <img src={previews[type]} alt={type} className="w-full h-full object-cover" />
                                 ) : (
@@ -588,49 +593,6 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
             </section>
         </div>
 
-        {/* 回訪日期設定區塊 */}
-        {(form.status === 'tracking' || form.status === 'monitor') && (
-          <div className="px-4 pb-4 animate-in fade-in slide-in-from-top-2">
-            <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
-              <div className="flex items-center gap-2 mb-3 text-slate-600 font-bold text-sm">
-                <Calendar size={16} /> 預計回訪日期
-              </div>
-              
-              {/* 快速按鈕 */}
-              <div className="flex gap-2 mb-3">
-                {[1, 3, 5].map(days => (
-                  <button 
-                    key={days}
-                    onClick={() => setNextVisitDate(getFutureDate(days))}
-                    className="flex-1 py-2 bg-white border border-slate-200 rounded-lg text-sm font-bold text-slate-600 shadow-sm active:bg-blue-50 active:text-blue-600 transition-colors"
-                  >
-                    {days}天
-                  </button>
-                ))}
-                <button 
-                  onClick={() => setNextVisitDate('')}
-                  className="flex-1 py-2 bg-white border border-slate-200 rounded-lg text-sm font-bold text-slate-600 shadow-sm"
-                >
-                  自訂
-                </button>
-              </div>
-
-              {/* 日期輸入框 */}
-              <input 
-                type="date" 
-                value={nextVisitDate}
-                onChange={e => setNextVisitDate(e.target.value)}
-                className="w-full p-3 bg-white border border-slate-200 rounded-xl font-bold text-slate-700 outline-none focus:border-blue-400"
-              />
-              
-              {form.status === 'tracking' && (
-                <p className="mt-2 text-xs text-orange-600 font-bold flex items-center">
-                  <AlertTriangle size={12} className="mr-1"/> 案件將進入「待辦追蹤」列表
-                </p>
-              )}
-            </div>
-          </div>
-        )}
 
         {/* 5. Sticky Footer */}
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-3 pb-5 shadow-[0_-5px_20px_-5px_rgba(0,0,0,0.1)] z-50">
@@ -661,8 +623,8 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
                     disabled={isSubmitting}
                 >
                     {isSubmitting ? <Loader2 className="w-6 h-6 animate-spin" /> : 
-                     form.status === 'tracking' ? <span className="flex items-center">下一步 <ChevronRight size={20}/></span> :
-                     form.status === 'monitor' ? <span className="flex items-center">下一步 <ChevronRight size={20}/></span> :
+                     form.status === 'tracking' ? <span className="flex items-center">建立追蹤任務 <ChevronRight size={20}/></span> :
+                     form.status === 'monitor' ? <span className="flex items-center">建立觀察任務 <ChevronRight size={20}/></span> :
                      <span className="flex items-center"><Save className="mr-2" size={20}/>確認結案</span>
                     }
                 </button>
@@ -774,6 +736,69 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
             </div>
         )}
 
+        {/* 回訪日期選擇 Modal */}
+        {showVisitDateModal && (
+            <div className="fixed inset-0 bg-black/60 z-[70] flex items-center justify-center p-4 animate-in fade-in">
+                <div className="bg-white w-full max-w-sm rounded-2xl p-6 shadow-xl space-y-4">
+                    <h3 className="text-lg font-bold text-slate-800 flex items-center">
+                        <Calendar className="mr-2 text-blue-600" size={20}/> 
+                        設定回訪日期
+                    </h3>
+                    
+                    {/* 快速按鈕 */}
+                    <div className="flex gap-2">
+                        {[1, 3, 5].map(days => (
+                            <button 
+                                key={days}
+                                onClick={() => setNextVisitDate(getFutureDate(days))}
+                                className="flex-1 py-2 bg-white border border-slate-200 rounded-lg text-sm font-bold text-slate-600 shadow-sm active:bg-blue-50 active:text-blue-600 transition-colors"
+                            >
+                                {days}天
+                            </button>
+                        ))}
+                        <button 
+                            onClick={() => setNextVisitDate('')}
+                            className="flex-1 py-2 bg-white border border-slate-200 rounded-lg text-sm font-bold text-slate-600 shadow-sm"
+                        >
+                            自訂
+                        </button>
+                    </div>
+
+                    {/* 日期輸入框 */}
+                    <input 
+                        type="date" 
+                        value={nextVisitDate}
+                        onChange={e => setNextVisitDate(e.target.value)}
+                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-700 outline-none focus:border-blue-400"
+                    />
+                    
+                    {form.status === 'tracking' && (
+                        <p className="text-xs text-orange-600 font-bold flex items-center">
+                            <AlertTriangle size={12} className="mr-1"/> 案件將進入「待辦追蹤」列表
+                        </p>
+                    )}
+
+                    <div className="flex gap-3 pt-2">
+                        <button 
+                            onClick={() => { setShowVisitDateModal(false); setNextVisitDate(''); }} 
+                            className="flex-1 py-3 bg-gray-100 font-bold text-gray-500 rounded-xl"
+                        >
+                            取消
+                        </button>
+                        <button 
+                            onClick={handleConfirmVisitDate}
+                            className={`flex-1 py-3 text-white font-bold rounded-xl shadow-lg ${
+                                form.status === 'tracking' 
+                                    ? 'bg-orange-500 shadow-orange-200' 
+                                    : 'bg-amber-500 shadow-amber-200'
+                            }`}
+                        >
+                            建立{form.status === 'tracking' ? '追蹤' : '觀察'}任務
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
       </div>
     );
 };

@@ -1,11 +1,10 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { 
   X, Search, Camera, Check, User, MapPin, 
-  Phone, FileText, ClipboardList
+  Phone, ClipboardList
 } from 'lucide-react';
 
 const QuickActionModal = ({ isOpen, onClose, customers, onSaveRecord }) => {
-  const [type, setType] = useState('task'); // 'task' (新增任務) or 'repair' (維修紀錄)
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [searchText, setSearchText] = useState('');
   const [description, setDescription] = useState('');
@@ -69,7 +68,7 @@ const QuickActionModal = ({ isOpen, onClose, customers, onSaveRecord }) => {
       return;
     }
     if (!description) {
-      alert('請輸入故障/任務描述');
+      alert('請輸入任務內容');
       return;
     }
 
@@ -77,7 +76,7 @@ const QuickActionModal = ({ isOpen, onClose, customers, onSaveRecord }) => {
       id: Date.now().toString(),
       customerID: selectedCustomer.customerID,
       customerName: selectedCustomer.name,
-      type: type === 'task' ? 'general' : 'repair',
+      type: 'general',
       status: 'tracking',
       description: description,
       source: source,
@@ -101,7 +100,6 @@ const QuickActionModal = ({ isOpen, onClose, customers, onSaveRecord }) => {
     setSource('call');
     setPhoto(null);
     setPhotoPreview(null);
-    setType('task');
   };
 
   if (!isOpen) return null;
@@ -109,35 +107,47 @@ const QuickActionModal = ({ isOpen, onClose, customers, onSaveRecord }) => {
   return (
     <div className="fixed inset-0 bg-black/60 z-[60] flex items-end sm:items-center justify-center animate-in fade-in duration-200">
       <div 
-        className="bg-white w-full max-w-lg sm:rounded-2xl rounded-t-2xl shadow-2xl flex flex-col max-h-[90vh] transition-all"
+        className="bg-white w-full max-w-lg sm:rounded-2xl rounded-t-2xl shadow-2xl flex flex-col h-[90vh] max-h-[90vh] transition-all"
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
         
-        {/* Header: 類型切換 + 關閉按鈕，無標題 */}
-        <div className="flex justify-between items-center p-4 border-b border-slate-100 flex-shrink-0">
-          <div className="flex bg-slate-100 p-1 rounded-xl">
-             <button 
-               onClick={() => setType('task')}
-               className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all ${type === 'task' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400'}`}
-             >
-               新增任務
-             </button>
-             <button 
-               onClick={() => setType('repair')}
-               className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all ${type === 'repair' ? 'bg-white text-orange-600 shadow-sm' : 'text-slate-400'}`}
-             >
-               維修紀錄
-             </button>
-          </div>
+        {/* Header: 只有關閉按鈕，無標題 */}
+        <div className="flex justify-end items-center p-4 border-b border-slate-100 flex-shrink-0">
           <button onClick={onClose} className="p-2 bg-slate-100 rounded-full text-slate-500 hover:bg-slate-200">
             <X size={20} />
           </button>
         </div>
 
         {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-5">
+        <div className="flex-1 overflow-y-auto p-4 space-y-5 min-h-0">
           
-          {/* 1. 選擇客戶 */}
+          {/* 1. 任務來源 */}
+          <div className="space-y-2">
+            <label className="text-sm font-bold text-slate-500 flex items-center">
+              <Phone size={16} className="mr-1"/> 來源
+            </label>
+            <div className="flex gap-2">
+              {[
+                { id: 'call', label: '客戶叫修' },
+                { id: 'dispatch', label: '公司派工' },
+                { id: 'patrol', label: '例行巡檢' }
+              ].map(opt => (
+                <button
+                  key={opt.id}
+                  onClick={() => setSource(opt.id)}
+                  className={`flex-1 py-2 rounded-xl text-sm font-bold border transition-all ${
+                    source === opt.id 
+                      ? 'bg-blue-100 text-blue-600 border-blue-300' 
+                      : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 2. 選擇客戶 */}
           <div className="space-y-2">
             <label className="text-sm font-bold text-slate-500 flex items-center">
               <User size={16} className="mr-1"/> 客戶
@@ -194,48 +204,21 @@ const QuickActionModal = ({ isOpen, onClose, customers, onSaveRecord }) => {
             )}
           </div>
 
-          {/* 2. 故障/任務描述 */}
+          {/* 3. 任務內容 */}
           <div className="space-y-2">
             <label className="text-sm font-bold text-slate-500 flex items-center">
-              <ClipboardList size={16} className="mr-1"/> 
-              {type === 'task' ? '任務內容' : '故障描述'}
+              <ClipboardList size={16} className="mr-1"/> 任務內容
             </label>
             <textarea 
-              rows={2}
-              placeholder={type === 'task' ? "例：送耗材、定期檢查..." : "例：卡紙、異音、無法開機..."}
+              rows={3}
+              placeholder="例：送耗材、定期檢查、卡紙、異音..."
               className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 resize-none"
               value={description}
               onChange={e => setDescription(e.target.value)}
             />
           </div>
 
-          {/* 3. 任務來源 */}
-          <div className="space-y-2">
-             <label className="text-sm font-bold text-slate-500 flex items-center">
-              <Phone size={16} className="mr-1"/> 來源
-            </label>
-            <div className="flex gap-2">
-              {[
-                { id: 'call', label: '客戶叫修' },
-                { id: 'dispatch', label: '公司派工' },
-                { id: 'patrol', label: '例行巡檢' }
-              ].map(opt => (
-                <button
-                  key={opt.id}
-                  onClick={() => setSource(opt.id)}
-                  className={`flex-1 py-2 rounded-xl text-sm font-bold border transition-all ${
-                    source === opt.id 
-                      ? 'bg-slate-800 text-white border-slate-800' 
-                      : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* 4. 現場照片 */}
+          {/* 4. 照片 (選填) */}
           <div className="space-y-2">
             <label className="text-sm font-bold text-slate-500 flex items-center">
               <Camera size={16} className="mr-1"/> 照片 (選填)
@@ -247,7 +230,7 @@ const QuickActionModal = ({ isOpen, onClose, customers, onSaveRecord }) => {
                  className="w-full py-4 border-2 border-dashed border-slate-200 rounded-xl text-slate-400 font-bold flex flex-col items-center justify-center hover:bg-slate-50 transition-colors"
                >
                  <Camera size={24} className="mb-1 opacity-50"/>
-                 <span className="text-xs">點擊拍攝或上傳</span>
+                 <span className="text-xs">點擊拍攝或上傳檔案</span>
                </button>
             ) : (
                <div className="relative rounded-xl overflow-hidden border border-slate-200 bg-slate-100">
@@ -262,8 +245,7 @@ const QuickActionModal = ({ isOpen, onClose, customers, onSaveRecord }) => {
             )}
             <input 
               type="file" 
-              accept="image/*" 
-              capture="environment"
+              accept="image/*"
               className="hidden" 
               ref={fileInputRef}
               onChange={handlePhotoChange}
@@ -272,7 +254,7 @@ const QuickActionModal = ({ isOpen, onClose, customers, onSaveRecord }) => {
         </div>
 
         {/* Footer Actions */}
-        <div className="p-4 border-t border-slate-100 bg-white rounded-b-2xl">
+        <div className="p-4 border-t border-slate-100 bg-white rounded-b-2xl flex-shrink-0">
           <button 
             onClick={handleSubmit}
             className={`w-full py-3.5 rounded-xl flex items-center justify-center font-bold text-lg shadow-lg shadow-blue-200 active:scale-[0.98] transition-all ${
@@ -283,7 +265,7 @@ const QuickActionModal = ({ isOpen, onClose, customers, onSaveRecord }) => {
             disabled={!selectedCustomer || !description}
           >
             <Check size={20} className="mr-2" />
-            建立任務追蹤
+            建立任務表單
           </button>
         </div>
 

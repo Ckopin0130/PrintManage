@@ -283,18 +283,18 @@ const CustomerDetail = ({
         </div>
 
         {/* 分隔線 - 讓名片和履歷明顯分開 */}
-        <div className="relative py-2">
+        <div className="relative py-4">
           <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-slate-200"></div>
+            <div className="w-full border-t-2 border-slate-300"></div>
           </div>
           <div className="relative flex justify-center">
-            <div className="bg-slate-50 px-4">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">維修履歷</span>
+            <div className="bg-slate-50 px-6 py-1 rounded-full border-2 border-slate-300">
+              <span className="text-xs font-extrabold text-slate-600 uppercase tracking-wider">維修履歷</span>
             </div>
           </div>
         </div>
         {/* 維修履歷區域 */}
-        <div className="bg-white rounded-2xl shadow-[0_2px_8px_rgb(0,0,0,0.04)] border border-slate-100 overflow-hidden">
+        <div className="bg-white rounded-2xl shadow-[0_2px_8px_rgb(0,0,0,0.04)] border-2 border-slate-200 overflow-hidden">
             <div className="bg-slate-50 px-5 py-4 border-b border-slate-200 flex justify-between items-center">
                <h3 className="font-extrabold text-slate-800 flex items-center gap-2">
                  <div className="bg-blue-50 p-1.5 rounded-lg text-blue-600">
