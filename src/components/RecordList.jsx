@@ -138,7 +138,14 @@ const RecordList = ({
                 if(r.status === 'monitor') statusConfig = { color: "bg-blue-50 text-blue-600 border-blue-100", text: "觀察" };
            
                 return (
-                    <div key={r.id} className="bg-white p-4 rounded-2xl shadow-[0_2px_8px_rgb(0,0,0,0.04)] border border-slate-100 hover:border-blue-200 transition-all group">
+                    <div 
+                      key={r.id} 
+                      className="bg-white p-4 rounded-2xl shadow-[0_2px_8px_rgb(0,0,0,0.04)] border border-slate-100 hover:border-blue-200 transition-all active:scale-[0.99] group cursor-pointer"
+                      onClick={(e) => {
+                        // 點擊整個卡片進入編輯紀錄
+                        startEditRecord(e, r);
+                      }}
+                    >
                         <div className="flex justify-between items-start mb-2">
                             <span className="text-[10px] font-bold text-slate-400 bg-slate-50 px-2 py-1 rounded-md border border-slate-100 flex items-center font-mono">
                                 <Calendar size={10} className="mr-1.5"/>{r.date}
@@ -152,6 +159,7 @@ const RecordList = ({
                             </div>
                         </div>
                         
+                        {/* 客戶名稱區域 - 點擊時篩選，阻止冒泡到卡片 */}
                         <div 
                           className="mb-2"
                           onClick={(e) => {
@@ -169,22 +177,11 @@ const RecordList = ({
                             <div className="text-xs text-slate-400 font-bold">{cust?.assets?.[0]?.model || ''}</div>
                         </div>
 
-                        <div 
-                          className="text-sm text-slate-700 font-bold mb-1 cursor-pointer hover:text-blue-600 transition-colors"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            startEditRecord(e, r);
-                          }}
-                        >
+                        {/* 故障描述和處理過程 - 不需要單獨的 onClick，會觸發卡片的 onClick */}
+                        <div className="text-sm text-slate-700 font-bold mb-1">
                           {r.fault || r.symptom}
                         </div>
-                        <div 
-                          className="text-xs text-slate-500 leading-relaxed mb-2 line-clamp-2 cursor-pointer hover:text-blue-600 transition-colors"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            startEditRecord(e, r);
-                          }}
-                        >
+                        <div className="text-xs text-slate-500 leading-relaxed mb-2 line-clamp-2">
                           {r.solution || r.action}
                         </div>
                         
