@@ -3,26 +3,26 @@ import {
   ArrowLeft, FileText, Trash2, Camera, Loader2, Save,
   CheckCircle, Clock, Eye, ClipboardList, PhoneIncoming, Briefcase, 
   Package, Search, Wrench, AlertTriangle, Image as ImageIcon, X, Plus, 
-  Minus, Settings, Edit3, ChevronRight, List
+  Minus, Settings, Edit3, ChevronRight, RefreshCw, Pencil
 } from 'lucide-react';
 import { ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { storage } from '../firebaseConfig'; 
 
-// --- 1. 常數定義 ---
+// --- 1. 預設資料 (作為重置種子) ---
+const INITIAL_FAULT_TAGS = {
+  jam: ["卡紙-紙匣1", "卡紙-紙匣2", "卡紙-手送台", "卡紙-定影部", "卡紙-ADF", "卡紙-對位", "卡紙-雙面單元", "不進紙"],
+  quality: ["黑線/黑帶", "白點/白線", "列印太淡", "底灰", "全黑/全白", "色彩偏移", "定影不良", "碳粉噴濺"],
+  other: ["異音-齒輪", "異音-風扇", "漏碳粉", "廢碳粉滿", "觸控失靈", "無法開機", "網路不通", "驅動問題", "ADF磨損"]
+};
+
+const INITIAL_ACTION_TAGS = ["清潔", "調整", "潤滑", "更換", "韌體更新", "驅動重裝", "測試正常", "保養歸零", "更換滾輪"];
+
 const FAULT_TABS = [
   { id: 'sc', label: 'SC代碼', icon: AlertTriangle },
   { id: 'jam', label: '卡紙', icon: FileText },
   { id: 'quality', label: '影像', icon: ImageIcon },
   { id: 'other', label: '其他', icon: Settings },
 ];
-
-const DEFAULT_SYMPTOM_DATA = {
-  jam: ["卡紙-紙匣1", "卡紙-紙匣2", "卡紙-手送台", "卡紙-定影部", "卡紙-ADF", "卡紙-對位", "卡紙-雙面單元", "不進紙"],
-  quality: ["黑線/黑帶", "白點/白線", "列印太淡", "底灰", "全黑/全白", "色彩偏移", "定影不良", "碳粉噴濺"],
-  other: ["異音-齒輪", "異音-風扇", "漏碳粉", "廢碳粉滿", "觸控失靈", "無法開機", "網路不通", "驅動問題", "ADF磨損"]
-};
-
-const ACTION_TAGS = ["清潔", "調整", "潤滑", "更換", "韌體更新", "驅動重裝", "測試正常", "保養歸零", "更換滾輪"];
 
 const STATUS_OPTIONS = [
   { id: 'completed', label: '完修', color: 'text-emerald-600', activeBg: 'bg-emerald-600 text-white', icon: CheckCircle },
@@ -86,11 +86,19 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
     const [hasFaultFound, setHasFaultFound] = useState(initialData.serviceSource !== 'invoice_check');
     const [activeFaultTab, setActiveFaultTab] = useState(initialData.errorCode ? 'sc' : 'jam');
     
-    // 自訂標籤 State (讀取 LocalStorage)
-    const [customTags, setCustomTags] = useState(() => {
+    // --- 標籤系統 State (載入 LocalStorage 或 預設值) ---
+    const [allTags, setAllTags] = useState(() => {
         try {
-            return JSON.parse(localStorage.getItem('my_custom_tags')) || {};
-        } catch { return {}; }
+            const saved = localStorage.getItem('app_tags_v2');
+            if (saved) return JSON.parse(saved);
+        } catch(e) { console.error(e); }
+        // 預設結構
+        return {
+            jam: INITIAL_FAULT_TAGS.jam,
+            quality: INITIAL_FAULT_TAGS.quality,
+            other: INITIAL_FAULT_TAGS.other,
+            action: INITIAL_ACTION_TAGS
+        };
     });
 
     // 彈出視窗 State
@@ -100,8 +108,10 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
     
     // 標籤管理視窗 State
     const [isTagManagerOpen, setIsTagManagerOpen] = useState(false);
-    const [managingCategory, setManagingCategory] = useState(null); // 'action' or activeFaultTab
+    const [managingCategory, setManagingCategory] = useState(null); // key of allTags
     const [newTagInput, setNewTagInput] = useState('');
+    const [editingTagIndex, setEditingTagIndex] = useState(-1); // -1 means adding new
+    const [editTagInput, setEditTagInput] = useState('');
 
     // 攔截資料暫存 State
     const [pendingData, setPendingData] = useState({ parts_needed: '', return_date: '' });
@@ -114,6 +124,25 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
     const pageTitle = form.id ? '編輯紀錄' : '新增紀錄';
 
     // --- 4. 邏輯處理區 ---
+
+    // 儲存標籤到 LocalStorage
+    const saveTags = (newTagsState) => {
+        setAllTags(newTagsState);
+        localStorage.setItem('app_tags_v2', JSON.stringify(newTagsState));
+    };
+
+    // 重置標籤回預設值
+    const resetTagsToDefault = () => {
+        if(!window.confirm('確定要重置所有標籤設定嗎？您的自訂修改將會消失。')) return;
+        const defaultState = {
+            jam: INITIAL_FAULT_TAGS.jam,
+            quality: INITIAL_FAULT_TAGS.quality,
+            other: INITIAL_FAULT_TAGS.other,
+            action: INITIAL_ACTION_TAGS
+        };
+        saveTags(defaultState);
+        setIsTagManagerOpen(false);
+    };
 
     // 任務來源切換與自動收合
     const handleSourceChange = (sourceId) => {
@@ -145,35 +174,41 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
         });
     };
 
-    // --- 標籤管理邏輯 (新增/刪除) ---
+    // --- 標籤管理邏輯 (整合修改與自訂) ---
     const openTagManager = (category) => {
         setManagingCategory(category);
         setNewTagInput('');
+        setEditingTagIndex(-1);
         setIsTagManagerOpen(true);
     };
 
-    const handleAddTagInManager = () => {
+    const handleAddTag = () => {
         if (!newTagInput.trim()) return;
-        const tagName = newTagInput.trim();
-        const currentCategoryTags = customTags[managingCategory] || [];
-        
-        if (!currentCategoryTags.includes(tagName)) {
-            const updatedTags = { ...customTags, [managingCategory]: [...currentCategoryTags, tagName] };
-            setCustomTags(updatedTags);
-            localStorage.setItem('my_custom_tags', JSON.stringify(updatedTags));
-            setNewTagInput('');
-        }
+        const currentList = allTags[managingCategory] || [];
+        const newList = [...currentList, newTagInput.trim()];
+        saveTags({ ...allTags, [managingCategory]: newList });
+        setNewTagInput('');
     };
 
-    const handleDeleteTagInManager = (tagToDelete) => {
-        if (!window.confirm(`確定要刪除標籤「${tagToDelete}」嗎？`)) return;
-        const currentCategoryTags = customTags[managingCategory] || [];
-        const updatedTags = { 
-            ...customTags, 
-            [managingCategory]: currentCategoryTags.filter(t => t !== tagToDelete) 
-        };
-        setCustomTags(updatedTags);
-        localStorage.setItem('my_custom_tags', JSON.stringify(updatedTags));
+    const handleDeleteTag = (index) => {
+        if (!window.confirm('確定刪除此標籤？')) return;
+        const currentList = allTags[managingCategory] || [];
+        const newList = currentList.filter((_, i) => i !== index);
+        saveTags({ ...allTags, [managingCategory]: newList });
+    };
+
+    const startEditingTag = (index, text) => {
+        setEditingTagIndex(index);
+        setEditTagInput(text);
+    };
+
+    const saveEditedTag = (index) => {
+        if (!editTagInput.trim()) return;
+        const currentList = allTags[managingCategory] || [];
+        const newList = [...currentList];
+        newList[index] = editTagInput.trim();
+        saveTags({ ...allTags, [managingCategory]: newList });
+        setEditingTagIndex(-1);
     };
 
     // SC 代碼輸入邏輯
@@ -186,17 +221,19 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
         });
     };
 
-    // 零件邏輯
+    // 零件邏輯 (增加即時連動檢查)
     const updatePartQty = (index, delta) => {
         setForm(prev => {
             const updatedParts = [...prev.parts];
-            const newQty = updatedParts[index].qty + delta;
+            const part = updatedParts[index];
+            const newQty = part.qty + delta;
             
             if (newQty <= 0) {
                 if(window.confirm('確定要移除此零件嗎？')) updatedParts.splice(index, 1);
             } else {
                 if (delta > 0) {
-                    const originalItem = inventory.find(i => i.name === updatedParts[index].name);
+                    // 檢查原始庫存
+                    const originalItem = inventory.find(i => i.name === part.name);
                     if (originalItem && newQty > originalItem.qty) {
                         alert(`庫存不足！目前僅剩 ${originalItem.qty}`);
                         return prev;
@@ -209,16 +246,20 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
     };
 
     const handleAddPart = (item) => {
-        if (item.qty <= 0) return;
+        // 先檢查當前表單中已經選了多少個
+        const currentInForm = form.parts?.find(p => p.name === item.name)?.qty || 0;
+        const remainingStock = item.qty - currentInForm;
+
+        if (remainingStock <= 0) {
+            alert('庫存已用盡！(包含已加入清單的數量)');
+            return;
+        }
+
         setForm(prev => {
             const currentParts = prev.parts || [];
             const existingIndex = currentParts.findIndex(p => p.name === item.name);
             if (existingIndex >= 0) {
                 const updatedParts = [...currentParts];
-                if (updatedParts[existingIndex].qty + 1 > item.qty) {
-                    alert('庫存不足');
-                    return prev;
-                }
                 updatedParts[existingIndex].qty += 1;
                 return { ...prev, parts: updatedParts };
             } else {
@@ -244,7 +285,7 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
         setForm(prev => ({ ...prev, [`photo${type === 'before' ? 'Before' : 'After'}`]: null }));
     };
 
-    // --- 5. 核心送出邏輯 (包含攔截與強制狀態修正) ---
+    // --- 5. 核心送出邏輯 ---
 
     const executeSubmit = async (finalData) => {
         setIsSubmitting(true);
@@ -289,20 +330,17 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
             return;
         }
 
-        // 完修狀態直接送出
         executeSubmit({...form, status: 'completed'}); 
     };
 
     const confirmPendingSubmit = () => {
         if (!pendingData.parts_needed) { alert('請輸入缺料名稱'); return; }
-        // 強制設定 status 為 'pending'，防止 UI 狀態未同步
         const mergedData = { ...form, ...pendingData, status: 'pending' };
         setIsPendingModalOpen(false);
         executeSubmit(mergedData);
     };
 
     const confirmMonitorSubmit = () => {
-        // 強制設定 status 為 'monitor'，防止 UI 狀態未同步
         const mergedData = { ...form, ...monitorData, status: 'monitor' };
         setIsMonitorModalOpen(false);
         executeSubmit(mergedData);
@@ -324,18 +362,21 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
         });
     }, [inventory, selectedModel, partSearch]);
 
-    // 取得當前類別的所有標籤 (預設 + 自訂)
+    // 取得當前標籤列表
     const getCurrentTabTags = () => {
         if (activeFaultTab === 'sc') return [];
-        const defaultTags = DEFAULT_SYMPTOM_DATA[activeFaultTab] || [];
-        const userTags = customTags[activeFaultTab] || [];
-        return [...defaultTags, ...userTags];
+        return allTags[activeFaultTab] || [];
     };
 
     const getActionTags = () => {
-        const userTags = customTags['action'] || [];
-        return [...ACTION_TAGS, ...userTags];
+        return allTags['action'] || [];
     }
+
+    // 計算「有效庫存」：原始庫存 - 表單中已選數量
+    const getEffectiveStock = (item) => {
+        const inFormQty = form.parts?.find(p => p.name === item.name)?.qty || 0;
+        return Math.max(0, item.qty - inFormQty);
+    };
 
     // --- 6. UI Render ---
     return (
@@ -398,7 +439,7 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
                 )}
             </section>
 
-            {/* 2. 故障類別 (Tabs 分類) */}
+            {/* 2. 故障類別 */}
             {hasFaultFound && (
                 <section className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden animate-in slide-in-from-bottom duration-300">
                     <div className="flex border-b border-gray-100">
@@ -442,9 +483,8 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
                                             {item}
                                         </button>
                                     ))}
-                                    {/* 修正：點擊後開啟管理視窗 */}
                                     <button onClick={() => openTagManager(activeFaultTab)} className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-full text-xs font-bold border border-blue-100 flex items-center gap-1 active:bg-blue-100">
-                                        <Plus size={12}/>自訂
+                                        <Settings size={12}/>管理標籤
                                     </button>
                                 </div>
                             </div>
@@ -472,9 +512,8 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
                                 {tag}
                              </button>
                         ))}
-                        {/* 修正：點擊後開啟管理視窗 */}
                         <button onClick={() => openTagManager('action')} className="px-2 py-1 bg-blue-50 text-blue-600 rounded text-xs border border-blue-100 font-bold flex items-center gap-1 active:bg-blue-100">
-                            <Plus size={10}/>自訂
+                            <Settings size={10}/>管理標籤
                         </button>
                     </div>
                 </div>
@@ -531,11 +570,9 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
             </section>
         </div>
 
-        {/* 5. Sticky Footer (左右 50/50 分割) */}
+        {/* 5. Sticky Footer */}
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-3 pb-5 shadow-[0_-5px_20px_-5px_rgba(0,0,0,0.1)] z-50">
             <div className="max-w-lg mx-auto flex gap-3 h-14">
-                
-                {/* 左邊 50%：狀態選擇 */}
                 <div className="w-1/2 grid grid-cols-3 gap-1 bg-gray-100 p-1 rounded-xl">
                     {STATUS_OPTIONS.map(option => {
                         const isSelected = form.status === option.id;
@@ -552,8 +589,6 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
                          )
                     })}
                 </div>
-                
-                {/* 右邊 50%：送出按鈕 */}
                 <button 
                     className={`w-1/2 rounded-xl shadow-lg transition-all flex items-center justify-center font-bold text-white text-lg active:scale-[0.98] ${
                         form.status === 'pending' ? 'bg-orange-500 shadow-orange-200' : 
@@ -574,52 +609,63 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
 
         {/* --- Modals 區塊 --- */}
 
-        {/* 0. 標籤管理 Modal (新增功能) */}
+        {/* 0. 統一標籤管理 Modal (可修改預設值) */}
         {isTagManagerOpen && (
             <div className="fixed inset-0 bg-black/60 z-[80] flex items-center justify-center p-4 animate-in fade-in" onClick={() => setIsTagManagerOpen(false)}>
                 <div className="bg-white w-full max-w-sm rounded-2xl p-5 shadow-xl flex flex-col max-h-[70vh]" onClick={e => e.stopPropagation()}>
-                    <div className="flex justify-between items-center mb-4 border-b border-gray-100 pb-2">
+                    <div className="flex justify-between items-center mb-2 border-b border-gray-100 pb-2">
                         <h3 className="text-lg font-bold text-slate-800 flex items-center">
                             <Settings size={18} className="mr-2 text-blue-600"/> 
-                            管理{managingCategory === 'action' ? '處理' : '故障'}標籤
+                            標籤管理
                         </h3>
-                        <button onClick={() => setIsTagManagerOpen(false)}><X size={20} className="text-gray-400"/></button>
+                        <button onClick={resetTagsToDefault} className="text-xs text-rose-500 font-bold flex items-center gap-1 bg-rose-50 px-2 py-1 rounded">
+                            <RefreshCw size={10}/> 還原預設
+                        </button>
                     </div>
                     
-                    {/* 標籤列表 */}
-                    <div className="flex-1 overflow-y-auto space-y-2 mb-4">
-                        {(customTags[managingCategory] || []).length === 0 ? (
-                            <div className="text-center text-gray-400 text-sm py-8">尚無自訂標籤</div>
-                        ) : (
-                            (customTags[managingCategory] || []).map((tag, idx) => (
-                                <div key={idx} className="flex justify-between items-center bg-gray-50 p-3 rounded-xl border border-gray-100">
-                                    <span className="font-bold text-slate-700">{tag}</span>
-                                    <button onClick={() => handleDeleteTagInManager(tag)} className="p-2 bg-white text-rose-500 rounded-lg shadow-sm border border-rose-100 hover:bg-rose-50"><Trash2 size={16}/></button>
-                                </div>
-                            ))
-                        )}
+                    <div className="flex-1 overflow-y-auto space-y-2 mb-4 pr-1">
+                        {(allTags[managingCategory] || []).map((tag, idx) => (
+                            <div key={idx} className="flex justify-between items-center bg-gray-50 p-2 rounded-xl border border-gray-100 group">
+                                {editingTagIndex === idx ? (
+                                    <div className="flex flex-1 gap-2">
+                                        <input 
+                                            autoFocus
+                                            type="text"
+                                            className="flex-1 min-w-0 bg-white border border-blue-400 rounded-lg px-2 py-1 text-sm font-bold"
+                                            value={editTagInput}
+                                            onChange={(e) => setEditTagInput(e.target.value)}
+                                        />
+                                        <button onClick={() => saveEditedTag(idx)} className="p-1.5 bg-blue-500 text-white rounded-lg"><CheckCircle size={16}/></button>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <span className="font-bold text-slate-700 text-sm ml-2">{tag}</span>
+                                        <div className="flex gap-1">
+                                            <button onClick={() => startEditingTag(idx, tag)} className="p-2 text-slate-400 hover:text-blue-500 hover:bg-white rounded-lg"><Pencil size={14}/></button>
+                                            <button onClick={() => handleDeleteTag(idx)} className="p-2 text-slate-400 hover:text-rose-500 hover:bg-white rounded-lg"><Trash2 size={14}/></button>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        ))}
                     </div>
 
-                    {/* 新增輸入框 */}
                     <div className="flex gap-2 pt-2 border-t border-gray-100">
                         <input 
                             type="text" 
                             className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 font-bold text-slate-700"
-                            placeholder="輸入新標籤名稱..."
+                            placeholder="新增標籤..."
                             value={newTagInput}
                             onChange={(e) => setNewTagInput(e.target.value)}
                         />
-                        <button 
-                            onClick={handleAddTagInManager}
-                            className="bg-blue-600 text-white px-4 rounded-xl font-bold shadow-md shadow-blue-200 active:scale-95"
-                        >
-                            新增
-                        </button>
+                        <button onClick={handleAddTag} className="bg-blue-600 text-white px-4 rounded-xl font-bold shadow-md shadow-blue-200 active:scale-95">新增</button>
                     </div>
+                    <button onClick={() => setIsTagManagerOpen(false)} className="mt-3 w-full py-2 bg-gray-100 text-gray-500 font-bold rounded-xl">關閉</button>
                 </div>
             </div>
         )}
 
+        {/* 1. 零件選擇 Modal (庫存即時連動版) */}
         {isPartModalOpen && (
             <div className="fixed inset-0 bg-black/60 z-[60] flex items-end sm:items-center justify-center animate-in fade-in" onClick={() => setIsPartModalOpen(false)}>
                 <div className="bg-white w-full max-w-lg h-[80vh] rounded-t-2xl flex flex-col shadow-2xl" onClick={e => e.stopPropagation()}>
@@ -640,14 +686,24 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
                     </div>
                     <div className="flex-1 overflow-y-auto p-4 space-y-2">
                         {filteredInventory.map(item => {
-                            const outOfStock = item.qty <= 0;
+                            // 計算有效庫存 (原始庫存 - 表單已選)
+                            const effectiveStock = getEffectiveStock(item);
+                            const outOfStock = effectiveStock <= 0;
                             return (
                                 <button key={item.id} onClick={() => handleAddPart(item)} disabled={outOfStock} className={`w-full flex items-center justify-between p-3 rounded-xl border text-left active:scale-[0.98] ${outOfStock ? 'bg-gray-50 opacity-50' : 'bg-white hover:border-blue-300'}`}>
                                     <div className="flex-1 mr-3 min-w-0">
                                         <div className="font-bold text-slate-800 text-sm mb-1">{item.name}</div>
                                         <div className="text-[10px] text-slate-400 bg-slate-50 px-2 py-0.5 rounded w-fit">{item.model || '通用'}</div>
                                     </div>
-                                    <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${outOfStock ? 'bg-rose-100 text-rose-600' : 'bg-emerald-100 text-emerald-600'}`}>{outOfStock ? '缺貨' : `庫存 ${item.qty}`}</span>
+                                    <div className="flex flex-col items-end">
+                                        <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${outOfStock ? 'bg-rose-100 text-rose-600' : 'bg-emerald-100 text-emerald-600'}`}>
+                                            {outOfStock ? '已用盡' : `庫存 ${effectiveStock}`}
+                                        </span>
+                                        {/* 顯示原始庫存對比 */}
+                                        {effectiveStock < item.qty && (
+                                            <span className="text-[9px] text-gray-400 mt-1">原庫存: {item.qty}</span>
+                                        )}
+                                    </div>
                                 </button>
                             );
                         })}
