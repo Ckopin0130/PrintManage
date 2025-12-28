@@ -281,17 +281,20 @@ const QuickActionView = ({ customers, onSaveRecord, onCancel }) => {
         </div>
 
         {/* 5. 建立任務表單按鈕 */}
-        <div className="pb-4">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4">
+          <label className="text-sm font-bold text-slate-500 flex items-center mb-3">
+            <Check size={16} className="mr-1"/> 建立任務表單
+          </label>
           <button 
             onClick={handleSubmit}
-            className={`w-full py-3.5 rounded-xl flex items-center justify-center font-bold text-lg shadow-lg shadow-blue-200 active:scale-[0.98] transition-all ${
+            className={`w-full py-3 rounded-xl flex items-center justify-center font-bold text-base active:scale-[0.98] transition-all ${
               selectedCustomer && description
                 ? 'bg-blue-600 text-white hover:bg-blue-700'
                 : 'bg-slate-200 text-slate-400 cursor-not-allowed'
             }`}
             disabled={!selectedCustomer || !description}
           >
-            <Check size={20} className="mr-2" />
+            <Check size={18} className="mr-2" />
             建立任務表單
           </button>
         </div>
