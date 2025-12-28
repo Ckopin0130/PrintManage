@@ -159,19 +159,9 @@ const RecordList = ({
                             </div>
                         </div>
                         
-                        {/* 客戶名稱區域 - 點擊時篩選，阻止冒泡到卡片 */}
-                        <div 
-                          className="mb-2"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (cust) {
-                              // 設置搜尋框為客戶名稱，觸發現有的篩選邏輯
-                              // 這樣會在 RecordList 中篩選該客戶的紀錄，而不是跳轉到 CustomerDetail
-                              setSearchTerm(cust.name);
-                            }
-                          }}
-                        >
-                            <h3 className="font-bold text-slate-800 text-base flex items-center cursor-pointer hover:text-blue-600 transition-colors">
+                        {/* 客戶名稱區域 - 移除單獨的 onClick，讓點擊時觸發卡片的 onClick */}
+                        <div className="mb-2">
+                            <h3 className="font-bold text-slate-800 text-base flex items-center">
                               {cust ? cust.name : '未知客戶'}
                             </h3>
                             <div className="text-xs text-slate-400 font-bold">{cust?.assets?.[0]?.model || ''}</div>
