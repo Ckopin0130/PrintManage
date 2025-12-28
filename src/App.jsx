@@ -61,6 +61,7 @@ export default function App() {
   // 資料篩選與暫存狀態
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [targetCustomer, setTargetCustomer] = useState(null);
+  const [previousView, setPreviousView] = useState(null);
   
   // 表單初始值
   const defaultRecordForm = { 
@@ -176,11 +177,15 @@ export default function App() {
   const startAddRecord = (customer) => {
     if (!customer) return;
     setEditingRecordData({ ...defaultRecordForm, customerID: customer.customerID });
+    // 記錄當前視圖作為前一個視圖，以便取消時能正確返回
+    setPreviousView(currentView);
     setCurrentView('add_record');
   };
   const startEditRecord = (e, record) => {
     if (e) e.stopPropagation();
     setEditingRecordData(record);
+    // 記錄當前視圖作為前一個視圖，以便取消時能正確返回
+    setPreviousView(currentView);
     setCurrentView('edit_record');
   };
 
@@ -198,6 +203,9 @@ export default function App() {
 
     // 關鍵：設定當前選中客戶，確保 RecordForm 取消時能回到正確的 Detail
     setSelectedCustomer(customer); 
+
+    // 記錄當前視圖作為前一個視圖，以便取消時能正確返回
+    setPreviousView(currentView);
 
     // 切換視窗
     setCurrentView('add_record');
@@ -657,7 +665,14 @@ export default function App() {
       {(currentView === 'add_record' || currentView === 'edit_record') && (
         <RecordForm 
            initialData={editingRecordData} onSubmit={handleSaveRecord} inventory={inventory}
-           onCancel={() => setCurrentView(activeTab === 'records' ? 'records' : 'detail')}
+           onCancel={() => {
+             if (previousView) {
+               setCurrentView(previousView);
+               setPreviousView(null);
+             } else {
+               setCurrentView(activeTab === 'records' ? 'records' : 'detail');
+             }
+           }}
         />
       )}
 
