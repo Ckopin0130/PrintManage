@@ -693,7 +693,6 @@ export default function App() {
         <RecordList 
           records={records} customers={customers} setCurrentView={setCurrentView} setActiveTab={setActiveTab}
           startEditRecord={startEditRecord} handleDeleteRecord={handleDeleteRecord} setViewingImage={setViewingImage}
-          setSelectedCustomer={setSelectedCustomer}
         />
       )}
 

@@ -6,8 +6,7 @@ import {
 
 const RecordList = ({ 
   records, customers, setCurrentView, setActiveTab, 
-  startEditRecord, handleDeleteRecord, setViewingImage,
-  setSelectedCustomer
+  startEditRecord, handleDeleteRecord, setViewingImage
 }) => {
   
   // --- 1. 狀態管理 ---
@@ -158,8 +157,9 @@ const RecordList = ({
                           onClick={(e) => {
                             e.stopPropagation();
                             if (cust) {
-                              setSelectedCustomer(cust);
-                              setCurrentView('detail');
+                              // 設置搜尋框為客戶名稱，觸發現有的篩選邏輯
+                              // 這樣會在 RecordList 中篩選該客戶的紀錄，而不是跳轉到 CustomerDetail
+                              setSearchTerm(cust.name);
                             }
                           }}
                         >
