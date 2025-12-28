@@ -165,51 +165,53 @@ const CustomerDetail = ({
             )}
           </div>
 
-          {/* 第二行：聯絡人圖標 + 欄位 + 電話符號 + 電話欄位 */}
+          {/* 第二行：聯絡人圖標 + 欄位 */}
           <div className="flex items-center gap-3">
             <div className="bg-emerald-50 p-2.5 rounded-xl text-emerald-600 shrink-0 flex items-center justify-center">
               <User size={20} strokeWidth={2.5} />
             </div>
-            <div className={`flex-1 text-base font-bold ${selectedCustomer.contactPerson ? 'text-slate-800' : 'text-slate-400 bg-slate-50 px-2 py-1 rounded'}`}>
+            <div className={`flex-1 text-base font-bold ${selectedCustomer.contactPerson ? 'text-slate-800' : 'text-slate-400'}`}>
               {selectedCustomer.contactPerson || '暫無資料'}
             </div>
-            {selectedCustomer.phones && selectedCustomer.phones.length > 0 && selectedCustomer.phones[0].number && (
-              <>
-                <div className="bg-green-50 p-2.5 rounded-xl text-green-600 shrink-0 flex items-center justify-center">
-                  <Smartphone size={20} strokeWidth={2.5} />
-                </div>
-                <div 
-                  className="flex-1 text-base font-bold text-slate-800 truncate min-w-0 no-phone-decoration"
-                  style={{ 
-                    textDecoration: 'none',
-                    textDecorationLine: 'none',
-                    textDecorationStyle: 'none',
-                    textDecorationColor: 'transparent',
-                    border: 'none',
-                    borderBottom: 'none',
-                    borderTop: 'none',
-                    borderLeft: 'none',
-                    borderRight: 'none',
-                    outline: 'none',
-                    WebkitTapHighlightColor: 'transparent',
-                    WebkitTouchCallout: 'none',
-                    WebkitUserSelect: 'none',
-                    userSelect: 'none',
-                    WebkitTextDecoration: 'none',
-                    MozTextDecoration: 'none',
-                    MsTextDecoration: 'none',
-                    WebkitAppearance: 'none',
-                    MozAppearance: 'none',
-                    appearance: 'none'
-                  }}
-                >
-                  {selectedCustomer.phones[0].number}
-                </div>
-              </>
-            )}
           </div>
 
-          {/* 第三行：地址符號 + 地址 */}
+          {/* 第三行：電話符號 + 電話欄位 */}
+          {selectedCustomer.phones && selectedCustomer.phones.length > 0 && selectedCustomer.phones[0].number && (
+            <div className="flex items-center gap-3">
+              <div className="bg-green-50 p-2.5 rounded-xl text-green-600 shrink-0 flex items-center justify-center">
+                <Smartphone size={20} strokeWidth={2.5} />
+              </div>
+              <div 
+                className="flex-1 text-base font-bold text-slate-800 truncate min-w-0 no-phone-decoration"
+                style={{ 
+                  textDecoration: 'none',
+                  textDecorationLine: 'none',
+                  textDecorationStyle: 'none',
+                  textDecorationColor: 'transparent',
+                  border: 'none',
+                  borderBottom: 'none',
+                  borderTop: 'none',
+                  borderLeft: 'none',
+                  borderRight: 'none',
+                  outline: 'none',
+                  WebkitTapHighlightColor: 'transparent',
+                  WebkitTouchCallout: 'none',
+                  WebkitUserSelect: 'none',
+                  userSelect: 'none',
+                  WebkitTextDecoration: 'none',
+                  MozTextDecoration: 'none',
+                  MsTextDecoration: 'none',
+                  WebkitAppearance: 'none',
+                  MozAppearance: 'none',
+                  appearance: 'none'
+                }}
+              >
+                {selectedCustomer.phones[0].number}
+              </div>
+            </div>
+          )}
+
+          {/* 第四行：地址符號 + 地址 */}
           {selectedCustomer.address && (
             <div className="flex items-center gap-3">
               <div className="bg-blue-50 p-2.5 rounded-xl text-blue-600 shrink-0 flex items-center justify-center">
@@ -245,7 +247,7 @@ const CustomerDetail = ({
             </div>
           )}
 
-          {/* 第四行：備註 + 欄位 */}
+          {/* 第五行：備註 + 欄位 */}
           <div className="flex items-start gap-3">
             <div className="bg-violet-50 p-2.5 rounded-xl text-violet-600 shrink-0 flex items-center justify-center">
               <Info size={20} strokeWidth={2.5} />
@@ -257,7 +259,7 @@ const CustomerDetail = ({
             </div>
           </div>
 
-          {/* 第五行：機器型號符號 + 機型 + 板手符號 + 次數 */}
+          {/* 第六行：機器型號符號 + 機型 + 板手符號 + 次數 */}
           <div className="flex items-center gap-3">
             <div className="bg-amber-50 p-2.5 rounded-xl text-amber-600 shrink-0 flex items-center justify-center">
               <Printer size={20} strokeWidth={2.5} />
