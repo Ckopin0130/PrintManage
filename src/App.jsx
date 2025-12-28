@@ -31,6 +31,7 @@ import RecordList from './components/RecordList';
 
 // [新增] 引入快速操作視窗
 import QuickActionModal from './components/QuickActionModal';
+import QuickActionView from './components/QuickActionView';
 
 export default function App() {
   // --- 1. 狀態管理 ---
@@ -51,7 +52,7 @@ export default function App() {
   const [showPhoneSheet, setShowPhoneSheet] = useState(false);
   const [showAddressAlert, setShowAddressAlert] = useState(false);
   
-  // [新增] 快速操作選單狀態
+  // [新增] 快速操作選單狀態 - 改為一頁式介面
   const [showQuickAction, setShowQuickAction] = useState(false);
   
   // 雲端備份列表
@@ -677,6 +678,7 @@ export default function App() {
         <RecordList 
           records={records} customers={customers} setCurrentView={setCurrentView} setActiveTab={setActiveTab}
           startEditRecord={startEditRecord} handleDeleteRecord={handleDeleteRecord} setViewingImage={setViewingImage}
+          setSelectedCustomer={setSelectedCustomer}
         />
       )}
 
@@ -700,19 +702,20 @@ export default function App() {
         />
       )}
 
+      {/* --- 新增任務一頁式介面 --- */}
+      {currentView === 'quick_action' && (
+        <QuickActionView 
+          customers={customers}
+          onSaveRecord={handleSaveRecord}
+          onCancel={() => setCurrentView('dashboard')}
+        />
+      )}
+
       {/* --- 修改：BottomNavigation 傳入開啟彈窗的函數 --- */}
       <BottomNavigation 
          activeTab={activeTab} 
          onTabChange={handleTabChange} 
-         onOpenQuickAction={() => setShowQuickAction(true)} 
-      />
-
-      {/* --- 新增：QuickActionModal 元件 --- */}
-      <QuickActionModal 
-        isOpen={showQuickAction}
-        onClose={() => setShowQuickAction(false)}
-        customers={customers}
-        onSaveRecord={handleSaveRecord}
+         onOpenQuickAction={() => setCurrentView('quick_action')} 
       />
 
       {showPhoneSheet && <PhoneActionSheet phones={targetCustomer?.phones} onClose={() => setShowPhoneSheet(false)} />}

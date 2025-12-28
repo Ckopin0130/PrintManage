@@ -6,7 +6,8 @@ import {
 
 const RecordList = ({ 
   records, customers, setCurrentView, setActiveTab, 
-  startEditRecord, handleDeleteRecord, setViewingImage 
+  startEditRecord, handleDeleteRecord, setViewingImage,
+  setSelectedCustomer
 }) => {
   
   // --- 1. 狀態管理 ---
@@ -153,7 +154,18 @@ const RecordList = ({
                         </div>
                         
                         <div className="mb-2">
-                            <h3 className="font-bold text-slate-800 text-base flex items-center">{cust ? cust.name : '未知客戶'}</h3>
+                            <h3 
+                              className="font-bold text-slate-800 text-base flex items-center cursor-pointer hover:text-blue-600 transition-colors"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (cust) {
+                                  setSelectedCustomer(cust);
+                                  setCurrentView('detail');
+                                }
+                              }}
+                            >
+                              {cust ? cust.name : '未知客戶'}
+                            </h3>
                             <div className="text-xs text-slate-400 font-bold">{cust?.assets?.[0]?.model || ''}</div>
                         </div>
 

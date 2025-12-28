@@ -23,8 +23,10 @@ const BottomNavigation = ({ activeTab, onTabChange, onOpenQuickAction }) => {
           onClick={onOpenQuickAction}
           className="flex flex-col items-center justify-center flex-1 h-full active:scale-95 transition-transform"
         >
-          <div className="p-1.5 rounded-xl transition-all duration-200 text-slate-400 bg-transparent active:bg-slate-100">
-            <tab.icon size={24} strokeWidth={2} />
+          <div className="p-1.5 rounded-xl transition-all duration-200 text-slate-400 bg-transparent">
+            <div className="w-6 h-6 rounded-full flex items-center justify-center">
+              <tab.icon size={20} strokeWidth={2} />
+            </div>
           </div>
           <span className="text-[10px] font-bold mt-0.5 text-slate-400 transition-colors">
             {tab.label}
