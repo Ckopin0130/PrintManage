@@ -37,7 +37,16 @@ const CustomerDetail = ({
     if (selectedCustomer.addressNote) {
       handleNavClick(selectedCustomer);
     } else if (selectedCustomer.address) {
-      window.open(mapUrl, '_blank');
+      // 检测是否是移动设备
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      
+      if (isMobile) {
+        // 移动设备：直接在当前窗口打开
+        window.location.href = mapUrl;
+      } else {
+        // 桌面设备：在新标签页打开
+        window.open(mapUrl, '_blank', 'noopener,noreferrer');
+      }
     }
   };
 

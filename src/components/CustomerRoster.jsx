@@ -668,8 +668,22 @@ const CustomerRoster = ({ customers, onAddCustomer, onUpdateCustomer, onDeleteCu
 
   const handleNav = (item) => {
       if (!item.address) return showToast('無地址資料', 'error');
-      if (item.addressNote) { setTargetCustomer(item); setShowAddressAlert(true); }
-      else window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.address)}`, '_blank');
+      if (item.addressNote) { 
+        setTargetCustomer(item); 
+        setShowAddressAlert(true); 
+      } else {
+        const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.address)}`;
+        // 检测是否是移动设备
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        
+        if (isMobile) {
+          // 移动设备：直接在当前窗口打开
+          window.location.href = url;
+        } else {
+          // 桌面设备：在新标签页打开
+          window.open(url, '_blank', 'noopener,noreferrer');
+        }
+      }
   };
 
   const handleCustomerClick = (item) => {

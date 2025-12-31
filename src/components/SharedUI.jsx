@@ -57,7 +57,22 @@ export const PhoneActionSheet = ({ phones, onClose }) => {
 // 4. 地址警告框
 export const AddressAlertDialog = ({ customer, onClose }) => {
   if (!customer) return null;
-  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=$?q=${encodeURIComponent(customer.address || '')}`;
+  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(customer.address || '')}`;
+  
+  const handleNavigate = (e) => {
+    e.preventDefault();
+    // 检测是否是移动设备
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
+    if (isMobile) {
+      // 移动设备：直接在当前窗口打开
+      window.location.href = mapsUrl;
+    } else {
+      // 桌面设备：在新标签页打开
+      window.open(mapsUrl, '_blank', 'noopener,noreferrer');
+    }
+  };
+  
   return (
     <div className="fixed inset-0 bg-black bg-opacity-60 z-[60] flex items-center justify-center p-4 animate-in" onClick={onClose}>
       <div className="bg-white w-full max-w-xs rounded-2xl p-6 shadow-2xl transform scale-100 transition-transform" onClick={e => e.stopPropagation()}>
@@ -66,9 +81,13 @@ export const AddressAlertDialog = ({ customer, onClose }) => {
         <p className="text-xs text-gray-400 mb-5 border-t pt-3">地址：{customer.address}</p>
         <div className="flex space-x-3">
           <button type="button" onClick={onClose} className="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl font-bold transition-colors">取消</button>
-          <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold flex items-center justify-center shadow-lg shadow-blue-200 transition-colors no-underline">
+          <button 
+            type="button"
+            onClick={handleNavigate}
+            className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold flex items-center justify-center shadow-lg shadow-blue-200 transition-colors"
+          >
             <Navigation size={18} className="mr-1" /> 導航
-          </a>
+          </button>
         </div>
       </div>
     </div>
