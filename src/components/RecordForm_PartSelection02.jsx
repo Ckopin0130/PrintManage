@@ -3,7 +3,7 @@ import {
   ArrowLeft, FileText, Trash2, Camera, Loader2, Save,
   CheckCircle, Clock, Eye, ClipboardList, PhoneIncoming, Briefcase, 
   Package, Search, Wrench, AlertTriangle, Image as ImageIcon, X, Plus, 
-  Minus, Settings, Edit3, ChevronRight, ChevronDown, RefreshCw, Pencil, Calendar
+  Minus, Settings, Edit3, ChevronRight, RefreshCw, Pencil, Calendar
 } from 'lucide-react';
 import { ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { storage } from '../firebaseConfig'; 
@@ -126,7 +126,6 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
     // 零件搜尋 State
     const [selectedModel, setSelectedModel] = useState('ALL');
     const [partSearch, setPartSearch] = useState('');
-    const [activeTab, setActiveTab] = useState('all'); // 'main', 'toner', 'backup', 'all'
 
     // 日期計算函數
     const getFutureDate = (days) => {
@@ -174,11 +173,9 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
         if (isPartModalOpen && customerMachineModel) {
             // 自動切換到客戶機器型號
             setSelectedModel(customerMachineModel);
-            setActiveTab('all'); // 重置 Tab 為全部
         } else if (isPartModalOpen && !customerMachineModel) {
             // 如果沒有客戶機器型號，重置為全部
             setSelectedModel('ALL');
-            setActiveTab('all');
         }
     }, [isPartModalOpen, customerMachineModel]);
 
@@ -582,48 +579,26 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
     // 修復：根據客戶機器型號過濾零件，並按分類分組
     const filteredInventory = useMemo(() => {
         let items = inventory.filter(item => {
-            // 輔助變數定義
-            const isCurrentModel = selectedModel !== 'ALL' && item.model === selectedModel;
-            const isUniversal = !item.model || item.model === '通用' || item.model === '未分類';
-            const itemCategoryId = item.categoryId || migrateCategory(item.model, item);
-            const isToner = itemCategoryId === 'cat_toner' || 
-                           (item.name || '').includes('碳粉') || 
-                           (item.name || '').includes('感光鼓');
-            
-            // 型號匹配邏輯
+            // 修改：當 selectedModel 不是 'ALL' 時，同時包含該型號和通用零件
             let matchModel = false;
             if (selectedModel === 'ALL') {
                 matchModel = true;
             } else {
-                matchModel = isCurrentModel || isUniversal;
+                // 匹配選中的型號，或者通用零件（null, undefined, '通用', '未分類'）
+                matchModel = item.model === selectedModel || 
+                            !item.model || 
+                            item.model === '通用' || 
+                            item.model === '未分類';
             }
             
-            // Tab 過濾邏輯
-            let matchTab = false;
-            if (activeTab === 'main') {
-                // 主件：isCurrentModel AND !isToner
-                matchTab = isCurrentModel && !isToner;
-            } else if (activeTab === 'toner') {
-                // 碳粉：isCurrentModel AND isToner
-                matchTab = isCurrentModel && isToner;
-            } else if (activeTab === 'backup') {
-                // 備用：isUniversal
-                matchTab = isUniversal;
-            } else if (activeTab === 'all') {
-                // 全部：isCurrentModel OR isUniversal
-                matchTab = isCurrentModel || isUniversal;
-            }
-            
-            // 搜尋匹配
             const matchSearch = partSearch === '' || 
                                 item.name.toLowerCase().includes(partSearch.toLowerCase()) || 
-                                (item.model || '').toLowerCase().includes(partSearch.toLowerCase());
-            
-            return matchModel && matchTab && matchSearch;
+                                item.model.toLowerCase().includes(partSearch.toLowerCase());
+            return matchModel && matchSearch;
         });
         
         // 如果客戶有機器型號，優先顯示匹配的零件
-        if (customerMachineModel && selectedModel !== 'ALL') {
+        if (customerMachineModel) {
             items = items.sort((a, b) => {
                 // 完全匹配的優先，然後是通用零件
                 if (a.model === customerMachineModel && b.model !== customerMachineModel) return -1;
@@ -635,7 +610,7 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
         }
         
         return items;
-    }, [inventory, selectedModel, partSearch, customerMachineModel, activeTab]);
+    }, [inventory, selectedModel, partSearch, customerMachineModel]);
     
     // 計算已選項目總數
     const selectedPartsCount = useMemo(() => {
@@ -1008,105 +983,48 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
         {isPartModalOpen && (
             <div className="fixed inset-0 bg-black/60 z-[60] flex items-end sm:items-center justify-center animate-in fade-in" onClick={() => setIsPartModalOpen(false)}>
                 <div className="bg-white w-full max-w-lg h-[80vh] rounded-t-2xl flex flex-col shadow-2xl" onClick={e => e.stopPropagation()}>
-                    {/* Header */}
                     <div className="p-4 border-b border-gray-100 flex justify-between items-center shrink-0">
                         <h3 className="font-bold text-lg text-slate-800">選擇零件</h3>
-                        <button onClick={() => setIsPartModalOpen(false)} className="p-2 bg-gray-100 rounded-full text-gray-500 hover:bg-gray-200 transition-colors">
-                            <X size={20}/>
-                        </button>
+                        <button onClick={() => setIsPartModalOpen(false)} className="p-2 bg-gray-100 rounded-full text-gray-500 hover:bg-gray-200 transition-colors"><X size={20}/></button>
                     </div>
-                    
-                    {/* Top Bar: 搜尋與型號 */}
-                    <div className="p-4 bg-gray-50 shrink-0 border-b border-gray-100">
-                        <div className="flex gap-3 items-center">
-                            {/* 左側：搜尋輸入框 */}
-                            <div className="relative flex-1">
-                                <Search className="absolute left-3 top-2.5 text-gray-400 w-4 h-4" />
-                                <input 
-                                    type="text" 
-                                    className="w-full bg-white border border-gray-200 rounded-xl py-2 pl-9 pr-3 text-sm outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300" 
-                                    placeholder="搜尋零件..." 
-                                    value={partSearch} 
-                                    onChange={(e) => setPartSearch(e.target.value)}
-                                />
-                            </div>
-                            {/* 右側：型號下拉選單 */}
-                            <div className="relative shrink-0">
-                                <select
-                                    value={selectedModel}
-                                    onChange={(e) => setSelectedModel(e.target.value)}
-                                    className="appearance-none bg-white border border-gray-200 rounded-xl py-2 pl-3 pr-8 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 cursor-pointer min-w-[100px]"
+                    <div className="p-4 bg-gray-50 space-y-3 shrink-0">
+                        <div className="relative">
+                            <Search className="absolute left-3 top-2.5 text-gray-400 w-4 h-4" />
+                            <input 
+                                type="text" 
+                                className="w-full bg-white border border-gray-200 rounded-xl py-2 pl-9 pr-3 text-sm outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300" 
+                                placeholder="搜尋零件..." 
+                                value={partSearch} 
+                                onChange={(e) => setPartSearch(e.target.value)}
+                            />
+                        </div>
+                        <div className="flex overflow-x-auto gap-2 pb-1 no-scrollbar">
+                            {uniqueModels.map(model => (
+                                <button 
+                                    key={model} 
+                                    onClick={() => setSelectedModel(model)} 
+                                    className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap border transition-colors ${
+                                        selectedModel === model 
+                                            ? 'bg-slate-800 text-white border-slate-800' 
+                                            : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'
+                                    }`}
                                 >
-                                    {uniqueModels.map(model => (
-                                        <option key={model} value={model}>
-                                            {model === 'ALL' ? '全部型號' : model}
-                                        </option>
-                                    ))}
-                                </select>
-                                <ChevronDown className="absolute right-2 top-2.5 text-gray-400 w-4 h-4 pointer-events-none" />
-                            </div>
+                                    {model === 'ALL' ? '全部' : model}
+                                </button>
+                            ))}
                         </div>
                     </div>
-                    
-                    {/* Tabs: 快速分類切換 */}
-                    <div className="px-4 py-3 bg-white border-b border-gray-100 shrink-0">
-                        <div className="flex gap-2">
-                            <button
-                                onClick={() => setActiveTab('main')}
-                                className={`flex-1 px-3 py-2 rounded-xl text-xs font-bold transition-colors ${
-                                    activeTab === 'main'
-                                        ? 'bg-blue-600 text-white shadow-md shadow-blue-200'
-                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                                }`}
-                            >
-                                🔧 主件
-                            </button>
-                            <button
-                                onClick={() => setActiveTab('toner')}
-                                className={`flex-1 px-3 py-2 rounded-xl text-xs font-bold transition-colors ${
-                                    activeTab === 'toner'
-                                        ? 'bg-purple-600 text-white shadow-md shadow-purple-200'
-                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                                }`}
-                            >
-                                💧 碳粉
-                            </button>
-                            <button
-                                onClick={() => setActiveTab('backup')}
-                                className={`flex-1 px-3 py-2 rounded-xl text-xs font-bold transition-colors ${
-                                    activeTab === 'backup'
-                                        ? 'bg-emerald-600 text-white shadow-md shadow-emerald-200'
-                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                                }`}
-                            >
-                                📦 備用
-                            </button>
-                            <button
-                                onClick={() => setActiveTab('all')}
-                                className={`flex-1 px-3 py-2 rounded-xl text-xs font-bold transition-colors ${
-                                    activeTab === 'all'
-                                        ? 'bg-slate-600 text-white shadow-md shadow-slate-200'
-                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                                }`}
-                            >
-                                🗃️ 全部
-                            </button>
-                        </div>
-                    </div>
-                    
-                    {/* Content Area: 分組零件列表 */}
                     <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
+                        {/* 按分類顯示零件 */}
                         {PART_CATEGORIES.map(category => {
                             const itemsInCategory = inventoryByCategory[category.id] || [];
                             if (itemsInCategory.length === 0) return null;
                             
                             return (
                                 <div key={category.id} className="space-y-2">
-                                    {/* 分類標題 */}
                                     <div className={`text-xs font-bold px-2 py-1 rounded ${category.color} w-fit`}>
                                         {category.name}
                                     </div>
-                                    {/* 零件列表 */}
                                     {itemsInCategory.map(item => {
                                         // 計算有效庫存和當前表單中的數量
                                         const effectiveStock = getEffectiveStock(item);
@@ -1186,7 +1104,7 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
                         })}
                     </div>
                     
-                    {/* Bottom Bar: 確認列 */}
+                    {/* 底部確認列 */}
                     <div className="border-t border-gray-200 bg-white p-4 shrink-0 sticky bottom-0">
                         <div className="flex items-center justify-between mb-3">
                             <div className="text-sm font-bold text-slate-600">
