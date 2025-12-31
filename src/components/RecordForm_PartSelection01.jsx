@@ -168,17 +168,6 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
     
     const customerMachineModel = customer?.assets?.[0]?.model || '';
 
-    // 當 Modal 打開時自動設置型號篩選
-    useEffect(() => {
-        if (isPartModalOpen && customerMachineModel) {
-            // 自動切換到客戶機器型號
-            setSelectedModel(customerMachineModel);
-        } else if (isPartModalOpen && !customerMachineModel) {
-            // 如果沒有客戶機器型號，重置為全部
-            setSelectedModel('ALL');
-        }
-    }, [isPartModalOpen, customerMachineModel]);
-
     // --- 4. 邏輯處理區 ---
 
     // 儲存標籤到 LocalStorage
@@ -306,65 +295,6 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
                 updatedParts[index].qty = newQty;
             }
             return { ...prev, parts: updatedParts };
-        });
-    };
-
-    // 在 Modal 中調整零件數量（行內控制）
-    const handleAdjustQtyInModal = (item, delta) => {
-        setForm(prev => {
-            const currentParts = prev.parts || [];
-            const existingIndex = currentParts.findIndex(p => p.name === item.name);
-            
-            if (existingIndex >= 0) {
-                // 已存在，更新數量
-                const updatedParts = [...currentParts];
-                const part = updatedParts[existingIndex];
-                const newQty = part.qty + delta;
-                
-                if (newQty <= 0) {
-                    // 移除該項目
-                    updatedParts.splice(existingIndex, 1);
-                } else {
-                    // 檢查庫存
-                    if (delta > 0) {
-                        const originalItem = inventory.find(i => i.name === item.name);
-                        if (originalItem) {
-                            // 計算當前表單中已選數量（不包括當前正在修改的這個）
-                            const currentInForm = updatedParts
-                                .filter((p, i) => i !== existingIndex && p.name === item.name)
-                                .reduce((sum, p) => sum + p.qty, 0);
-                            const effectiveStock = originalItem.qty - currentInForm;
-                            
-                            if (newQty > effectiveStock) {
-                                alert(`庫存不足！目前僅剩 ${effectiveStock} 個（原始庫存：${originalItem.qty}）`);
-                                return prev;
-                            }
-                        }
-                    }
-                    updatedParts[existingIndex].qty = newQty;
-                }
-                return { ...prev, parts: updatedParts };
-            } else {
-                // 不存在，新增
-                if (delta > 0) {
-                    // 檢查庫存
-                    const currentInForm = currentParts
-                        .filter(p => p.name === item.name)
-                        .reduce((sum, p) => sum + p.qty, 0);
-                    const remainingStock = item.qty - currentInForm;
-                    
-                    if (remainingStock <= 0) {
-                        alert('庫存已用盡！(包含已加入清單的數量)');
-                        return prev;
-                    }
-                    
-                    return { 
-                        ...prev, 
-                        parts: [...currentParts, { id: Date.now(), name: item.name, qty: 1, model: item.model }] 
-                    };
-                }
-                return prev;
-            }
         });
     };
 
@@ -579,18 +509,7 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
     // 修復：根據客戶機器型號過濾零件，並按分類分組
     const filteredInventory = useMemo(() => {
         let items = inventory.filter(item => {
-            // 修改：當 selectedModel 不是 'ALL' 時，同時包含該型號和通用零件
-            let matchModel = false;
-            if (selectedModel === 'ALL') {
-                matchModel = true;
-            } else {
-                // 匹配選中的型號，或者通用零件（null, undefined, '通用', '未分類'）
-                matchModel = item.model === selectedModel || 
-                            !item.model || 
-                            item.model === '通用' || 
-                            item.model === '未分類';
-            }
-            
+            const matchModel = selectedModel === 'ALL' || item.model === selectedModel;
             const matchSearch = partSearch === '' || 
                                 item.name.toLowerCase().includes(partSearch.toLowerCase()) || 
                                 item.model.toLowerCase().includes(partSearch.toLowerCase());
@@ -600,6 +519,8 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
         // 如果客戶有機器型號，優先顯示匹配的零件
         if (customerMachineModel) {
             items = items.sort((a, b) => {
+                const aMatch = a.model === customerMachineModel || !a.model || a.model === '通用' || a.model === '未分類';
+                const bMatch = b.model === customerMachineModel || !b.model || b.model === '通用' || b.model === '未分類';
                 // 完全匹配的優先，然後是通用零件
                 if (a.model === customerMachineModel && b.model !== customerMachineModel) return -1;
                 if (a.model !== customerMachineModel && b.model === customerMachineModel) return 1;
@@ -612,11 +533,6 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
         return items;
     }, [inventory, selectedModel, partSearch, customerMachineModel]);
     
-    // 計算已選項目總數
-    const selectedPartsCount = useMemo(() => {
-        return form.parts?.reduce((sum, part) => sum + part.qty, 0) || 0;
-    }, [form.parts]);
-
     // 按分類分組
     const inventoryByCategory = useMemo(() => {
         const grouped = {};
@@ -983,39 +899,23 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
         {isPartModalOpen && (
             <div className="fixed inset-0 bg-black/60 z-[60] flex items-end sm:items-center justify-center animate-in fade-in" onClick={() => setIsPartModalOpen(false)}>
                 <div className="bg-white w-full max-w-lg h-[80vh] rounded-t-2xl flex flex-col shadow-2xl" onClick={e => e.stopPropagation()}>
-                    <div className="p-4 border-b border-gray-100 flex justify-between items-center shrink-0">
+                    <div className="p-4 border-b border-gray-100 flex justify-between items-center">
                         <h3 className="font-bold text-lg text-slate-800">選擇零件</h3>
-                        <button onClick={() => setIsPartModalOpen(false)} className="p-2 bg-gray-100 rounded-full text-gray-500 hover:bg-gray-200 transition-colors"><X size={20}/></button>
+                        <button onClick={() => setIsPartModalOpen(false)} className="p-2 bg-gray-100 rounded-full text-gray-500"><X size={20}/></button>
                     </div>
-                    <div className="p-4 bg-gray-50 space-y-3 shrink-0">
+                    <div className="p-4 bg-gray-50 space-y-3">
                         <div className="relative">
                             <Search className="absolute left-3 top-2.5 text-gray-400 w-4 h-4" />
-                            <input 
-                                type="text" 
-                                className="w-full bg-white border border-gray-200 rounded-xl py-2 pl-9 pr-3 text-sm outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300" 
-                                placeholder="搜尋零件..." 
-                                value={partSearch} 
-                                onChange={(e) => setPartSearch(e.target.value)}
-                            />
+                            <input type="text" className="w-full bg-white border border-gray-200 rounded-xl py-2 pl-9 pr-3 text-sm outline-none" placeholder="搜尋零件..." value={partSearch} onChange={(e) => setPartSearch(e.target.value)}/>
                         </div>
                         <div className="flex overflow-x-auto gap-2 pb-1 no-scrollbar">
                             {uniqueModels.map(model => (
-                                <button 
-                                    key={model} 
-                                    onClick={() => setSelectedModel(model)} 
-                                    className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap border transition-colors ${
-                                        selectedModel === model 
-                                            ? 'bg-slate-800 text-white border-slate-800' 
-                                            : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'
-                                    }`}
-                                >
-                                    {model === 'ALL' ? '全部' : model}
-                                </button>
+                                <button key={model} onClick={() => setSelectedModel(model)} className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap border ${selectedModel === model ? 'bg-slate-800 text-white' : 'bg-white text-gray-500'}`}>{model === 'ALL' ? '全部' : model}</button>
                             ))}
                         </div>
                     </div>
-                    <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
-                        {/* 按分類顯示零件 */}
+                    <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                        {/* 修復：按分類顯示零件 */}
                         {PART_CATEGORIES.map(category => {
                             const itemsInCategory = inventoryByCategory[category.id] || [];
                             if (itemsInCategory.length === 0) return null;
@@ -1026,27 +926,17 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
                                         {category.name}
                                     </div>
                                     {itemsInCategory.map(item => {
-                                        // 計算有效庫存和當前表單中的數量
+                                        // 計算有效庫存 (原始庫存 - 表單已選)
                                         const effectiveStock = getEffectiveStock(item);
                                         const outOfStock = effectiveStock <= 0;
                                         const isMatchingModel = customerMachineModel && item.model === customerMachineModel;
-                                        const currentQtyInForm = form.parts?.find(p => p.name === item.name)?.qty || 0;
-                                        const hasSelected = currentQtyInForm > 0;
-                                        
                                         return (
-                                            <div 
+                                            <button 
                                                 key={item.id} 
-                                                className={`w-full flex items-center justify-between p-3 rounded-xl border transition-colors ${
-                                                    outOfStock 
-                                                        ? 'bg-gray-50 opacity-50 border-gray-200' 
-                                                        : hasSelected
-                                                            ? 'bg-blue-50 border-blue-300 shadow-sm'
-                                                            : isMatchingModel 
-                                                                ? 'bg-blue-50/50 border-blue-200 hover:border-blue-300' 
-                                                                : 'bg-white border-gray-200 hover:border-blue-300'
-                                                }`}
+                                                onClick={() => handleAddPart(item)} 
+                                                disabled={outOfStock} 
+                                                className={`w-full flex items-center justify-between p-3 rounded-xl border text-left active:scale-[0.98] ${outOfStock ? 'bg-gray-50 opacity-50' : isMatchingModel ? 'bg-blue-50 border-blue-300 hover:border-blue-400' : 'bg-white hover:border-blue-300'}`}
                                             >
-                                                {/* 左側：零件資訊 */}
                                                 <div className="flex-1 mr-3 min-w-0">
                                                     <div className="font-bold text-slate-800 text-sm mb-1 flex items-center gap-2">
                                                         {item.name}
@@ -1054,70 +944,23 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
                                                             <span className="text-[9px] bg-blue-200 text-blue-700 px-1.5 py-0.5 rounded font-bold">匹配</span>
                                                         )}
                                                     </div>
-                                                    <div className="flex items-center gap-2">
-                                                        <div className="text-[10px] text-slate-400 bg-slate-50 px-2 py-0.5 rounded w-fit">
-                                                            {item.model || '通用'}
-                                                        </div>
-                                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                                                            outOfStock ? 'bg-rose-100 text-rose-600' : 'bg-emerald-100 text-emerald-600'
-                                                        }`}>
-                                                            {outOfStock ? '已用盡' : `庫存 ${effectiveStock}`}
-                                                        </span>
-                                                    </div>
+                                                    <div className="text-[10px] text-slate-400 bg-slate-50 px-2 py-0.5 rounded w-fit">{item.model || '通用'}</div>
                                                 </div>
-                                                
-                                                {/* 右側：數量控制 */}
-                                                <div className="flex items-center gap-2 shrink-0">
-                                                    <button
-                                                        onClick={() => handleAdjustQtyInModal(item, -1)}
-                                                        disabled={outOfStock || currentQtyInForm === 0}
-                                                        className={`p-2 rounded-lg transition-colors ${
-                                                            outOfStock || currentQtyInForm === 0
-                                                                ? 'text-gray-300 cursor-not-allowed'
-                                                                : 'text-slate-400 hover:text-rose-500 hover:bg-rose-50 active:scale-90'
-                                                        }`}
-                                                    >
-                                                        <Minus size={18} strokeWidth={2.5}/>
-                                                    </button>
-                                                    <div className={`min-w-[2rem] text-center font-mono font-bold text-base px-2 ${
-                                                        hasSelected ? 'text-blue-600' : 'text-slate-400'
-                                                    }`}>
-                                                        {currentQtyInForm}
-                                                    </div>
-                                                    <button
-                                                        onClick={() => handleAdjustQtyInModal(item, 1)}
-                                                        disabled={outOfStock}
-                                                        className={`p-2 rounded-lg transition-colors ${
-                                                            outOfStock
-                                                                ? 'text-gray-300 cursor-not-allowed'
-                                                                : 'text-slate-400 hover:text-blue-500 hover:bg-blue-50 active:scale-90'
-                                                        }`}
-                                                    >
-                                                        <Plus size={18} strokeWidth={2.5}/>
-                                                    </button>
+                                                <div className="flex flex-col items-end">
+                                                    <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${outOfStock ? 'bg-rose-100 text-rose-600' : 'bg-emerald-100 text-emerald-600'}`}>
+                                                        {outOfStock ? '已用盡' : `庫存 ${effectiveStock}`}
+                                                    </span>
+                                                    {/* 顯示原始庫存對比 */}
+                                                    {effectiveStock < item.qty && (
+                                                        <span className="text-[9px] text-gray-400 mt-1">原庫存: {item.qty}</span>
+                                                    )}
                                                 </div>
-                                            </div>
+                                            </button>
                                         );
                                     })}
                                 </div>
                             );
                         })}
-                    </div>
-                    
-                    {/* 底部確認列 */}
-                    <div className="border-t border-gray-200 bg-white p-4 shrink-0 sticky bottom-0">
-                        <div className="flex items-center justify-between mb-3">
-                            <div className="text-sm font-bold text-slate-600">
-                                已選擇 <span className="text-blue-600 text-base">{selectedPartsCount}</span> 個項目
-                            </div>
-                        </div>
-                        <button
-                            onClick={() => setIsPartModalOpen(false)}
-                            className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold text-base shadow-lg shadow-blue-200 hover:bg-blue-700 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
-                        >
-                            <CheckCircle size={20} strokeWidth={2.5}/>
-                            確認並返回
-                        </button>
                     </div>
                 </div>
             </div>
