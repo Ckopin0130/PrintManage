@@ -4,21 +4,39 @@ import { X, Save, Trash2, Building2, User, Smartphone, MapPin, Info, Printer, Pl
 const CustomerForm = ({ mode, initialData, onSubmit, onCancel, onDelete }) => {
   const isEdit = mode === 'edit';
 
-  const [formData, setFormData] = useState({
-      name: initialData.name || '',
-      L1_group: initialData.L1_group || '屏東區',
-      L2_district: initialData.L2_district || '',
-      address: initialData.address || '',
-      phoneLabel: initialData.phones?.[0]?.label || '主要電話',
-      phoneNumber: initialData.phones?.[0]?.number || '',
-      assets: initialData.assets && initialData.assets.length > 0 ? initialData.assets : [{ model: '' }],
-      notes: (initialData.notes !== undefined && initialData.notes !== null) ? initialData.notes : '',
-      contactPerson: initialData.contactPerson || ''
+  // 使用函数形式初始化 state，根据 mode 决定初始值
+  const [formData, setFormData] = useState(() => {
+    // 如果是编辑模式且有数据，使用传入的数据
+    if (isEdit && initialData && Object.keys(initialData).length > 0) {
+      return {
+        name: initialData.name || '',
+        L1_group: initialData.L1_group || '屏東區',
+        L2_district: initialData.L2_district || '',
+        address: initialData.address || '',
+        phoneLabel: initialData.phones?.[0]?.label || '主要電話',
+        phoneNumber: initialData.phones?.[0]?.number || '',
+        assets: initialData.assets && initialData.assets.length > 0 ? initialData.assets : [{ model: '' }],
+        notes: (initialData.notes !== undefined && initialData.notes !== null) ? initialData.notes : '',
+        contactPerson: initialData.contactPerson || ''
+      };
+    }
+    // 新增模式的默认值
+    return {
+      name: '',
+      L1_group: '屏東區',
+      L2_district: '',
+      address: '',
+      phoneLabel: '主要電話',
+      phoneNumber: '',
+      assets: [{ model: '' }],
+      notes: '',
+      contactPerson: ''
+    };
   });
 
-  // 當 initialData 變化時，更新 formData
+  // 當 initialData 或 mode 變化時，更新 formData
   useEffect(() => {
-    if (initialData && Object.keys(initialData).length > 0) {
+    if (isEdit && initialData && Object.keys(initialData).length > 0) {
       setFormData({
         name: initialData.name || '',
         L1_group: initialData.L1_group || '屏東區',
@@ -30,8 +48,21 @@ const CustomerForm = ({ mode, initialData, onSubmit, onCancel, onDelete }) => {
         notes: (initialData.notes !== undefined && initialData.notes !== null) ? initialData.notes : '',
         contactPerson: initialData.contactPerson || ''
       });
+    } else if (!isEdit) {
+      // 新增模式：重置为默认值
+      setFormData({
+        name: '',
+        L1_group: '屏東區',
+        L2_district: '',
+        address: '',
+        phoneLabel: '主要電話',
+        phoneNumber: '',
+        assets: [{ model: '' }],
+        notes: '',
+        contactPerson: ''
+      });
     }
-  }, [initialData]);
+  }, [initialData, isEdit]);
 
   const handleSubmit = (e) => {
       e.preventDefault();
