@@ -498,7 +498,7 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
 
     // --- 6. UI Render ---
     return (
-      <div className="bg-gray-100 min-h-screen pb-28 font-sans selection:bg-blue-100 flex flex-col">
+      <div className="bg-gray-100 min-h-screen pb-24 font-sans selection:bg-blue-100 flex flex-col">
         {/* Top Navigation */}
         <div className="bg-white px-4 py-3 flex items-center shadow-sm sticky top-0 z-40 shrink-0">
             <button onClick={onCancel} className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-full"><ArrowLeft /></button>
@@ -717,43 +717,42 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
                     ))}
                 </div>
             </section>
-        </div>
 
-
-        {/* 5. Sticky Footer */}
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-3 pb-5 shadow-[0_-5px_20px_-5px_rgba(0,0,0,0.1)] z-50">
-            <div className="max-w-lg mx-auto flex gap-3 h-14">
-                <div className="w-1/2 grid grid-cols-3 gap-1 bg-gray-100 p-1 rounded-xl">
-                    {STATUS_OPTIONS.map(option => {
-                        const isSelected = form.status === option.id;
-                        return (
-                            <button 
-                                key={option.id} 
-                                type="button" 
-                                onClick={() => setForm({...form, status: option.id})} 
-                                className={`flex flex-col items-center justify-center rounded-lg text-xs font-bold transition-all ${isSelected ? `bg-white text-slate-800 shadow-sm border border-gray-200` : 'text-gray-400'}`}
-                            >
-                                <option.icon size={16} className={`mb-0.5 ${isSelected ? option.color : ''}`}/>
-                                {option.label}
-                            </button>
-                         )
-                    })}
+            {/* 5. Footer - 放在内容最下面（非浮动） */}
+            <div className="bg-white border-t border-gray-200 p-3 pb-5 shadow-[0_-5px_20px_-5px_rgba(0,0,0,0.1)] mt-4 rounded-2xl">
+                <div className="max-w-lg mx-auto flex gap-3 h-14">
+                    <div className="w-1/2 grid grid-cols-3 gap-1 bg-gray-100 p-1 rounded-xl">
+                        {STATUS_OPTIONS.map(option => {
+                            const isSelected = form.status === option.id;
+                            return (
+                                <button 
+                                    key={option.id} 
+                                    type="button" 
+                                    onClick={() => setForm({...form, status: option.id})} 
+                                    className={`flex flex-col items-center justify-center rounded-lg text-xs font-bold transition-all ${isSelected ? `bg-white text-slate-800 shadow-sm border border-gray-200` : 'text-gray-400'}`}
+                                >
+                                    <option.icon size={16} className={`mb-0.5 ${isSelected ? option.color : ''}`}/>
+                                    {option.label}
+                                </button>
+                             )
+                        })}
+                    </div>
+                    <button 
+                        className={`w-1/2 rounded-xl shadow-lg transition-all flex items-center justify-center font-bold text-white text-lg active:scale-[0.98] ${
+                            form.status === 'tracking' ? 'bg-orange-500 shadow-orange-200' : 
+                            form.status === 'monitor' ? 'bg-blue-500 shadow-blue-200' : 
+                            'bg-emerald-600 shadow-emerald-200'
+                        } ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        onClick={handlePreSubmit} 
+                        disabled={isSubmitting}
+                    >
+                        {isSubmitting ? <Loader2 className="w-6 h-6 animate-spin" /> : 
+                         form.status === 'tracking' ? <span className="flex items-center">建立追蹤任務 <ChevronRight size={20}/></span> :
+                         form.status === 'monitor' ? <span className="flex items-center">建立觀察任務 <ChevronRight size={20}/></span> :
+                         <span className="flex items-center"><Save className="mr-2" size={20}/>確認結案</span>
+                        }
+                    </button>
                 </div>
-                <button 
-                    className={`w-1/2 rounded-xl shadow-lg transition-all flex items-center justify-center font-bold text-white text-lg active:scale-[0.98] ${
-                        form.status === 'tracking' ? 'bg-orange-500 shadow-orange-200' : 
-                        form.status === 'monitor' ? 'bg-blue-500 shadow-blue-200' : 
-                        'bg-emerald-600 shadow-emerald-200'
-                    } ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    onClick={handlePreSubmit} 
-                    disabled={isSubmitting}
-                >
-                    {isSubmitting ? <Loader2 className="w-6 h-6 animate-spin" /> : 
-                     form.status === 'tracking' ? <span className="flex items-center">建立追蹤任務 <ChevronRight size={20}/></span> :
-                     form.status === 'monitor' ? <span className="flex items-center">建立觀察任務 <ChevronRight size={20}/></span> :
-                     <span className="flex items-center"><Save className="mr-2" size={20}/>確認結案</span>
-                    }
-                </button>
             </div>
         </div>
 
