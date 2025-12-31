@@ -117,123 +117,135 @@ const EditCustomerModal = ({ isOpen, onClose, onSave, onDelete, initialItem, cat
         </div>
         
         <div className="p-6 overflow-y-auto space-y-4 flex-1">
-           {/* 客戶分類和鄉鎮/群組（保留原有功能） */}
-           <div>
-              <label className="text-sm font-bold text-slate-500 block mb-2">客戶分類</label>
-              <select className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none font-bold text-base" value={formData.categoryId} onChange={e => setFormData({...formData, categoryId: e.target.value})}>
-                  {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
-           </div>
-           
-           {/* 鄉鎮/群組（保留原有功能） */}
-           <div className="relative">
-               <label className="text-sm font-bold text-slate-500 block mb-2">鄉鎮 / 群組</label>
-               <div className="relative">
-                   <input 
-                       className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none font-bold text-base" 
-                       placeholder="輸入或從下方選擇..."
-                       value={formData.L2_district} 
-                       onChange={e => {
-                           setFormData({...formData, L2_district: e.target.value});
-                           setShowGroupSuggestions(true);
-                       }}
-                       onFocus={() => setShowGroupSuggestions(true)}
-                       onClick={(e) => { e.stopPropagation(); setShowGroupSuggestions(true); }}
-                   />
-                   <div className="absolute right-3 top-3.5 text-slate-400 pointer-events-none"><ChevronDown size={16}/></div>
-               </div>
-               
-               {/* 懸浮選單 */}
-               {showGroupSuggestions && groupSuggestions.length > 0 && (
-                   <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-40 overflow-y-auto animate-in fade-in slide-in-from-top-1">
-                       {groupSuggestions.map(group => (
-                           <div 
-                               key={group}
-                               className="p-3 hover:bg-blue-50 cursor-pointer text-slate-700 font-bold border-b border-slate-50 last:border-0"
-                               onClick={(e) => {
-                                   e.stopPropagation();
-                                   setFormData({...formData, L2_district: group});
-                                   setShowGroupSuggestions(false);
-                               }}
-                           >
-                               {group}
-                           </div>
-                       ))}
-                   </div>
-               )}
-           </div>
-
-           {/* 客戶名稱（單獨一行，在名片卡之前） */}
-           <div className="flex items-center gap-3">
-             <div className="bg-blue-50 p-2 rounded-lg text-blue-600 shrink-0 flex items-center justify-center">
-               <Building2 size={18} strokeWidth={2.5} />
-             </div>
-             <input 
-               placeholder="輸入客戶名稱" 
-               className="flex-1 text-base font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300" 
-               value={formData.name} 
-               onChange={e => setFormData({...formData, name: e.target.value})} 
-             />
-           </div>
-
-           {/* 名片卡區域 - 與 CustomerDetail 一致的格式 */}
-           <div className="bg-slate-50 rounded-xl p-4 space-y-3 border border-slate-200">
-              {/* 第一行：聯絡人（獨立一行） */}
+           {/* 统一的卡片区域 - 包含所有字段 */}
+           <div className="bg-white rounded-2xl shadow-[0_2px_8px_rgb(0,0,0,0.04)] border border-slate-100 p-5 space-y-4">
+              {/* 第一行：客戶分類 */}
               <div className="flex items-center gap-3">
-                <div className="bg-emerald-50 p-2 rounded-lg text-emerald-600 shrink-0 flex items-center justify-center">
+                <div className="bg-purple-50 p-2.5 rounded-xl text-purple-600 shrink-0 flex items-center justify-center">
+                  <Box size={18} strokeWidth={2.5} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <select 
+                    className="w-full text-base font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-purple-100 focus:border-purple-300" 
+                    value={formData.categoryId} 
+                    onChange={e => setFormData({...formData, categoryId: e.target.value})}
+                  >
+                    {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              {/* 第二行：鄉鎮/群組 */}
+              <div className="flex items-center gap-3 relative">
+                <div className="bg-indigo-50 p-2.5 rounded-xl text-indigo-600 shrink-0 flex items-center justify-center">
+                  <MapPin size={18} strokeWidth={2.5} />
+                </div>
+                <div className="flex-1 min-w-0 relative">
+                  <input 
+                    className="w-full text-base font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 pr-8 outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300" 
+                    placeholder="輸入或從下方選擇..."
+                    value={formData.L2_district} 
+                    onChange={e => {
+                      setFormData({...formData, L2_district: e.target.value});
+                      setShowGroupSuggestions(true);
+                    }}
+                    onFocus={() => setShowGroupSuggestions(true)}
+                    onClick={(e) => { e.stopPropagation(); setShowGroupSuggestions(true); }}
+                  />
+                  <div className="absolute right-3 top-2.5 text-slate-400 pointer-events-none">
+                    <ChevronDown size={16}/>
+                  </div>
+                  
+                  {/* 懸浮選單 */}
+                  {showGroupSuggestions && groupSuggestions.length > 0 && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-40 overflow-y-auto animate-in fade-in slide-in-from-top-1">
+                      {groupSuggestions.map(group => (
+                        <div 
+                          key={group}
+                          className="p-3 hover:bg-blue-50 cursor-pointer text-slate-700 font-bold border-b border-slate-50 last:border-0"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setFormData({...formData, L2_district: group});
+                            setShowGroupSuggestions(false);
+                          }}
+                        >
+                          {group}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* 第三行：客戶名稱 */}
+              <div className="flex items-center gap-3">
+                <div className="bg-blue-50 p-2.5 rounded-xl text-blue-600 shrink-0 flex items-center justify-center">
+                  <Building2 size={18} strokeWidth={2.5} />
+                </div>
+                <input 
+                  placeholder="輸入客戶名稱" 
+                  className="flex-1 text-base font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300" 
+                  value={formData.name} 
+                  onChange={e => setFormData({...formData, name: e.target.value})} 
+                />
+              </div>
+
+              {/* 第四行：聯絡人（獨立一行） */}
+              <div className="flex items-center gap-3">
+                <div className="bg-emerald-50 p-2.5 rounded-xl text-emerald-600 shrink-0 flex items-center justify-center">
                   <User size={18} strokeWidth={2.5} />
                 </div>
                 <input 
                   placeholder="聯絡人" 
-                  className="flex-1 text-base font-bold text-slate-800 bg-white border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-100 focus:border-emerald-300" 
+                  className="flex-1 text-base font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-100 focus:border-emerald-300" 
                   value={formData.contactPerson} 
                   onChange={e => setFormData({...formData, contactPerson: e.target.value})} 
                 />
               </div>
 
-              {/* 第二行：電話（獨立一行） */}
+              {/* 第五行：電話（獨立一行） */}
               <div className="flex items-center gap-3">
-                <div className="bg-green-50 p-2 rounded-lg text-green-600 shrink-0 flex items-center justify-center">
+                <div className="bg-green-50 p-2.5 rounded-xl text-green-600 shrink-0 flex items-center justify-center">
                   <Smartphone size={18} strokeWidth={2.5} />
                 </div>
                 <input 
                   placeholder="電話號碼" 
-                  className="flex-1 text-base font-bold text-slate-800 bg-white border border-slate-200 rounded-lg px-3 py-2 outline-none font-mono focus:ring-2 focus:ring-green-100 focus:border-green-300" 
+                  className="flex-1 text-base font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 outline-none font-mono focus:ring-2 focus:ring-green-100 focus:border-green-300" 
                   value={formData.phone} 
                   onChange={e => setFormData({...formData, phone: e.target.value})} 
                 />
               </div>
 
-              {/* 第三行：地址 */}
+              {/* 第六行：地址 */}
               <div className="flex items-center gap-3">
-                <div className="bg-blue-50 p-2 rounded-lg text-blue-600 shrink-0 flex items-center justify-center">
+                <div className="bg-blue-50 p-2.5 rounded-xl text-blue-600 shrink-0 flex items-center justify-center">
                   <MapPin size={18} strokeWidth={2.5} />
                 </div>
                 <input 
                   placeholder="輸入完整地址" 
-                  className="flex-1 text-base text-slate-700 bg-white border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300" 
+                  className="flex-1 text-base text-slate-700 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300" 
                   value={formData.address} 
                   onChange={e => setFormData({...formData, address: e.target.value})} 
                 />
               </div>
 
-              {/* 第四行：備註 */}
+              {/* 第七行：備註 */}
               <div className="flex items-start gap-3">
-                <div className="bg-violet-50 p-2 rounded-lg text-violet-600 shrink-0 flex items-center justify-center">
+                <div className="bg-violet-50 p-2.5 rounded-xl text-violet-600 shrink-0 flex items-center justify-center">
                   <Info size={18} strokeWidth={2.5} />
                 </div>
                 <textarea 
                   placeholder="其他備註..." 
                   rows={2} 
-                  className="flex-1 text-base text-slate-700 bg-white border border-slate-200 rounded-lg px-3 py-2 outline-none resize-none focus:ring-2 focus:ring-violet-100 focus:border-violet-300" 
+                  className="flex-1 text-base text-slate-700 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 outline-none resize-none focus:ring-2 focus:ring-violet-100 focus:border-violet-300" 
                   value={formData.note} 
                   onChange={e => setFormData({...formData, note: e.target.value})} 
                 />
               </div>
 
-              {/* 第五行：機器型號（支援多台） */}
+              {/* 第八行：機器型號（支援多台） */}
               <div className="flex items-start gap-3">
-                <div className="bg-amber-50 p-2 rounded-lg text-amber-600 shrink-0 flex items-center justify-center">
+                <div className="bg-amber-50 p-2.5 rounded-xl text-amber-600 shrink-0 flex items-center justify-center">
                   <Printer size={18} strokeWidth={2.5} />
                 </div>
                 <div className="flex-1 space-y-2">
@@ -241,7 +253,7 @@ const EditCustomerModal = ({ isOpen, onClose, onSave, onDelete, initialItem, cat
                     <div key={index} className="flex items-center gap-2">
                       <input 
                         placeholder={`機器型號 ${index + 1}（例：MP 3352）`}
-                        className="flex-1 text-base font-bold text-slate-800 bg-white border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-amber-100 focus:border-amber-300" 
+                        className="flex-1 text-base font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-amber-100 focus:border-amber-300" 
                         value={asset.model || ''} 
                         onChange={e => {
                           const newAssets = [...formData.assets];
