@@ -619,53 +619,69 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
     // 修復：根據客戶機器型號過濾零件，並按分類分組
     const filteredInventory = useMemo(() => {
         let items = inventory.filter(item => {
-            // 輔助變數定義
-            const isCurrentModel = selectedModel !== 'ALL' && isModelMatch(item.model, selectedModel);
+            // 1. 基礎判斷變數
             const isUniversal = !item.model || item.model === '通用' || item.model === '未分類';
+            const isCurrentModel = selectedModel !== 'ALL' && isModelMatch(item.model, selectedModel);
+            
+            // 判斷是否為碳粉類 (利用分類ID或名稱)
             const itemCategoryId = item.categoryId || migrateCategory(item.model, item);
             const isToner = itemCategoryId === 'cat_toner' || 
                            (item.name || '').includes('碳粉') || 
                            (item.name || '').includes('感光鼓');
-            
-            // 型號匹配邏輯
-            let matchModel = false;
-            if (selectedModel === 'ALL') {
-                matchModel = true;
-            } else {
-                matchModel = isCurrentModel || isUniversal;
-            }
-            
-            // Tab 過濾邏輯
-            let matchTab = false;
-            if (activeTab === 'main') {
-                // 主件：isCurrentModel AND !isToner（當前型號系列的非碳粉零件）
-                matchTab = isCurrentModel && !isToner;
-            } else if (activeTab === 'toner') {
-                // 碳粉：isCurrentModel AND isToner（當前型號系列的碳粉零件）
-                matchTab = isCurrentModel && isToner;
-            } else if (activeTab === 'backup') {
-                // 備用：isUniversal（通用零件）
-                matchTab = isUniversal;
-            } else if (activeTab === 'all') {
-                // 全部：isCurrentModel OR isUniversal（當前型號系列所有零件 + 通用零件）
-                matchTab = isCurrentModel || isUniversal;
-            }
-            
-            // 搜尋匹配
+
+            // 2. 搜尋字串過濾 (優先處理，若不符直接 false)
             const matchSearch = partSearch === '' || 
                                 item.name.toLowerCase().includes(partSearch.toLowerCase()) || 
                                 (item.model || '').toLowerCase().includes(partSearch.toLowerCase());
-            
-            return matchModel && matchTab && matchSearch;
+            if (!matchSearch) return false;
+
+            // 3. 核心邏輯：根據 selectedModel 和 activeTab 決定顯示規則
+            if (selectedModel === 'ALL') {
+                // === 情況 A: 選擇 "全部型號" ===
+                switch (activeTab) {
+                    case 'main': 
+                        // 主件：顯示所有非碳粉零件（排除通用零件）
+                        return !isToner && !isUniversal;
+                    case 'toner': 
+                        // 碳粉：顯示所有碳粉零件（排除通用零件）
+                        return isToner && !isUniversal;
+                    case 'backup': 
+                        // 備用：顯示通用零件
+                        return isUniversal;
+                    case 'all': 
+                    default:
+                        // 全部：顯示所有零件
+                        return true;
+                }
+            } else {
+                // === 情況 B: 選擇 "特定型號" ===
+                // 先確認零件是否屬於「當前型號」或是「通用件」(這是一切的基礎)
+                if (!isCurrentModel && !isUniversal) return false;
+
+                switch (activeTab) {
+                    case 'main':
+                        // 主件：顯示當前型號系列的非碳粉零件 (排除碳粉)
+                        return isCurrentModel && !isToner;
+                    case 'toner':
+                        // 碳粉：顯示當前型號系列的碳粉零件
+                        return isCurrentModel && isToner;
+                    case 'backup':
+                        // 備用：顯示通用零件
+                        return isUniversal;
+                    case 'all':
+                    default:
+                        // 全部：顯示 (當前型號) 或 (通用零件)
+                        return true;
+                }
+            }
         });
         
-        // 如果客戶有機器型號，優先顯示匹配的零件
+        // 4. 排序邏輯：如果選了特定型號，把該型號的專用零件排在通用零件前面
         if (customerMachineModel && selectedModel !== 'ALL') {
             items = items.sort((a, b) => {
                 const aMatch = isModelMatch(a.model, customerMachineModel);
                 const bMatch = isModelMatch(b.model, customerMachineModel);
-                
-                // 完全匹配客戶型號的優先，然後是系列匹配，最後是通用零件
+
                 if (a.model === customerMachineModel && b.model !== customerMachineModel) return -1;
                 if (a.model !== customerMachineModel && b.model === customerMachineModel) return 1;
                 if (aMatch && !bMatch) return -1;
