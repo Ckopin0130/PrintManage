@@ -4,7 +4,7 @@ import {
   Clock, FileText, Copy, Check
 } from 'lucide-react';
 
-// --- 1. 報表預覽視窗 (風格與符號系統全面翻新) ---
+// --- 1. 報表預覽視窗 (依照您的指定格式：🔺🔸🔹▪️) ---
 const WorkLogReportModal = ({ isOpen, onClose, records = [], customers = [], dateLabel }) => {
   const [isCopied, setIsCopied] = useState(false);
 
@@ -17,33 +17,44 @@ const WorkLogReportModal = ({ isOpen, onClose, records = [], customers = [], dat
         const cust = Array.isArray(customers) ? customers.find(c => c.customerID === r.customerID) : null;
         const model = cust?.assets?.[0]?.model ? `(${cust.assets[0].model})` : '';
         
-        // 狀態文字
-        let statusStr = '觀察';
-        if (r.status === 'completed') statusStr = '完修';
-        if (r.status === 'pending' || r.status === 'tracking') statusStr = '待料';
-
-        // 組合內容
-        // 使用 ◆ 作為案件標題
-        let text = `◆ ${i+1}. ${cust?.name || '未知'} ${model} [${statusStr}]`;
+        // 🔸 層級：客戶名稱 (機型)
+        let text = `🔸${cust?.name || '未知'} ${model}`;
         
-        // 使用 🔹 作為一般內容 (故障、處理)
-        text += `\n🔹 故障: ${r.fault || r.symptom}`;
-        text += `\n🔹 處理: ${r.solution || r.action}`;
+        // 🔹 層級：故障 (若無內容則整段隱藏)
+        const faultContent = r.fault || r.symptom;
+        if (faultContent) {
+            text += `\n🔹 故障：`;
+            // ▪️ 層級：將內容依換行符號切分，每行前面加 ▪️
+            const lines = faultContent.split('\n');
+            lines.forEach(line => {
+                if(line.trim()) text += `\n▪️${line.trim()}`;
+            });
+        }
 
-        // 使用 🔸 作為零件更換 (特別突顯)
+        // 🔹 層級：處理 (預設顯示)
+        const solutionContent = r.solution || r.action || '無填寫';
+        text += `\n🔹 處理：`;
+        // ▪️ 層級：處理過程
+        const solLines = solutionContent.split('\n');
+        solLines.forEach(line => {
+             if(line.trim()) text += `\n▪️${line.trim()}`;
+        });
+
+        // 🔹 層級：更換零件
         if (Array.isArray(r.parts) && r.parts.length > 0) {
-            text += `\n🔸 更換: ${r.parts.map(p => `${p.name} x${p.qty}`).join('、')}`;
+            const partsStr = r.parts.map(p => `${p.name} x${p.qty}`).join('、');
+            text += `\n🔹更換: ${partsStr}`;
         }
 
         return text;
     }).join('\n\n');
 
-    // === B. 耗材統計 (Summary) - 改為「依機型分組」 ===
+    // === B. 耗材統計 (Summary) - 依機型分組 ===
     const summaryByModel = {};
     records.forEach(r => {
         if (Array.isArray(r.parts) && r.parts.length > 0) {
             const cust = Array.isArray(customers) ? customers.find(c => c.customerID === r.customerID) : null;
-            // 抓取機型，若無則歸類為通用
+            // 抓取機型
             const modelName = cust?.assets?.[0]?.model || '通用/其他';
 
             if (!summaryByModel[modelName]) {
@@ -51,31 +62,30 @@ const WorkLogReportModal = ({ isOpen, onClose, records = [], customers = [], dat
             }
 
             r.parts.forEach(p => {
-                // 累加該機型下的零件數量
                 summaryByModel[modelName][p.name] = (summaryByModel[modelName][p.name] || 0) + (p.qty || 1);
             });
         }
     });
 
-    // 格式化耗材統計文字 (比照庫存報表：◆ 機型 -> 🔹 零件)
+    // 格式化耗材統計文字 (🔸機型 -> ▪️零件)
     let summaryList = '';
-    const models = Object.keys(summaryByModel).sort(); // 依機型名稱排序
+    const models = Object.keys(summaryByModel).sort();
 
     if (models.length > 0) {
         summaryList = models.map(model => {
             const partsObj = summaryByModel[model];
             const partsLines = Object.entries(partsObj).map(([name, qty]) => {
-                return `🔹 ${name} x${qty}`;
+                return `▪️${name} x${qty}`;
             }).join('\n');
 
-            return `◆ ${model}\n${partsLines}`;
+            return `🔸${model}\n${partsLines}`;
         }).join('\n\n');
     } else {
-        summaryList = '無更換零件';
+        summaryList = '🔸無更換零件';
     }
 
-    // 組合最終報表
-    return `【維修工作日報】 ${dateLabel}\n----------------\n\n📦 維修行程\n${listText}\n\n📦 今日耗材統計\n${summaryList}\n\n----------------\n系統自動生成`;
+    // 組合最終報表 (🔺層級)
+    return `【維修工作日報】 ${dateLabel}\n----------------\n\n🔺維修行程\n${listText}\n\n🔺今日耗材統計\n${summaryList}\n\n----------------\n系統自動生成`;
   }, [records, customers, dateLabel]);
 
   const handleCopy = () => {
