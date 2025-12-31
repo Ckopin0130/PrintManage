@@ -1,8 +1,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { 
   ArrowLeft, Calendar, Trash2, Search, X, 
-  User, AlertCircle, Wrench, Package, Image as ImageIcon, Briefcase, Phone
-} from 'lucide-react'; // 引入更多圖示
+  User, AlertCircle, Wrench, Package, Briefcase, Phone
+} from 'lucide-react';
 
 const RecordList = ({ 
   records, customers, setCurrentView, setActiveTab, 
@@ -24,7 +24,7 @@ const RecordList = ({
     return () => clearTimeout(timer);
   }, [inputValue]);
 
-  // --- 3. 來源屬性 UI 處理 (加回圖示與顏色) ---
+  // --- 3. 來源屬性 UI 處理 ---
   const getSourceBadge = (source) => {
     const baseClass = "text-xs px-2 py-0.5 rounded-md flex items-center gap-1 font-medium ml-2";
     switch(source) {
@@ -74,16 +74,36 @@ const RecordList = ({
     });
   }, [records, customers, debouncedSearch, statusFilter, dateRange]);
 
-  // --- 5. 日期快速設定 ---
+  // --- 5. 日期快速設定 (新增 昨日 與 本週) ---
   const setQuickDate = (type) => {
     const today = new Date();
+    
+    // 輔助函數：格式化日期為 YYYY-MM-DD
+    const formatDate = (date) => date.toLocaleDateString('en-CA');
+
     if (type === 'today') {
-        const str = today.toLocaleDateString('en-CA');
+        const str = formatDate(today);
         setDateRange({ start: str, end: str });
+    } else if (type === 'yesterday') {
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        const str = formatDate(yesterday);
+        setDateRange({ start: str, end: str });
+    } else if (type === 'week') {
+        // 計算本週一 (Monday)
+        const day = today.getDay(); 
+        const diff = today.getDate() - day + (day === 0 ? -6 : 1); // 如果是週日(0)，要減6天回到週一
+        const monday = new Date(today.setDate(diff));
+        
+        // 計算本週日 (Sunday)
+        const sunday = new Date(monday);
+        sunday.setDate(monday.getDate() + 6);
+
+        setDateRange({ start: formatDate(monday), end: formatDate(sunday) });
     } else if (type === 'month') {
-        const first = new Date(today.getFullYear(), today.getMonth(), 1).toLocaleDateString('en-CA');
-        const last = new Date(today.getFullYear(), today.getMonth() + 1, 0).toLocaleDateString('en-CA');
-        setDateRange({ start: first, end: last });
+        const first = new Date(today.getFullYear(), today.getMonth(), 1);
+        const last = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+        setDateRange({ start: formatDate(first), end: formatDate(last) });
     } else if (type === 'clear') {
         setDateRange({ start: '', end: '' });
     }
@@ -116,33 +136,61 @@ const RecordList = ({
             {inputValue && <button onClick={() => setInputValue('')} className="absolute right-2 top-2 text-slate-400"><X size={16}/></button>}
          </div>
 
-         {/* 篩選標籤 */}
-         {(debouncedSearch || dateRange.start || statusFilter !== 'all') && (
-            <div className="flex flex-wrap gap-2 mt-2">
-                {statusFilter !== 'all' && <span className="text-xs bg-slate-200 text-slate-700 px-2 py-1 rounded">狀態: {statusFilter === 'pending' ? '待處理' : statusFilter === 'monitor' ? '觀察' : '完修'}</span>}
-                {dateRange.start && <span className="text-xs bg-slate-200 text-slate-700 px-2 py-1 rounded">{dateRange.start}~{dateRange.end}</span>}
+         {/* 篩選標籤 (僅顯示關鍵字與日期) */}
+         {(debouncedSearch || dateRange.start) && (
+            <div className="flex flex-wrap gap-2 mt-2 ml-1">
+                {dateRange.start && (
+                    <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded font-bold flex items-center">
+                        📅 {dateRange.start} ~ {dateRange.end}
+                    </span>
+                )}
+                {debouncedSearch && (
+                    <span className="text-xs bg-slate-200 text-slate-700 px-2 py-1 rounded font-bold">
+                        🔍 搜尋: {debouncedSearch}
+                    </span>
+                )}
             </div>
          )}
 
-         {/* 日期選擇器 */}
+         {/* 日期選擇器 (更新版：增加昨日與本週) */}
          {showDatePicker && (
-            <div className="mt-2 bg-white border border-slate-200 rounded-lg p-3 shadow-lg absolute w-[calc(100%-2rem)] z-40 left-4">
+            <div className="mt-2 bg-white border border-slate-200 rounded-lg p-3 shadow-lg absolute w-[calc(100%-2rem)] z-40 left-4 animate-in fade-in slide-in-from-top-2">
+                <div className="flex gap-2 mb-3">
+                    <input type="date" className="flex-1 border border-slate-300 p-2 rounded-lg text-sm font-bold text-slate-700" value={dateRange.start} onChange={e => setDateRange({...dateRange, start: e.target.value})} />
+                    <input type="date" className="flex-1 border border-slate-300 p-2 rounded-lg text-sm font-bold text-slate-700" value={dateRange.end} onChange={e => setDateRange({...dateRange, end: e.target.value})} />
+                </div>
+                
+                {/* 第一排：今日、昨日 */}
                 <div className="flex gap-2 mb-2">
-                    <input type="date" className="flex-1 border p-1 rounded" value={dateRange.start} onChange={e => setDateRange({...dateRange, start: e.target.value})} />
-                    <input type="date" className="flex-1 border p-1 rounded" value={dateRange.end} onChange={e => setDateRange({...dateRange, end: e.target.value})} />
+                    <button onClick={() => setQuickDate('today')} className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg transition-colors">
+                        今日
+                    </button>
+                    <button onClick={() => setQuickDate('yesterday')} className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg transition-colors">
+                        昨日
+                    </button>
                 </div>
-                <div className="flex gap-2">
-                    <button onClick={() => setQuickDate('today')} className="flex-1 py-1 bg-slate-100 text-xs rounded">今日</button>
-                    <button onClick={() => setQuickDate('month')} className="flex-1 py-1 bg-slate-100 text-xs rounded">本月</button>
-                    <button onClick={() => setQuickDate('clear')} className="flex-1 py-1 bg-slate-100 text-xs rounded text-red-500">清除</button>
+
+                {/* 第二排：本週、本月 */}
+                <div className="flex gap-2 mb-2">
+                    <button onClick={() => setQuickDate('week')} className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg transition-colors">
+                        本週
+                    </button>
+                    <button onClick={() => setQuickDate('month')} className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg transition-colors">
+                        本月
+                    </button>
                 </div>
+
+                {/* 清除按鈕 */}
+                <button onClick={() => setQuickDate('clear')} className="w-full py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-bold rounded-lg transition-colors border border-rose-100">
+                    清除日期篩選
+                </button>
             </div>
          )}
          
          {/* 簡易狀態切換 */}
          <div className="flex mt-3 border-t pt-2 border-slate-100">
              {['all', 'pending', 'monitor', 'completed'].map(id => (
-                 <button key={id} onClick={() => setStatusFilter(id)} className={`flex-1 text-xs py-1 ${statusFilter === id ? 'font-bold text-slate-800' : 'text-slate-400'}`}>
+                 <button key={id} onClick={() => setStatusFilter(id)} className={`flex-1 text-xs py-1 transition-colors ${statusFilter === id ? 'font-bold text-blue-600 bg-blue-50 rounded-lg' : 'text-slate-400 hover:text-slate-600'}`}>
                     {id === 'all' ? '全部' : id === 'pending' ? '待處理' : id === 'monitor' ? '觀察' : '已完修'}
                  </button>
              ))}
@@ -228,7 +276,7 @@ const RecordList = ({
                             </div>
                         )}
 
-                        {/* 底部日期與狀態文字 (輔助資訊) */}
+                        {/* 底部日期與狀態文字 */}
                         <div className="text-xs text-slate-400 mt-2 text-right border-t border-slate-50 pt-2">
                            {r.date} · {r.status === 'completed' ? '已完修' : r.status === 'pending' ? '待處理' : '觀察中'}
                         </div>
