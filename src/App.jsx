@@ -183,7 +183,27 @@ export default function App() {
   };
   const startEditRecord = (e, record) => {
     if (e) e.stopPropagation();
-    setEditingRecordData(record);
+    // 修復：將資料庫格式轉換為表單格式
+    const formData = {
+      ...record,
+      // 將 fault 轉換為 symptom（如果 symptom 不存在）
+      symptom: record.symptom || record.fault || record.description || '',
+      // 將 solution 轉換為 action（如果 action 不存在）
+      action: record.action || record.solution || '',
+      // 確保日期格式正確
+      date: record.date || new Date().toLocaleDateString('en-CA'),
+      // 確保其他必要欄位存在
+      serviceSource: record.serviceSource || 'customer_call',
+      status: record.status || 'completed',
+      errorCode: record.errorCode || '',
+      parts: record.parts || [],
+      photos: record.photos || [],
+      photoBefore: record.photoBefore || null,
+      photoAfter: record.photoAfter || null,
+      // 保留 nextVisitDate 和 return_date（RecordForm 會處理）
+      nextVisitDate: record.nextVisitDate || record.return_date || ''
+    };
+    setEditingRecordData(formData);
     // 記錄當前視圖作為前一個視圖，以便取消時能正確返回
     setPreviousView(currentView);
     setCurrentView('edit_record');
@@ -214,8 +234,27 @@ export default function App() {
 
   // --- [新增] 處理快速編輯紀錄 (從 + 號彈窗來的) ---
   const handleQuickEditRecord = (record) => {
-    // 帶入要編輯的紀錄
-    setEditingRecordData(record);
+    // 修復：將資料庫格式轉換為表單格式（與 startEditRecord 相同的轉換邏輯）
+    const formData = {
+      ...record,
+      // 將 fault 轉換為 symptom（如果 symptom 不存在）
+      symptom: record.symptom || record.fault || record.description || '',
+      // 將 solution 轉換為 action（如果 action 不存在）
+      action: record.action || record.solution || '',
+      // 確保日期格式正確
+      date: record.date || new Date().toLocaleDateString('en-CA'),
+      // 確保其他必要欄位存在
+      serviceSource: record.serviceSource || 'customer_call',
+      status: record.status || 'completed',
+      errorCode: record.errorCode || '',
+      parts: record.parts || [],
+      photos: record.photos || [],
+      photoBefore: record.photoBefore || null,
+      photoAfter: record.photoAfter || null,
+      // 保留 nextVisitDate 和 return_date（RecordForm 會處理）
+      nextVisitDate: record.nextVisitDate || record.return_date || ''
+    };
+    setEditingRecordData(formData);
     
     // 關鍵：找出這筆紀錄的客戶並設定為 selectedCustomer
     const parentCustomer = customers.find(c => c.customerID === record.customerID);
