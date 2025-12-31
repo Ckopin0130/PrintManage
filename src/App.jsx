@@ -760,6 +760,7 @@ export default function App() {
       {currentView === 'tracking' && (
         <TrackingView 
           records={records} customers={customers} setCurrentView={setCurrentView} startEditRecord={startEditRecord}
+          handleDeleteRecord={handleDeleteRecord}
         />
       )}
 

@@ -1,7 +1,7 @@
 import React from 'react';
-import { ArrowLeft, AlertCircle } from 'lucide-react';
+import { ArrowLeft, AlertCircle, Trash2 } from 'lucide-react';
 
-const TrackingView = ({ records, customers, setCurrentView, startEditRecord }) => {
+const TrackingView = ({ records, customers, setCurrentView, startEditRecord, handleDeleteRecord }) => {
   const trackingRecords = records.filter(r => 
     r.status === 'tracking' || r.status === 'monitor' || r.status === 'pending'
   ).sort((a, b) => {
@@ -24,29 +24,43 @@ const TrackingView = ({ records, customers, setCurrentView, startEditRecord }) =
            const isTracking = r.status === 'tracking';
            const visitDate = r.nextVisitDate || r.return_date;
            return (
-             <div key={r.id} onClick={(e) => startEditRecord(e, r)} className={`bg-white p-4 rounded-xl shadow-sm border-l-4 cursor-pointer hover:shadow-md transition-shadow ${isMonitor ? 'border-blue-400' : 'border-amber-400'}`}>
+             <div key={r.id} className={`bg-white p-4 rounded-xl shadow-sm border-l-4 hover:shadow-md transition-shadow ${isMonitor ? 'border-blue-400' : 'border-amber-400'}`}>
                 <div className="flex justify-between items-start mb-2">
                    <span className="text-xs font-bold text-gray-500">{r.date}</span>
-                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
-                     isTracking ? 'bg-orange-100 text-orange-700' : 
-                     isMonitor ? 'bg-blue-100 text-blue-700' : 
-                     'bg-amber-100 text-amber-700'
-                   }`}>
-                     {isTracking ? '待追蹤' : isMonitor ? '觀察中' : '待料'}
-                   </span>
+                   <div className="flex items-center gap-2">
+                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                       isTracking ? 'bg-orange-100 text-orange-700' : 
+                       isMonitor ? 'bg-blue-100 text-blue-700' : 
+                       'bg-amber-100 text-amber-700'
+                     }`}>
+                       {isTracking ? '待追蹤' : isMonitor ? '觀察中' : '待料'}
+                     </span>
+                     {/* 新增：刪除按鈕 */}
+                     <button 
+                       onClick={(e) => {
+                         e.stopPropagation();
+                         handleDeleteRecord(e, r.id);
+                       }}
+                       className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
+                     >
+                       <Trash2 size={14}/>
+                     </button>
+                   </div>
                 </div>
-                <h3 className="font-bold text-gray-800">{cust ? cust.name : '未知客戶'}</h3>
-                <div className="text-sm text-gray-600 mt-1">{r.fault || r.description || r.symptom}</div>
-                {visitDate && (
-                  <div className={`text-xs mt-2 font-bold ${
-                    new Date(visitDate) <= new Date() ? 'text-red-600' : 
-                    new Date(visitDate) <= new Date(Date.now() + 3 * 24 * 60 * 60 * 1000) ? 'text-orange-600' : 
-                    'text-gray-500'
-                  }`}>
-                    預計回訪: {visitDate}
-                  </div>
-                )}
-                <div className="text-xs text-gray-400 mt-2 flex items-center"><AlertCircle size={12} className="mr-1"/> 點擊編輯後續處置</div>
+                <div onClick={(e) => startEditRecord(e, r)} className="cursor-pointer">
+                  <h3 className="font-bold text-gray-800">{cust ? cust.name : '未知客戶'}</h3>
+                  <div className="text-sm text-gray-600 mt-1">{r.fault || r.description || r.symptom}</div>
+                  {visitDate && (
+                    <div className={`text-xs mt-2 font-bold ${
+                      new Date(visitDate) <= new Date() ? 'text-red-600' : 
+                      new Date(visitDate) <= new Date(Date.now() + 3 * 24 * 60 * 60 * 1000) ? 'text-orange-600' : 
+                      'text-gray-500'
+                    }`}>
+                      預計回訪: {visitDate}
+                    </div>
+                  )}
+                  <div className="text-xs text-gray-400 mt-2 flex items-center"><AlertCircle size={12} className="mr-1"/> 點擊編輯後續處置</div>
+                </div>
              </div>
            )
          })}
