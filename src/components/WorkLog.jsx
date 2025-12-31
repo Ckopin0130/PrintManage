@@ -1,10 +1,10 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { 
   ArrowLeft, Search, X, Calendar, User, AlertCircle, Wrench, Package, 
-  Clock, FileText, Copy, Check, ChevronLeft, ChevronRight, Filter
+  Clock, FileText, Copy, Check
 } from 'lucide-react';
 
-// --- 1. 報表預覽視窗 (參考 Inventory 的 Modal 模式) ---
+// --- 1. 報表預覽視窗 (完全比照 Inventory.jsx 的 ReportModal 風格) ---
 const WorkLogReportModal = ({ isOpen, onClose, records, customers, dateLabel }) => {
   const [isCopied, setIsCopied] = useState(false);
 
@@ -15,12 +15,14 @@ const WorkLogReportModal = ({ isOpen, onClose, records, customers, dateLabel }) 
     // A. 案件清單
     const listText = records.map((r, i) => {
         const cust = customers.find(c => c.customerID === r.customerID);
+        // 若有機型則顯示
         const model = cust?.assets?.[0]?.model ? `(${cust.assets[0].model})` : '';
         
         let statusStr = '觀察';
         if (r.status === 'completed') statusStr = '完修';
         if (r.status === 'pending' || r.status === 'tracking') statusStr = '待料';
 
+        // 零件顯示 (縮排與符號)
         const partsStr = (r.parts && r.parts.length > 0) 
           ? `\n   📦 更換: ${r.parts.map(p => `${p.name} x${p.qty}`).join('、')}` 
           : '';
@@ -41,6 +43,7 @@ const WorkLogReportModal = ({ isOpen, onClose, records, customers, dateLabel }) 
                     partsMap[p.name] = { totalQty: 0, models: new Set() };
                 }
                 partsMap[p.name].totalQty += (p.qty || 1);
+                // 使用 Set 來避免重複列出相同機型
                 partsMap[p.name].models.add(modelName); 
             });
         }
@@ -52,6 +55,7 @@ const WorkLogReportModal = ({ isOpen, onClose, records, customers, dateLabel }) 
     if (partKeys.length > 0) {
         summaryList = partKeys.map(name => {
             const data = partsMap[name];
+            // 將機型 Set 轉為字串
             const modelsStr = Array.from(data.models).join(', ');
             return `● ${name} x${data.totalQty} (機型: ${modelsStr})`;
         }).join('\n');
@@ -69,14 +73,19 @@ const WorkLogReportModal = ({ isOpen, onClose, records, customers, dateLabel }) 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/60 z-[90] flex items-center justify-center p-4 animate-in fade-in" onClick={onClose}>
+    // 這裡的樣式參考 Inventory.jsx 的 Modal (pt-10 items-start)
+    <div className="fixed inset-0 bg-black/60 z-[90] flex items-start justify-center pt-10 px-4 animate-in fade-in" onClick={onClose}>
         <div className="bg-white w-full max-w-sm rounded-2xl p-5 shadow-2xl flex flex-col max-h-[85vh]" onClick={e => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-2 border-b pb-3">
-                <h3 className="text-lg font-bold text-slate-800 flex items-center"><FileText className="mr-2 text-blue-600"/> 日報表預覽</h3>
-                <button onClick={onClose} className="p-1.5 bg-gray-100 rounded-full text-gray-500 hover:bg-gray-200"><X size={20} /></button> 
+                <h3 className="text-lg font-bold text-slate-800 flex items-center">
+                    <FileText className="mr-2 text-blue-600"/> 日報表預覽
+                </h3>
+                <button onClick={onClose} className="p-1.5 bg-gray-100 rounded-full text-gray-500 hover:bg-gray-200">
+                    <X size={20} />
+                </button> 
             </div>
             
-            <div className="flex-1 overflow-y-auto bg-slate-800 p-3 rounded-xl border border-slate-700 mb-4 font-mono text-sm leading-relaxed whitespace-pre-wrap text-slate-200 shadow-inner">
+            <div className="flex-1 overflow-y-auto bg-slate-50 p-3 rounded-xl border border-slate-200 mb-4 font-mono text-sm leading-relaxed whitespace-pre-wrap text-slate-700 shadow-inner">
                 {reportText}
             </div>
             
