@@ -126,7 +126,7 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
     // 零件搜尋 State
     const [selectedModel, setSelectedModel] = useState('ALL');
     const [partSearch, setPartSearch] = useState('');
-    const [activeTab, setActiveTab] = useState('all'); // 'main', 'toner', 'backup', 'all'
+    const [activeTab, setActiveTab] = useState('main'); // 改成 'main' 預設顯示主件
 
     // 日期計算函數
     const getFutureDate = (days) => {
