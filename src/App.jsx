@@ -155,28 +155,59 @@ export default function App() {
   // --- 3.5. 页面可见性监听（从外部应用返回时恢复视图）---
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        // 当页面重新可见时，确保视图状态正确
-        // 如果 currentView 是 detail 但没有 selectedCustomer，返回 dashboard
-        if (currentView === 'detail' && !selectedCustomer && !isLoading) {
-          setCurrentView('dashboard');
-          setActiveTab('dashboard');
+      if (document.visibilityState === 'visible' && !isLoading) {
+        // 检查是否是从 Google Maps 返回
+        const navigatingToMaps = sessionStorage.getItem('navigatingToMaps');
+        
+        if (navigatingToMaps === 'true') {
+          // 清除标记
+          sessionStorage.removeItem('navigatingToMaps');
+          
+          // 强制设置为 dashboard
+          setTimeout(() => {
+            setCurrentView('dashboard');
+            setActiveTab('dashboard');
+            setSelectedCustomer(null);
+            setPreviousView(null);
+          }, 100);
+          return;
         }
-        // 如果 currentView 不在有效范围内，重置为 dashboard
-        const validViews = ['dashboard', 'roster', 'inventory', 'records', 'settings', 'detail', 'search', 'add', 'edit', 'add_record', 'edit_record', 'tracking', 'worklog'];
-        if (!validViews.includes(currentView) && !isLoading) {
-          setCurrentView('dashboard');
-          setActiveTab('dashboard');
-        }
+        
+        // 延迟执行，确保状态已更新
+        setTimeout(() => {
+          // 检查当前状态是否正确
+          // 如果 currentView 是 detail 但没有 selectedCustomer，返回 dashboard
+          if (currentView === 'detail' && !selectedCustomer) {
+            setCurrentView('dashboard');
+            setActiveTab('dashboard');
+            return;
+          }
+          
+          // 如果 currentView 不在有效范围内，重置为 dashboard
+          const validViews = ['dashboard', 'roster', 'inventory', 'records', 'settings', 'detail', 'search', 'add', 'edit', 'add_record', 'edit_record', 'tracking', 'worklog', 'quick_action'];
+          if (currentView && !validViews.includes(currentView)) {
+            setCurrentView('dashboard');
+            setActiveTab('dashboard');
+            return;
+          }
+          
+          // 如果 currentView 为空或未定义，设置为 dashboard
+          if (!currentView) {
+            setCurrentView('dashboard');
+            setActiveTab('dashboard');
+          }
+        }, 100);
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('focus', handleVisibilityChange);
+    window.addEventListener('pageshow', handleVisibilityChange);
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleVisibilityChange);
+      window.removeEventListener('pageshow', handleVisibilityChange);
     };
   }, [currentView, selectedCustomer, isLoading]);
 
@@ -220,12 +251,8 @@ export default function App() {
       setTargetCustomer(customer); 
       setShowAddressAlert(true);
     } else {
-      // 记录当前视图状态到 sessionStorage，以便返回时恢复
-      sessionStorage.setItem('beforeMapsView', currentView);
-      sessionStorage.setItem('beforeMapsTab', activeTab);
-      if (selectedCustomer) {
-        sessionStorage.setItem('beforeMapsCustomer', JSON.stringify(selectedCustomer));
-      }
+      // 设置标记，表示即将跳转到外部应用
+      sessionStorage.setItem('navigatingToMaps', 'true');
       
       const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(customer.address)}`;
       const newWindow = window.open(url, '_blank');
@@ -730,8 +757,8 @@ export default function App() {
       <ConfirmDialog {...confirmDialog} onCancel={() => setConfirmDialog({...confirmDialog, isOpen: false})} isProcessing={isProcessing} />
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       
-      {/* Fallback: 如果没有匹配的视图，显示 dashboard */}
-      {!isLoading && !currentView && (
+      {/* Fallback: 如果 currentView 为空或无效，显示 dashboard */}
+      {!isLoading && (!currentView || currentView === '') && (
         <Dashboard 
           today={today} dbStatus={dbStatus} pendingTasks={pendingTasks} 
           todayCompletedCount={todayCompletedCount} totalCustomers={customers.length} 
