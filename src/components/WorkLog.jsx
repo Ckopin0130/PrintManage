@@ -4,7 +4,7 @@ import {
   Clock, FileText, Copy, Check
 } from 'lucide-react';
 
-// --- 1. 報表預覽視窗 (依照您的指定格式：🔺🔸🔹▪️) ---
+// --- 1. 報表預覽視窗 (修正：符號後方移除所有空格) ---
 const WorkLogReportModal = ({ isOpen, onClose, records = [], customers = [], dateLabel }) => {
   const [isCopied, setIsCopied] = useState(false);
 
@@ -13,34 +13,34 @@ const WorkLogReportModal = ({ isOpen, onClose, records = [], customers = [], dat
     if (!Array.isArray(records) || records.length === 0) return '無資料';
 
     // === A. 維修行程列表 (Job List) ===
-    const listText = records.map((r, i) => {
+    const listText = records.map((r) => {
         const cust = Array.isArray(customers) ? customers.find(c => c.customerID === r.customerID) : null;
         const model = cust?.assets?.[0]?.model ? `(${cust.assets[0].model})` : '';
         
-        // 🔸 層級：客戶名稱 (機型)
+        // 🔸 層級：客戶名稱 (機型) - [無空格]
         let text = `🔸${cust?.name || '未知'} ${model}`;
         
-        // 🔹 層級：故障 (若無內容則整段隱藏)
+        // 🔹 層級：故障 - [無空格]
         const faultContent = r.fault || r.symptom;
         if (faultContent) {
-            text += `\n🔹 故障：`;
-            // ▪️ 層級：將內容依換行符號切分，每行前面加 ▪️
+            text += `\n🔹故障：`;
+            // ▪️ 層級：內容 - [無空格]
             const lines = faultContent.split('\n');
             lines.forEach(line => {
                 if(line.trim()) text += `\n▪️${line.trim()}`;
             });
         }
 
-        // 🔹 層級：處理 (預設顯示)
+        // 🔹 層級：處理 - [無空格]
         const solutionContent = r.solution || r.action || '無填寫';
-        text += `\n🔹 處理：`;
-        // ▪️ 層級：處理過程
+        text += `\n🔹處理：`;
+        // ▪️ 層級：內容 - [無空格]
         const solLines = solutionContent.split('\n');
         solLines.forEach(line => {
              if(line.trim()) text += `\n▪️${line.trim()}`;
         });
 
-        // 🔹 層級：更換零件
+        // 🔹 層級：更換零件 - [無空格]
         if (Array.isArray(r.parts) && r.parts.length > 0) {
             const partsStr = r.parts.map(p => `${p.name} x${p.qty}`).join('、');
             text += `\n🔹更換: ${partsStr}`;
@@ -49,12 +49,11 @@ const WorkLogReportModal = ({ isOpen, onClose, records = [], customers = [], dat
         return text;
     }).join('\n\n');
 
-    // === B. 耗材統計 (Summary) - 依機型分組 ===
+    // === B. 耗材統計 (Summary) ===
     const summaryByModel = {};
     records.forEach(r => {
         if (Array.isArray(r.parts) && r.parts.length > 0) {
             const cust = Array.isArray(customers) ? customers.find(c => c.customerID === r.customerID) : null;
-            // 抓取機型
             const modelName = cust?.assets?.[0]?.model || '通用/其他';
 
             if (!summaryByModel[modelName]) {
@@ -67,7 +66,7 @@ const WorkLogReportModal = ({ isOpen, onClose, records = [], customers = [], dat
         }
     });
 
-    // 格式化耗材統計文字 (🔸機型 -> ▪️零件)
+    // 格式化耗材統計文字 (🔸機型 -> ▪️零件) - [無空格]
     let summaryList = '';
     const models = Object.keys(summaryByModel).sort();
 
@@ -84,7 +83,7 @@ const WorkLogReportModal = ({ isOpen, onClose, records = [], customers = [], dat
         summaryList = '🔸無更換零件';
     }
 
-    // 組合最終報表 (🔺層級)
+    // 組合最終報表 (🔺層級) - [無空格]
     return `【維修工作日報】 ${dateLabel}\n----------------\n\n🔺維修行程\n${listText}\n\n🔺今日耗材統計\n${summaryList}\n\n----------------\n系統自動生成`;
   }, [records, customers, dateLabel]);
 
@@ -126,7 +125,6 @@ const WorkLog = ({
   records = [], customers = [], setCurrentView, showToast 
 }) => {
   
-  // 狀態管理
   const [inputValue, setInputValue] = useState(''); 
   const [debouncedSearch, setDebouncedSearch] = useState(''); 
   const [activeDateTab, setActiveDateTab] = useState('today'); 
@@ -134,12 +132,10 @@ const WorkLog = ({
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
 
-  // 初始化：預設選中「今日」
   useEffect(() => {
     handleDateTabClick('today');
   }, []);
 
-  // 搜尋防抖動
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(inputValue);
@@ -147,7 +143,6 @@ const WorkLog = ({
     return () => clearTimeout(timer);
   }, [inputValue]);
 
-  // 日期快速設定
   const handleDateTabClick = (type) => {
     setActiveDateTab(type);
     const today = new Date();
@@ -184,7 +179,6 @@ const WorkLog = ({
     }
   };
 
-  // 資料篩選
   const filteredRecords = useMemo(() => {
     if (!Array.isArray(records)) return [];
 
@@ -196,14 +190,12 @@ const WorkLog = ({
       const partsText = (Array.isArray(r.parts)) ? r.parts.map(p => p.name).join(' ').toLowerCase() : '';
       const searchLower = debouncedSearch.toLowerCase();
 
-      // 關鍵字搜尋
       const matchesSearch = 
         custName.includes(searchLower) || 
         fault.includes(searchLower) || 
         solution.includes(searchLower) ||
         partsText.includes(searchLower);
 
-      // 日期篩選
       let matchesDate = true;
       if (dateRange.start || dateRange.end) {
         const recordDate = r.status === 'completed' && r.completedDate ? r.completedDate : r.date;
@@ -219,7 +211,6 @@ const WorkLog = ({
     });
   }, [records, customers, debouncedSearch, dateRange]);
 
-  // 取得當前日期的顯示文字
   const getDateLabel = () => {
       if(activeDateTab === 'today') return '今日';
       if(activeDateTab === 'yesterday') return '昨日';
@@ -230,15 +221,12 @@ const WorkLog = ({
 
   return (
     <div className="bg-slate-50 min-h-screen pb-24 font-sans flex flex-col">
-      {/* --- 頂部固定區塊 --- */}
       <div className="bg-white/95 backdrop-blur shadow-sm sticky top-0 z-30 border-b border-slate-100/50">
-         
          <div className="px-4 py-3 flex items-center justify-between">
              <div className="flex items-center">
                 <button onClick={() => setCurrentView('dashboard')} className="p-2 -ml-2 text-slate-600 hover:bg-slate-100 rounded-full"><ArrowLeft size={22}/></button>
                 <h2 className="text-lg font-bold text-slate-800 ml-1">工作日誌</h2>
              </div>
-             {/* 產生報表按鈕 */}
              <button 
                 onClick={() => setShowReportModal(true)}
                 className="p-2 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 transition-colors flex items-center gap-1"
@@ -247,7 +235,6 @@ const WorkLog = ({
              </button>
          </div>
 
-         {/* 搜尋框 */}
          <div className="px-4 pb-2 relative">
             <Search size={16} className="absolute left-7 top-2.5 text-slate-400" />
             <input 
@@ -259,7 +246,6 @@ const WorkLog = ({
             {inputValue && <button onClick={() => setInputValue('')} className="absolute right-6 top-2 text-slate-400"><X size={16}/></button>}
          </div>
 
-         {/* 日期快速按鈕 */}
          <div className="px-4 pb-3 flex gap-2 overflow-x-auto no-scrollbar items-center">
             {[
                 { id: 'all', label: '全部' },
@@ -294,7 +280,6 @@ const WorkLog = ({
             </button>
          </div>
 
-         {/* 自訂日期選擇面板 */}
          {showDatePicker && activeDateTab === 'custom' && (
             <div className="px-4 pb-3 animate-in slide-in-from-top-2">
                 <div className="bg-white border border-blue-200 rounded-xl p-3 shadow-lg bg-blue-50/50">
@@ -308,7 +293,6 @@ const WorkLog = ({
          )}
       </div>
 
-      {/* --- 列表內容區域 --- */}
       <div className="flex-1 overflow-y-auto bg-slate-50 p-2 space-y-3">
         {filteredRecords.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 opacity-40">
