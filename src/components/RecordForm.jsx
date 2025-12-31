@@ -566,18 +566,18 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
     return (
       <div className="bg-gray-100 min-h-screen pb-24 font-sans selection:bg-blue-100 flex flex-col">
         {/* Top Navigation */}
-        <div className="bg-white px-4 py-3 flex flex-col shadow-sm sticky top-0 z-40 shrink-0">
-            <div className="flex items-center">
-                <button onClick={onCancel} className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-full"><ArrowLeft /></button>
-                <h2 className="text-lg font-bold flex-1 text-center pr-8 text-slate-800">{pageTitle}</h2>
+        <div className="bg-white px-4 py-3 flex items-center shadow-sm sticky top-0 z-40 shrink-0">
+            <button onClick={onCancel} className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-full"><ArrowLeft /></button>
+            <h2 className="text-lg font-bold flex-1 text-center pr-8 text-slate-800">{pageTitle}</h2>
+            <div className="flex items-center gap-2">
+                {/* 顯示機器型號（在日期左邊） */}
+                {customerMachineModel && (
+                    <div className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-lg">
+                        {customerMachineModel}
+                    </div>
+                )}
                 <div className="text-sm font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded-lg">{form.date}</div>
             </div>
-            {/* 顯示機器型號 */}
-            {customerMachineModel && (
-                <div className="text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1 mx-auto mt-1 rounded-full">
-                    機型：{customerMachineModel}
-                </div>
-            )}
         </div>
 
         {/* Scrollable Content */}
