@@ -88,6 +88,9 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
     const beforeFileInputRef = useRef(null);
     const afterFileInputRef = useRef(null);
     
+    // 🌟 新增：日期輸入框的 ref (為了解決手機版點擊問題)
+    const dateInputRef = useRef(null);
+    
     // UI 控制 State
     const [isSourceSelected, setIsSourceSelected] = useState(!!initialData.id); 
     const [hasFaultFound, setHasFaultFound] = useState(initialData.serviceSource !== 'invoice_check');
@@ -124,15 +127,30 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
     // 零件搜尋 State
     const [selectedModel, setSelectedModel] = useState('ALL');
     const [partSearch, setPartSearch] = useState('');
-    
-    // 🌟 修改：預設 Tab 改為 'main' (主件)
-    const [activeTab, setActiveTab] = useState('main'); 
+    const [activeTab, setActiveTab] = useState('main'); // 預設顯示主件
 
     // 日期計算函數
     const getFutureDate = (days) => {
         const date = new Date();
         date.setDate(date.getDate() + days);
         return date.toISOString().split('T')[0];
+    };
+    
+    // 🌟 處理「自訂」日期按鈕點擊
+    const handleCustomDateClick = () => {
+        setNextVisitDate(''); // 先清空
+        // 延遲一點點時間觸發，確保 UI 更新
+        setTimeout(() => {
+            if (dateInputRef.current) {
+                try {
+                    // 嘗試呼叫原生日期選擇器 (現代瀏覽器/手機支援)
+                    dateInputRef.current.showPicker();
+                } catch (e) {
+                    // 如果不支援 showPicker，則退回到 focus
+                    dateInputRef.current.focus();
+                }
+            }
+        }, 50);
     };
 
     // 初始化資料
@@ -1101,7 +1119,7 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
                                                     </div>
                                                 </div>
                                                 
-                                                {/* 右側：數量控制 (🌟已修正 -1 邏輯) */}
+                                                {/* 右側：數量控制 */}
                                                 <div className="flex items-center gap-2 shrink-0">
                                                     <button
                                                         onClick={() => handleAdjustQtyInModal(item, -1)}
@@ -1158,7 +1176,7 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
             </div>
         )}
 
-        {/* 回訪日期選擇 Modal (Style Fix) */}
+        {/* 回訪日期選擇 Modal (🌟 已修正手機自訂點擊問題) */}
         {showVisitDateModal && (
             <div className="fixed inset-0 bg-black/60 z-[70] flex items-center justify-center p-4 animate-in fade-in">
                 <div className="bg-white w-full max-w-sm rounded-2xl p-6 shadow-xl space-y-4">
@@ -1177,8 +1195,9 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
                                 {days}天
                             </button>
                         ))}
+                        {/* 🌟 修正：點擊自訂會觸發 input 顯示日期選擇器 */}
                         <button 
-                            onClick={() => setNextVisitDate('')}
+                            onClick={handleCustomDateClick}
                             className="flex-1 py-2 bg-white border border-slate-200 rounded-lg text-sm font-bold text-slate-600 shadow-sm outline-none focus:outline-none focus:ring-2 focus:ring-blue-100"
                         >
                             自訂
@@ -1187,6 +1206,7 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
 
                     <input 
                         type="date" 
+                        ref={dateInputRef} // 🌟 綁定 ref
                         value={nextVisitDate}
                         onChange={e => setNextVisitDate(e.target.value)}
                         className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-700 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
