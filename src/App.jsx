@@ -661,11 +661,26 @@ export default function App() {
     };
 
     try {
-        if (dbStatus === 'demo' || !user) setCustomers(prev => [...prev, newEntry]);
-        else await setDoc(doc(db, 'customers', newId), newEntry);
+        // 立即更新本地状态（乐观更新），确保搜索能立即看到新客户
+        setCustomers(prev => [...prev, newEntry]);
+        
+        if (dbStatus === 'demo' || !user) {
+          // demo 模式已经更新了，不需要额外操作
+        } else {
+          // Firebase 模式：保存到 Firestore（onSnapshot 会同步，但乐观更新确保立即可用）
+          await setDoc(doc(db, 'customers', newId), newEntry);
+        }
+        
         showToast('新增成功');
-        setSelectedCustomer(newEntry); setCurrentView('detail');
-    } catch (err) { showToast('新增失敗', 'error'); } finally { setIsProcessing(false); }
+        setSelectedCustomer(newEntry); 
+        setCurrentView('detail');
+    } catch (err) {
+        // 如果保存失败，回滚本地状态
+        setCustomers(prev => prev.filter(c => c.customerID !== newId));
+        showToast('新增失敗', 'error'); 
+    } finally { 
+        setIsProcessing(false); 
+    }
   };
 
   // 雲端備份與還原功能...

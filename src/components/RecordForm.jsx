@@ -269,11 +269,19 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
                 if(window.confirm('確定要移除此零件嗎？')) updatedParts.splice(index, 1);
             } else {
                 if (delta > 0) {
-                    // 檢查原始庫存
+                    // 修復：使用有效庫存檢查，而不是原始庫存
                     const originalItem = inventory.find(i => i.name === part.name);
-                    if (originalItem && newQty > originalItem.qty) {
-                        alert(`庫存不足！目前僅剩 ${originalItem.qty}`);
-                        return prev;
+                    if (originalItem) {
+                        // 計算當前表單中已選數量（不包括當前正在修改的這個）
+                        const currentInForm = updatedParts
+                            .filter((p, i) => i !== index && p.name === part.name)
+                            .reduce((sum, p) => sum + p.qty, 0);
+                        const effectiveStock = originalItem.qty - currentInForm;
+                        
+                        if (newQty > effectiveStock) {
+                            alert(`庫存不足！目前僅剩 ${effectiveStock} 個（原始庫存：${originalItem.qty}）`);
+                            return prev;
+                        }
                     }
                 }
                 updatedParts[index].qty = newQty;
@@ -645,13 +653,21 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
                             <div className="mt-3 space-y-2">
                                 {form.parts.map((part, index) => (
                                     <div key={index} className="flex justify-between items-center bg-white border border-slate-200 rounded-xl p-2 shadow-sm">
-                                        <div className="flex items-center gap-2 pl-1">
-                                            <div className="bg-slate-100 p-1.5 rounded-lg text-slate-500"><Package size={16}/></div>
-                                            <div className="min-w-0 max-w-[120px]">
+                                        <div className="flex items-center gap-2 pl-1 flex-1 min-w-0">
+                                            <div className="bg-slate-100 p-1.5 rounded-lg text-slate-500 shrink-0">
+                                                <Package size={16}/>
+                                            </div>
+                                            <div className="min-w-0 flex-1">
                                                 <div className="text-sm font-bold text-slate-800 truncate">{part.name}</div>
+                                                {/* 新增：显示型号信息 */}
+                                                {part.model && (
+                                                    <div className="text-[10px] text-slate-400 mt-0.5 truncate">
+                                                        {part.model}
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
-                                        <div className="flex items-center gap-3 bg-slate-50 rounded-lg p-1 border border-slate-100">
+                                        <div className="flex items-center gap-3 bg-slate-50 rounded-lg p-1 border border-slate-100 shrink-0">
                                             <button onClick={() => updatePartQty(index, -1)} className="p-1 text-slate-400 hover:text-rose-500 active:scale-90"><Minus size={16}/></button>
                                             <span className="font-mono font-bold text-slate-800 w-6 text-center">{part.qty}</span>
                                             <button onClick={() => updatePartQty(index, 1)} className="p-1 text-slate-400 hover:text-blue-500 active:scale-90"><Plus size={16}/></button>
