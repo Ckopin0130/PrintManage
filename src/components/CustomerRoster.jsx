@@ -3,7 +3,8 @@ import {
   ArrowLeft, Plus, Search, ChevronRight, Edit3, 
   Trash2, Box, Users, MapPin, Phone, MessageCircle,
   GripVertical, Settings, User, FileText, CheckCircle, Navigation,
-  Building2, School, Tent, AlertTriangle, X, ChevronDown
+  Building2, School, Tent, AlertTriangle, X, ChevronDown,
+  Smartphone, Printer, Info
 } from 'lucide-react';
 import {
   DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, TouchSensor
@@ -36,7 +37,8 @@ const migrateCategory = (item) => {
 // --- Edit Modal (修正：自訂下拉選單) ---
 const EditCustomerModal = ({ isOpen, onClose, onSave, onDelete, initialItem, categories, defaultCategoryId, defaultGroup, customers }) => {
   const [formData, setFormData] = useState({ 
-      name: '', L1_group: '', L2_district: '', phone: '', address: '', note: '', categoryId: '', model: ''
+      name: '', L1_group: '', L2_district: '', phone: '', address: '', note: '', 
+      categoryId: '', model: '', contactPerson: '', assets: [{ model: '' }]
   });
   
   // 自訂下拉選單狀態
@@ -59,13 +61,15 @@ const EditCustomerModal = ({ isOpen, onClose, onSave, onDelete, initialItem, cat
     if (isOpen) {
       if (initialItem) {
         const firstPhone = initialItem.phones && initialItem.phones.length > 0 ? initialItem.phones[0].number : '';
-        const firstModel = initialItem.assets && initialItem.assets.length > 0 ? initialItem.assets[0].model : '';
+        const assets = initialItem.assets && initialItem.assets.length > 0 ? initialItem.assets : [{ model: '' }];
         setFormData({ 
             ...initialItem, 
             L2_district: initialItem.L2_district || '', 
             categoryId: initialItem.categoryId || migrateCategory(initialItem),
             phone: firstPhone,
-            model: firstModel,
+            model: assets[0]?.model || '',
+            assets: assets,
+            contactPerson: initialItem.contactPerson || '',
             // 只使用 notes 欄位，忽略舊的 note 欄位
             note: initialItem.notes || '' 
         });
@@ -73,7 +77,7 @@ const EditCustomerModal = ({ isOpen, onClose, onSave, onDelete, initialItem, cat
         const targetCatId = defaultCategoryId || categories[0]?.id || 'cat_other';
         setFormData({ 
             name: '', L2_district: defaultGroup || '', phone: '', address: '', note: '', 
-            categoryId: targetCatId, model: ''
+            categoryId: targetCatId, model: '', contactPerson: '', assets: [{ model: '' }]
         });
       }
       setShowGroupSuggestions(false);
@@ -83,15 +87,19 @@ const EditCustomerModal = ({ isOpen, onClose, onSave, onDelete, initialItem, cat
   const handleSave = () => {
       const selectedCat = categories.find(c => c.id === formData.categoryId);
       const catName = selectedCat ? selectedCat.name : '未分類';
+      // 过滤掉空的机型号
+      const filteredAssets = formData.assets.filter(asset => asset.model && asset.model.trim() !== '');
       const savedData = {
           ...initialItem, ...formData,
           L1_group: catName, 
           phones: formData.phone ? [{ label: '公司', number: formData.phone }] : [],
-          assets: formData.model ? [{ model: formData.model }] : [],
-          notes: formData.note || ''
+          assets: filteredAssets.length > 0 ? filteredAssets : [],
+          notes: formData.note || '',
+          contactPerson: formData.contactPerson || ''
       };
       // 明確刪除舊的 note 欄位，只保留 notes
       delete savedData.note;
+      delete savedData.model; // 删除旧的 model 字段
       onSave(savedData);
   };
 
@@ -109,6 +117,7 @@ const EditCustomerModal = ({ isOpen, onClose, onSave, onDelete, initialItem, cat
         </div>
         
         <div className="p-6 overflow-y-auto space-y-4 flex-1">
+           {/* 客戶分類和鄉鎮/群組（保留原有功能） */}
            <div>
               <label className="text-sm font-bold text-slate-500 block mb-2">客戶分類</label>
               <select className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none font-bold text-base" value={formData.categoryId} onChange={e => setFormData({...formData, categoryId: e.target.value})}>
@@ -116,7 +125,7 @@ const EditCustomerModal = ({ isOpen, onClose, onSave, onDelete, initialItem, cat
               </select>
            </div>
            
-           {/* 自訂下拉選單區域 */}
+           {/* 鄉鎮/群組（保留原有功能） */}
            <div className="relative">
                <label className="text-sm font-bold text-slate-500 block mb-2">鄉鎮 / 群組</label>
                <div className="relative">
@@ -129,7 +138,7 @@ const EditCustomerModal = ({ isOpen, onClose, onSave, onDelete, initialItem, cat
                            setShowGroupSuggestions(true);
                        }}
                        onFocus={() => setShowGroupSuggestions(true)}
-                       onClick={(e) => { e.stopPropagation(); setShowGroupSuggestions(true); }} // 點擊時強制顯示
+                       onClick={(e) => { e.stopPropagation(); setShowGroupSuggestions(true); }}
                    />
                    <div className="absolute right-3 top-3.5 text-slate-400 pointer-events-none"><ChevronDown size={16}/></div>
                </div>
@@ -154,13 +163,124 @@ const EditCustomerModal = ({ isOpen, onClose, onSave, onDelete, initialItem, cat
                )}
            </div>
 
-           <div><label className="text-sm font-bold text-slate-500 block mb-2">客戶名稱</label><input placeholder="輸入名稱" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none font-bold text-base" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} /></div>
-           <div className="grid grid-cols-2 gap-3">
-               <div><label className="text-sm font-bold text-slate-500 block mb-2">電話</label><input placeholder="08-xxxxxxx" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none font-mono font-bold text-base" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} /></div>
-               <div><label className="text-sm font-bold text-slate-500 block mb-2">機型</label><input placeholder="MP 3352" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none font-bold text-base" value={formData.model} onChange={e => setFormData({...formData, model: e.target.value})} /></div>
+           {/* 客戶名稱（單獨一行，在名片卡之前） */}
+           <div className="flex items-center gap-3">
+             <div className="bg-blue-50 p-2 rounded-lg text-blue-600 shrink-0 flex items-center justify-center">
+               <Building2 size={18} strokeWidth={2.5} />
+             </div>
+             <input 
+               placeholder="輸入客戶名稱" 
+               className="flex-1 text-base font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300" 
+               value={formData.name} 
+               onChange={e => setFormData({...formData, name: e.target.value})} 
+             />
            </div>
-           <div><label className="text-sm font-bold text-slate-500 block mb-2">地址</label><input placeholder="輸入地址" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none font-bold text-base" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} /></div>
-           <div><label className="text-sm font-bold text-slate-500 block mb-2">備註</label><textarea placeholder="備註..." rows={2} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none font-bold text-base resize-none" value={formData.note} onChange={e => setFormData({...formData, note: e.target.value})} /></div>
+
+           {/* 名片卡區域 - 與 CustomerDetail 一致的格式 */}
+           <div className="bg-slate-50 rounded-xl p-4 space-y-3 border border-slate-200">
+              {/* 第一行：聯絡人（獨立一行） */}
+              <div className="flex items-center gap-3">
+                <div className="bg-emerald-50 p-2 rounded-lg text-emerald-600 shrink-0 flex items-center justify-center">
+                  <User size={18} strokeWidth={2.5} />
+                </div>
+                <input 
+                  placeholder="聯絡人" 
+                  className="flex-1 text-base font-bold text-slate-800 bg-white border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-100 focus:border-emerald-300" 
+                  value={formData.contactPerson} 
+                  onChange={e => setFormData({...formData, contactPerson: e.target.value})} 
+                />
+              </div>
+
+              {/* 第二行：電話（獨立一行） */}
+              <div className="flex items-center gap-3">
+                <div className="bg-green-50 p-2 rounded-lg text-green-600 shrink-0 flex items-center justify-center">
+                  <Smartphone size={18} strokeWidth={2.5} />
+                </div>
+                <input 
+                  placeholder="電話號碼" 
+                  className="flex-1 text-base font-bold text-slate-800 bg-white border border-slate-200 rounded-lg px-3 py-2 outline-none font-mono focus:ring-2 focus:ring-green-100 focus:border-green-300" 
+                  value={formData.phone} 
+                  onChange={e => setFormData({...formData, phone: e.target.value})} 
+                />
+              </div>
+
+              {/* 第三行：地址 */}
+              <div className="flex items-center gap-3">
+                <div className="bg-blue-50 p-2 rounded-lg text-blue-600 shrink-0 flex items-center justify-center">
+                  <MapPin size={18} strokeWidth={2.5} />
+                </div>
+                <input 
+                  placeholder="輸入完整地址" 
+                  className="flex-1 text-base text-slate-700 bg-white border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300" 
+                  value={formData.address} 
+                  onChange={e => setFormData({...formData, address: e.target.value})} 
+                />
+              </div>
+
+              {/* 第四行：備註 */}
+              <div className="flex items-start gap-3">
+                <div className="bg-violet-50 p-2 rounded-lg text-violet-600 shrink-0 flex items-center justify-center">
+                  <Info size={18} strokeWidth={2.5} />
+                </div>
+                <textarea 
+                  placeholder="其他備註..." 
+                  rows={2} 
+                  className="flex-1 text-base text-slate-700 bg-white border border-slate-200 rounded-lg px-3 py-2 outline-none resize-none focus:ring-2 focus:ring-violet-100 focus:border-violet-300" 
+                  value={formData.note} 
+                  onChange={e => setFormData({...formData, note: e.target.value})} 
+                />
+              </div>
+
+              {/* 第五行：機器型號（支援多台） */}
+              <div className="flex items-start gap-3">
+                <div className="bg-amber-50 p-2 rounded-lg text-amber-600 shrink-0 flex items-center justify-center">
+                  <Printer size={18} strokeWidth={2.5} />
+                </div>
+                <div className="flex-1 space-y-2">
+                  {formData.assets.map((asset, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <input 
+                        placeholder={`機器型號 ${index + 1}（例：MP 3352）`}
+                        className="flex-1 text-base font-bold text-slate-800 bg-white border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-amber-100 focus:border-amber-300" 
+                        value={asset.model || ''} 
+                        onChange={e => {
+                          const newAssets = [...formData.assets];
+                          newAssets[index] = { model: e.target.value };
+                          setFormData({...formData, assets: newAssets});
+                        }} 
+                      />
+                      {formData.assets.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFormData({
+                              ...formData,
+                              assets: formData.assets.filter((_, i) => i !== index)
+                            });
+                          }}
+                          className="p-2 text-red-500 hover:bg-red-50 rounded-lg shrink-0 transition-colors"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFormData({
+                        ...formData,
+                        assets: [...formData.assets, { model: '' }]
+                      });
+                    }}
+                    className="w-full py-2 text-amber-600 text-sm font-bold bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Plus size={16} />
+                    新增機型
+                  </button>
+                </div>
+              </div>
+           </div>
         </div>
 
         <div className="p-5 border-t border-gray-100 flex gap-3 flex-shrink-0 bg-white rounded-b-2xl">
