@@ -126,7 +126,7 @@ const RecordList = ({
          </div>
 
          {/* 2. 搜尋框 */}
-         <div className="px-4 pb-1 relative">
+         <div className="px-4 pb-2 relative">
             <Search size={16} className="absolute left-7 top-2.5 text-slate-400" />
             <input 
                 className="w-full bg-slate-100 border-none rounded-lg py-2 pl-9 pr-8 text-sm outline-none font-medium text-slate-700 placeholder-slate-400 focus:bg-white focus:ring-2 focus:ring-blue-100 transition-all" 
@@ -137,8 +137,8 @@ const RecordList = ({
             {inputValue && <button onClick={() => setInputValue('')} className="absolute right-6 top-2 text-slate-400"><X size={16}/></button>}
          </div>
 
-         {/* 3. 日期快速按鈕 (橫向滑動區) - 修改樣式為藍色系 */}
-         <div className="px-4 py-2 flex gap-2 overflow-x-auto no-scrollbar items-center">
+         {/* 3. 日期快速按鈕 (橫向滑動) */}
+         <div className="px-4 pb-2 flex gap-2 overflow-x-auto no-scrollbar items-center">
             {[
                 { id: 'all', label: '全部' },
                 { id: 'today', label: '今日' },
@@ -149,9 +149,8 @@ const RecordList = ({
                 <button
                     key={btn.id}
                     onClick={() => handleDateTabClick(btn.id)}
-                    className={`whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-bold transition-all border ${
+                    className={`whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
                         activeDateTab === btn.id 
-                            // 這裡改成藍色背景 + 藍色陰影，符合 App 主色調
                             ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-200' 
                             : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
                     }`}
@@ -160,23 +159,22 @@ const RecordList = ({
                 </button>
             ))}
             
-            {/* 自訂日期按鈕 */}
             <button 
                 onClick={() => handleDateTabClick('custom')}
-                className={`whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-bold transition-all border flex items-center gap-1 ${
+                className={`whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-bold transition-all border flex items-center gap-1 ${
                     activeDateTab === 'custom'
                         ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-200'
                         : 'bg-white text-blue-600 border-blue-100 hover:bg-blue-50'
                 }`}
             >
                 <Calendar size={12}/> 
-                {dateRange.start && activeDateTab === 'custom' ? '已選範圍' : '自訂'}
+                {dateRange.start && activeDateTab === 'custom' ? '範圍' : '自訂'}
             </button>
          </div>
 
-         {/* 日期選擇器面板 (僅點自訂時出現) */}
+         {/* 日期選擇面板 */}
          {showDatePicker && activeDateTab === 'custom' && (
-            <div className="px-4 pb-3 animate-in slide-in-from-top-2">
+            <div className="px-4 pb-2 animate-in slide-in-from-top-2">
                 <div className="bg-white border border-blue-200 rounded-xl p-3 shadow-lg bg-blue-50/50">
                     <div className="flex gap-2 items-center">
                         <input type="date" className="flex-1 border border-blue-200 p-2 rounded-lg text-sm font-bold text-slate-700 outline-none focus:border-blue-400" value={dateRange.start} onChange={e => setDateRange({...dateRange, start: e.target.value})} />
@@ -187,12 +185,19 @@ const RecordList = ({
             </div>
          )}
          
-         {/* 4. 狀態篩選 Tabs */}
-         <div className="flex border-t border-slate-100">
+         {/* 4. 狀態篩選 (更新為膠囊風格，與上方對齊統一) */}
+         <div className="px-4 pb-3 flex gap-2">
              {['all', 'pending', 'monitor', 'completed'].map(id => (
-                 <button key={id} onClick={() => setStatusFilter(id)} className={`flex-1 text-xs py-3 font-bold transition-colors relative ${statusFilter === id ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}>
-                    {id === 'all' ? '全部案件' : id === 'pending' ? '待處理' : id === 'monitor' ? '觀察中' : '已完修'}
-                    {statusFilter === id && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 rounded-t-full"></div>}
+                 <button 
+                    key={id} 
+                    onClick={() => setStatusFilter(id)} 
+                    className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all border text-center ${
+                        statusFilter === id 
+                        ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-200' 
+                        : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
+                    }`}
+                 >
+                    {id === 'all' ? '全部' : id === 'pending' ? '待處理' : id === 'monitor' ? '觀察' : '完修'}
                  </button>
              ))}
          </div>
