@@ -503,8 +503,11 @@ export default function App() {
 
     let updatedPhones = formData.phones;
     if (!updatedPhones && (formData.phoneNumber || formData.phone)) { updatedPhones = [{ label: formData.phoneLabel || '公司', number: formData.phoneNumber || formData.phone }]; }
+    // 修復：優先使用 assets 數組，如果沒有則嘗試使用 model（向後兼容）
     let updatedAssets = formData.assets;
-    if (!updatedAssets && formData.model) { updatedAssets = [{ model: formData.model }]; }
+    if (!updatedAssets || (Array.isArray(updatedAssets) && updatedAssets.length === 0)) {
+      if (formData.model) { updatedAssets = [{ model: formData.model }]; }
+    }
 
     const updatedEntry = {
       ...baseCustomer,
@@ -544,8 +547,11 @@ export default function App() {
     const newId = `cust-${Date.now()}`;
     let phones = formData.phones;
     if (!phones && (formData.phoneNumber || formData.phone)) { phones = [{ label: formData.phoneLabel || '公司', number: formData.phoneNumber || formData.phone }]; }
+    // 修復：優先使用 assets 數組，如果沒有則嘗試使用 model（向後兼容）
     let assets = formData.assets;
-    if (!assets && formData.model) { assets = [{ model: formData.model }]; }
+    if (!assets || (Array.isArray(assets) && assets.length === 0)) {
+      if (formData.model) { assets = [{ model: formData.model }]; }
+    }
 
     const newEntry = {
       customerID: newId, name: formData.name, L1_group: formData.L1_group || '未分類', L2_district: formData.L2_district || '未分區',
