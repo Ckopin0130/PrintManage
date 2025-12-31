@@ -158,7 +158,7 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
         }
     }, [initialData]);
 
-    const pageTitle = form.id ? '編輯紀錄' : '新增紀錄';
+    const pageTitle = form.id ? '編輯維修紀錄' : '新增維修紀錄';
 
     // --- 4. 邏輯處理區 ---
 
