@@ -380,7 +380,17 @@ export default function App() {
             await setDoc(doc(db, 'records', recId), newRecord); 
             showToast(formData.id ? '紀錄已更新' : '紀錄已新增');
         }
-        if (activeTab === 'records') setCurrentView('records'); else setCurrentView('detail');
+        // 修復：使用 previousView 來決定跳轉目標，如果沒有 previousView 則根據 activeTab 和 selectedCustomer 判斷
+        if (previousView) {
+            setCurrentView(previousView);
+            setPreviousView(null);
+        } else if (activeTab === 'records') {
+            setCurrentView('records');
+        } else if (selectedCustomer) {
+            setCurrentView('detail');
+        } else {
+            setCurrentView('dashboard');
+        }
     } catch (err) { console.error("儲存詳細錯誤:", err); showToast(`儲存失敗: ${err.message}`, 'error'); } 
     finally { setIsProcessing(false); }
   };
