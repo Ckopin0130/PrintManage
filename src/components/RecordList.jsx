@@ -1,11 +1,12 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { 
-  ArrowLeft, Calendar, Trash2, Search, X, PlusCircle, Filter
-} from 'lucide-react';
+  ArrowLeft, Calendar, Trash2, Search, X, 
+  User, AlertCircle, Wrench, Package, Image as ImageIcon, Briefcase, Phone
+} from 'lucide-react'; // 引入更多圖示
 
 const RecordList = ({ 
   records, customers, setCurrentView, setActiveTab, 
-  startEditRecord, handleDeleteRecord, setViewingImage, startAddRecord 
+  startEditRecord, handleDeleteRecord, setViewingImage 
 }) => {
   
   // --- 1. 狀態管理 ---
@@ -23,13 +24,17 @@ const RecordList = ({
     return () => clearTimeout(timer);
   }, [inputValue]);
 
-  // --- 3. 來源屬性對照表 ---
-  const getSourceLabel = (source) => {
+  // --- 3. 來源屬性 UI 處理 (加回圖示與顏色) ---
+  const getSourceBadge = (source) => {
+    const baseClass = "text-xs px-2 py-0.5 rounded-md flex items-center gap-1 font-medium ml-2";
     switch(source) {
-      case 'customer_call': return '客戶叫修';
-      case 'company_dispatch': return '公司派工';
-      case 'invoice_check': return '例行巡檢';
-      default: return source ? '一般' : '';
+      case 'customer_call': 
+        return <span className={`${baseClass} bg-rose-50 text-rose-600`}><Phone size={12}/> 客戶叫修</span>;
+      case 'company_dispatch': 
+        return <span className={`${baseClass} bg-blue-50 text-blue-600`}><Briefcase size={12}/> 公司派工</span>;
+      case 'invoice_check': 
+        return <span className={`${baseClass} bg-emerald-50 text-emerald-600`}><Calendar size={12}/> 例行巡檢</span>;
+      default: return null;
     }
   };
 
@@ -43,20 +48,17 @@ const RecordList = ({
       const partsText = r.parts ? r.parts.map(p => p.name).join(' ').toLowerCase() : '';
       const searchLower = debouncedSearch.toLowerCase();
 
-      // 關鍵字搜尋
       const matchesSearch = 
         custName.includes(searchLower) || 
         fault.includes(searchLower) || 
         solution.includes(searchLower) ||
         partsText.includes(searchLower);
 
-      // 狀態篩選
       let matchesStatus = true;
       if (statusFilter === 'pending') matchesStatus = (r.status === 'pending' || r.status === 'tracking');
       if (statusFilter === 'completed') matchesStatus = (r.status === 'completed');
       if (statusFilter === 'monitor') matchesStatus = (r.status === 'monitor');
 
-      // 日期篩選
       let matchesDate = true;
       if (dateRange.start || dateRange.end) {
         const recordDate = r.status === 'completed' && r.completedDate ? r.completedDate : r.date;
@@ -88,16 +90,9 @@ const RecordList = ({
     setShowDatePicker(false);
   };
 
-  const clearAllFilters = () => {
-    setInputValue('');
-    setDebouncedSearch('');
-    setStatusFilter('all');
-    setDateRange({ start: '', end: '' });
-  };
-
   return (
     <div className="bg-slate-50 min-h-screen pb-24 font-sans flex flex-col">
-      {/* --- 頂部導覽列 (維持功能但簡化樣式) --- */}
+      {/* 頂部導覽列 */}
       <div className="bg-white px-4 py-3 shadow-sm sticky top-0 z-30 border-b border-slate-200">
          <div className="flex items-center justify-between mb-3">
              <div className="flex items-center">
@@ -154,8 +149,8 @@ const RecordList = ({
          </div>
       </div>
 
-      {/* --- 列表內容 (依照您的要求重新排版) --- */}
-      <div className="flex-1 overflow-y-auto bg-slate-50 p-2 space-y-2">
+      {/* --- 列表內容 --- */}
+      <div className="flex-1 overflow-y-auto bg-slate-50 p-2 space-y-3">
         {records.length === 0 ? (
             <div className="text-center text-slate-400 mt-10">尚無紀錄</div>
         ) : filteredRecords.length === 0 ? (
@@ -163,57 +158,62 @@ const RecordList = ({
         ) : (
             filteredRecords.map(r => {
                 const cust = customers.find(c => c.customerID === r.customerID);
-                const sourceLabel = getSourceLabel(r.serviceSource);
                 
-                // 統一字型樣式設定
-                const baseTextStyle = "text-base text-slate-700 leading-normal"; 
-                
+                // 狀態左邊框顏色
+                let borderClass = 'border-l-4 border-l-slate-300';
+                if(r.status === 'completed') borderClass = 'border-l-4 border-l-emerald-500';
+                if(r.status === 'pending' || r.status === 'tracking') borderClass = 'border-l-4 border-l-amber-500';
+                if(r.status === 'monitor') borderClass = 'border-l-4 border-l-blue-500';
+
                 return (
                     <div 
                       key={r.id} 
-                      className="bg-white p-4 border-b border-slate-200 cursor-pointer" // 移除圓角和陰影，改用分隔線，風格更統一
+                      className={`bg-white p-4 shadow-sm border border-slate-100 rounded-r-xl ${borderClass} cursor-pointer hover:shadow-md transition-shadow`} 
                       onClick={(e) => startEditRecord(e, r)}
                     >
                         {/* 第一行：業者名稱(機器型號) + 來源屬性 */}
-                        <div className="flex justify-between items-start mb-1">
-                            <div className={baseTextStyle}>
-                                <span className="font-medium">{cust?.name || '未知客戶'}</span>
-                                {cust?.assets?.[0]?.model && <span> ({cust.assets[0].model})</span>}
-                                {sourceLabel && <span className="ml-2 text-slate-500">[{sourceLabel}]</span>}
+                        <div className="flex justify-between items-start mb-2">
+                            <div className="text-base text-slate-800 font-bold flex items-center flex-wrap">
+                                <User size={16} className="text-slate-400 mr-2 shrink-0"/>
+                                <span className="mr-1">{cust?.name || '未知客戶'}</span>
+                                {cust?.assets?.[0]?.model && <span className="text-slate-500 font-normal">({cust.assets[0].model})</span>}
+                                {getSourceBadge(r.serviceSource)}
                             </div>
-                            {/* 為了操作方便，這裡還是保留刪除按鈕，但做得比較隱蔽 */}
-                            <button onClick={(e) => { e.stopPropagation(); handleDeleteRecord(e, r.id); }} className="text-slate-300 hover:text-red-500">
+                            <button onClick={(e) => { e.stopPropagation(); handleDeleteRecord(e, r.id); }} className="text-slate-300 hover:text-red-500 p-1">
                                 <Trash2 size={16}/>
                             </button>
                         </div>
 
-                        {/* 第二行：故障描述 (若無則不顯示) */}
+                        {/* 第二行：故障描述 */}
                         {(r.fault || r.symptom) && (
-                            <div className={`${baseTextStyle} mt-1`}>
-                                故障：{r.fault || r.symptom}
+                            <div className="flex items-start mb-2 text-base text-slate-700">
+                                <AlertCircle size={16} className="text-slate-400 mr-2 mt-1 shrink-0"/>
+                                <span>{r.fault || r.symptom}</span>
                             </div>
                         )}
 
-                        {/* 第三行：處理過程 (支援分行) */}
-                        <div className={`${baseTextStyle} mt-1 whitespace-pre-wrap`}>
-                            {r.solution || r.action || '無處理過程'}
+                        {/* 第三行：處理過程 */}
+                        <div className="flex items-start mb-2 text-base text-slate-700 whitespace-pre-wrap">
+                            <Wrench size={16} className="text-slate-400 mr-2 mt-1 shrink-0"/>
+                            <span>{r.solution || r.action || '無處理紀錄'}</span>
                         </div>
 
-                        {/* 第四行：更換了什麼零件 */}
+                        {/* 第四行：更換零件 */}
                         {r.parts && r.parts.length > 0 && (
-                            <div className={`${baseTextStyle} mt-1`}>
-                                更換：{r.parts.map(p => `${p.name} x${p.qty}`).join('、')}
+                            <div className="flex items-start mb-2 text-base text-slate-700">
+                                <Package size={16} className="text-slate-400 mr-2 mt-1 shrink-0"/>
+                                <span>{r.parts.map(p => `${p.name} x${p.qty}`).join('、')}</span>
                             </div>
                         )}
 
                         {/* 第五行：照片 */}
                         {(r.photoBefore || r.photoAfter) && (
-                            <div className="mt-2 flex gap-2">
+                            <div className="flex items-center mt-2 pl-6">
                                 {r.photoBefore && (
                                     <img 
                                         src={r.photoBefore} 
                                         alt="Before" 
-                                        className="w-20 h-20 object-cover border border-slate-200" // 統一照片大小
+                                        className="w-16 h-16 object-cover rounded-md border border-slate-200 mr-2" 
                                         onClick={(e) => { e.stopPropagation(); setViewingImage(r.photoBefore); }}
                                     />
                                 )}
@@ -221,16 +221,16 @@ const RecordList = ({
                                     <img 
                                         src={r.photoAfter} 
                                         alt="After" 
-                                        className="w-20 h-20 object-cover border border-slate-200" 
+                                        className="w-16 h-16 object-cover rounded-md border border-slate-200" 
                                         onClick={(e) => { e.stopPropagation(); setViewingImage(r.photoAfter); }}
                                     />
                                 )}
                             </div>
                         )}
-                        
-                        {/* 補充：顯示日期 (放在最下方或第一行右側都可以，這裡為了不打亂五行結構，放在最底部淡淡顯示) */}
-                        <div className="text-xs text-slate-400 mt-2 text-right">
-                           {r.date} {r.status === 'completed' ? '(完修)' : r.status === 'pending' ? '(待料)' : '(觀察)'}
+
+                        {/* 底部日期與狀態文字 (輔助資訊) */}
+                        <div className="text-xs text-slate-400 mt-2 text-right border-t border-slate-50 pt-2">
+                           {r.date} · {r.status === 'completed' ? '已完修' : r.status === 'pending' ? '待處理' : '觀察中'}
                         </div>
                     </div>
                 )
