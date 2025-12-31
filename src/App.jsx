@@ -730,6 +730,16 @@ export default function App() {
       <ConfirmDialog {...confirmDialog} onCancel={() => setConfirmDialog({...confirmDialog, isOpen: false})} isProcessing={isProcessing} />
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       
+      {/* Fallback: 如果没有匹配的视图，显示 dashboard */}
+      {!isLoading && !currentView && (
+        <Dashboard 
+          today={today} dbStatus={dbStatus} pendingTasks={pendingTasks} 
+          todayCompletedCount={todayCompletedCount} totalCustomers={customers.length} 
+          setCurrentView={setCurrentView} setActiveTab={setActiveTab}
+          onQuickAction={() => setShowQuickAction(true)}
+        />
+      )}
+      
       {currentView === 'dashboard' && (
         <Dashboard 
           today={today} dbStatus={dbStatus} pendingTasks={pendingTasks} 
