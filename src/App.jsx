@@ -152,6 +152,43 @@ export default function App() {
     return () => unsubscribeAuth();
   }, []);
 
+  // --- 3.5. 页面可见性监听（从外部应用返回时恢复视图）---
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        // 当页面重新可见时，确保视图状态正确
+        // 如果 currentView 是 detail 但没有 selectedCustomer，返回 dashboard
+        if (currentView === 'detail' && !selectedCustomer && !isLoading) {
+          setCurrentView('dashboard');
+          setActiveTab('dashboard');
+        }
+        // 如果 currentView 不在有效范围内，重置为 dashboard
+        const validViews = ['dashboard', 'roster', 'inventory', 'records', 'settings', 'detail', 'search', 'add', 'edit', 'add_record', 'edit_record', 'tracking', 'worklog'];
+        if (!validViews.includes(currentView) && !isLoading) {
+          setCurrentView('dashboard');
+          setActiveTab('dashboard');
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleVisibilityChange);
+    };
+  }, [currentView, selectedCustomer, isLoading]);
+
+  // --- 3.6. 确保视图状态一致性 ---
+  useEffect(() => {
+    // 如果 currentView 是 detail 但没有 selectedCustomer，且不是正在加载，则返回 dashboard
+    if (currentView === 'detail' && !selectedCustomer && !isLoading) {
+      setCurrentView('dashboard');
+      setActiveTab('dashboard');
+    }
+  }, [currentView, selectedCustomer, isLoading]);
+
   // --- 4. 導覽切換 ---
   const handleTabChange = (tab) => {
     // 清除可能影响视图的状态
@@ -183,9 +220,18 @@ export default function App() {
       setTargetCustomer(customer); 
       setShowAddressAlert(true);
     } else {
+      // 记录当前视图状态到 sessionStorage，以便返回时恢复
+      sessionStorage.setItem('beforeMapsView', currentView);
+      sessionStorage.setItem('beforeMapsTab', activeTab);
+      if (selectedCustomer) {
+        sessionStorage.setItem('beforeMapsCustomer', JSON.stringify(selectedCustomer));
+      }
+      
       const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(customer.address)}`;
       const newWindow = window.open(url, '_blank');
-      if (!newWindow || newWindow.closed || typeof newWindow.closed == 'undefined') window.location.href = url;
+      if (!newWindow || newWindow.closed || typeof newWindow.closed == 'undefined') {
+        window.location.href = url;
+      }
     }
   };
 
