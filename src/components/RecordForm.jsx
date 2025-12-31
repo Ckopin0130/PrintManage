@@ -1211,9 +1211,9 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
                                                 <div className="flex items-center gap-2 shrink-0">
                                                     <button
                                                         onClick={() => handleAdjustQtyInModal(item, -1)}
-                                                        disabled={outOfStock || currentQtyInForm === 0}
+                                                        disabled={currentQtyInForm === 0}
                                                         className={`p-2 rounded-lg transition-colors ${
-                                                            outOfStock || currentQtyInForm === 0
+                                                            currentQtyInForm === 0
                                                                 ? 'text-gray-300 cursor-not-allowed'
                                                                 : 'text-slate-400 hover:text-rose-500 hover:bg-rose-50 active:scale-90'
                                                         }`}
