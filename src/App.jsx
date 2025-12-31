@@ -154,14 +154,26 @@ export default function App() {
 
   // --- 4. 導覽切換 ---
   const handleTabChange = (tab) => {
+    // 清除可能影响视图的状态
+    setSelectedCustomer(null);
+    setPreviousView(null);
+    
     setActiveTab(tab);
-    if (tab === 'dashboard') setCurrentView('dashboard');
-    if (tab === 'roster') setCurrentView('roster');
-    if (tab === 'inventory') setCurrentView('inventory');
-    if (tab === 'records') setCurrentView('records');
-    if (tab === 'settings') { 
-        setCurrentView('settings');
-        fetchCloudBackups(); 
+    
+    // 根据 tab 设置对应的视图
+    const viewMap = {
+      'dashboard': 'dashboard',
+      'roster': 'roster',
+      'inventory': 'inventory',
+      'records': 'records',
+      'settings': 'settings'
+    };
+    
+    if (viewMap[tab]) {
+      setCurrentView(viewMap[tab]);
+      if (tab === 'settings') {
+        fetchCloudBackups();
+      }
     }
   };
 
