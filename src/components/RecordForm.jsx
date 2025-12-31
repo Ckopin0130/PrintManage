@@ -78,12 +78,19 @@ const uploadImageToStorage = async (base64String, path) => {
 const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
     // --- State 定義 ---
     const [form, setForm] = useState(initialData);
-    const [previews, setPreviews] = useState({ before: initialData.photoBefore || null, after: initialData.photoAfter || null });
+    // 修改：將 previews 改為陣列結構，支援多張照片
+    const [previews, setPreviews] = useState({ 
+        before: initialData.photosBefore || (initialData.photoBefore ? [initialData.photoBefore] : []), 
+        after: initialData.photosAfter || (initialData.photoAfter ? [initialData.photoAfter] : [])
+    });
     const [additionalPhotos, setAdditionalPhotos] = useState([]);
     const [additionalPhotoPreviews, setAdditionalPhotoPreviews] = useState([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
     
     const additionalFileInputRef = useRef(null);
+    // 新增：維修前/後照片的 input ref
+    const beforeFileInputRef = useRef(null);
+    const afterFileInputRef = useRef(null);
     
     // UI 控制 State
     const [isSourceSelected, setIsSourceSelected] = useState(!!initialData.id); 
@@ -148,6 +155,11 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
             } else {
                 setNextVisitDate('');
             }
+            // 修改：初始化維修前/後照片（支援多張）
+            const beforePhotos = initialData.photosBefore || (initialData.photoBefore ? [initialData.photoBefore] : []);
+            const afterPhotos = initialData.photosAfter || (initialData.photoAfter ? [initialData.photoAfter] : []);
+            setPreviews({ before: beforePhotos, after: afterPhotos });
+            
             // 初始化額外照片（排除 before/after，這些已經在 previews 中）
             if (initialData.photos && Array.isArray(initialData.photos)) {
                 const additional = initialData.photos.filter(p => 
@@ -350,22 +362,69 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
                 e.target.value = '';
             }
         } else {
-            // 處理 before/after 單張照片
-            const file = e.target.files[0];
-            if (file) {
+            // 修改：處理 before/after 多張照片
+            const files = Array.from(e.target.files || []);
+            if (files.length === 0) return;
+
+            const newPhotos = [];
+            const newPreviews = [];
+
+            for (const file of files) {
+                if (file.size > 5 * 1024 * 1024) {
+                    alert(`${file.name} 圖片過大，請選擇小於 5MB 的圖片`);
+                    continue;
+                }
+
                 try {
                     const compressedBase64 = await compressImage(file);
-                    setPreviews(prev => ({ ...prev, [type]: compressedBase64 }));
-                    setForm(prev => ({ ...prev, [`photo${type === 'before' ? 'Before' : 'After'}`]: compressedBase64 }));
-                } catch (err) { console.error("圖片壓縮失敗", err); alert("圖片處理失敗"); }
+                    newPhotos.push(compressedBase64);
+                    newPreviews.push(compressedBase64);
+                } catch (err) {
+                    console.error("圖片壓縮失敗", err);
+                    alert(`圖片處理失敗: ${file.name}`);
+                }
+            }
+
+            if (newPhotos.length > 0) {
+                setPreviews(prev => ({
+                    ...prev,
+                    [type]: [...prev[type], ...newPreviews]
+                }));
+                // 更新 form 中的照片陣列
+                const fieldName = type === 'before' ? 'photosBefore' : 'photosAfter';
+                setForm(prev => ({
+                    ...prev,
+                    [fieldName]: [...(prev[fieldName] || []), ...newPhotos],
+                    // 保留舊的單張照片欄位以向後兼容
+                    [`photo${type === 'before' ? 'Before' : 'After'}`]: newPhotos[0]
+                }));
+            }
+
+            // 重置 input
+            if (e.target) {
+                e.target.value = '';
             }
         }
     };
     
-    const handleRemovePhoto = (e, type) => {
-        e.preventDefault(); e.stopPropagation();
-        setPreviews(prev => ({ ...prev, [type]: null }));
-        setForm(prev => ({ ...prev, [`photo${type === 'before' ? 'Before' : 'After'}`]: null }));
+    // 修改：移除單張照片改為移除陣列中的照片
+    const handleRemovePhoto = (e, type, index) => {
+        e.preventDefault(); 
+        e.stopPropagation();
+        setPreviews(prev => {
+            const newPhotos = prev[type].filter((_, i) => i !== index);
+            return { ...prev, [type]: newPhotos };
+        });
+        const fieldName = type === 'before' ? 'photosBefore' : 'photosAfter';
+        setForm(prev => {
+            const newPhotos = (prev[fieldName] || []).filter((_, i) => i !== index);
+            return {
+                ...prev,
+                [fieldName]: newPhotos,
+                // 如果陣列為空，清除單張照片欄位
+                [`photo${type === 'before' ? 'Before' : 'After'}`]: newPhotos.length > 0 ? newPhotos[0] : null
+            };
+        });
     };
 
     const handleRemoveAdditionalPhoto = (index) => {
@@ -387,12 +446,47 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
             const uploadTasks = [];
             let dataToSubmit = { ...finalData };
 
-            if (dataToSubmit.photoBefore && dataToSubmit.photoBefore.startsWith('data:image')) {
+            // 修改：處理多張維修前照片
+            if (dataToSubmit.photosBefore && Array.isArray(dataToSubmit.photosBefore) && dataToSubmit.photosBefore.length > 0) {
+                for (let i = 0; i < dataToSubmit.photosBefore.length; i++) {
+                    const photo = dataToSubmit.photosBefore[i];
+                    if (photo && photo.startsWith('data:image')) {
+                        const task = uploadImageToStorage(photo, `repairs/${Date.now()}_before_${i}.jpg`)
+                            .then(url => {
+                                dataToSubmit.photosBefore[i] = url;
+                            });
+                        uploadTasks.push(task);
+                    }
+                }
+                // 保留第一張作為 photoBefore 以向後兼容
+                if (dataToSubmit.photosBefore[0]) {
+                    dataToSubmit.photoBefore = dataToSubmit.photosBefore[0];
+                }
+            } else if (dataToSubmit.photoBefore && dataToSubmit.photoBefore.startsWith('data:image')) {
+                // 處理舊的單張照片格式
                 const task = uploadImageToStorage(dataToSubmit.photoBefore, `repairs/${Date.now()}_before.jpg`)
                     .then(url => { dataToSubmit.photoBefore = url; });
                 uploadTasks.push(task);
             }
-            if (dataToSubmit.photoAfter && dataToSubmit.photoAfter.startsWith('data:image')) {
+
+            // 修改：處理多張維修後照片
+            if (dataToSubmit.photosAfter && Array.isArray(dataToSubmit.photosAfter) && dataToSubmit.photosAfter.length > 0) {
+                for (let i = 0; i < dataToSubmit.photosAfter.length; i++) {
+                    const photo = dataToSubmit.photosAfter[i];
+                    if (photo && photo.startsWith('data:image')) {
+                        const task = uploadImageToStorage(photo, `repairs/${Date.now()}_after_${i}.jpg`)
+                            .then(url => {
+                                dataToSubmit.photosAfter[i] = url;
+                            });
+                        uploadTasks.push(task);
+                    }
+                }
+                // 保留第一張作為 photoAfter 以向後兼容
+                if (dataToSubmit.photosAfter[0]) {
+                    dataToSubmit.photoAfter = dataToSubmit.photosAfter[0];
+                }
+            } else if (dataToSubmit.photoAfter && dataToSubmit.photoAfter.startsWith('data:image')) {
+                // 處理舊的單張照片格式
                 const task = uploadImageToStorage(dataToSubmit.photoAfter, `repairs/${Date.now()}_after.jpg`)
                     .then(url => { dataToSubmit.photoAfter = url; });
                 uploadTasks.push(task);
@@ -656,22 +750,51 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
             <section className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
                 <div className="flex items-center mb-3 text-sm font-bold text-slate-700"><ImageIcon size={16} className="mr-1.5 text-purple-500"/> 現場照片</div>
                 
-                {/* 維修前/完修後照片 */}
-                <div className="grid grid-cols-2 gap-3 mb-4">
+                {/* 修改：維修前/完修後照片 - 支援多張 */}
+                <div className="space-y-4 mb-4">
                     {['before', 'after'].map(type => (
-                        <div key={type} className="relative group aspect-[4/3]">
-                            <label className={`flex flex-col items-center justify-center w-full h-full border-2 border-dashed border-gray-300 rounded-xl bg-gray-50 hover:bg-white hover:border-blue-400 transition cursor-pointer overflow-hidden`}>
-                                <input type="file" accept="image/*" className="hidden" onChange={(e) => handleFileChange(e, type)} />
-                                {previews[type] ? (
-                                    <img src={previews[type]} alt={type} className="w-full h-full object-cover" />
-                                ) : (
-                                    <>
-                                        <Camera className="w-8 h-8 mb-2 text-gray-300" />
-                                        <span className="text-xs font-bold text-gray-400">{type === 'before' ? '維修前' : '完修後'}</span>
-                                    </>
-                                )}
-                            </label>
-                            {previews[type] && <button onClick={(e) => handleRemovePhoto(e, type)} className="absolute top-1 right-1 bg-black/50 text-white p-1 rounded-full"><X size={12} /></button>}
+                        <div key={type} className="space-y-2">
+                            <div className="text-xs font-bold text-slate-500 flex items-center">
+                                {type === 'before' ? '維修前照片' : '完修後照片'}
+                                <span className="ml-2 text-gray-400 font-normal">({previews[type].length} 張)</span>
+                            </div>
+                            {previews[type].length === 0 ? (
+                                <button 
+                                    onClick={() => type === 'before' ? beforeFileInputRef.current?.click() : afterFileInputRef.current?.click()}
+                                    className="w-full py-4 border-2 border-dashed border-slate-200 rounded-xl text-slate-400 font-bold flex flex-col items-center justify-center hover:bg-slate-50 transition-colors"
+                                >
+                                    <Camera size={24} className="mb-2 opacity-50"/>
+                                    <span className="text-xs">點擊上傳多張{type === 'before' ? '維修前' : '完修後'}照片</span>
+                                </button>
+                            ) : (
+                                <div className="grid grid-cols-3 gap-2">
+                                    {previews[type].map((preview, index) => (
+                                        <div key={index} className="relative aspect-square rounded-lg overflow-hidden border border-slate-200 bg-slate-100">
+                                            <img src={preview} alt={`${type} ${index + 1}`} className="w-full h-full object-cover" />
+                                            <button 
+                                                onClick={(e) => handleRemovePhoto(e, type, index)}
+                                                className="absolute top-1 right-1 p-1 bg-black/50 text-white rounded-full backdrop-blur-sm"
+                                            >
+                                                <X size={12}/>
+                                            </button>
+                                        </div>
+                                    ))}
+                                    <button 
+                                        onClick={() => type === 'before' ? beforeFileInputRef.current?.click() : afterFileInputRef.current?.click()}
+                                        className="aspect-square border-2 border-dashed border-slate-200 rounded-lg text-slate-400 flex flex-col items-center justify-center hover:bg-slate-50 transition-colors"
+                                    >
+                                        <Camera size={20} className="opacity-50"/>
+                                    </button>
+                                </div>
+                            )}
+                            <input 
+                                type="file" 
+                                accept="image/*"
+                                multiple
+                                className="hidden" 
+                                ref={type === 'before' ? beforeFileInputRef : afterFileInputRef}
+                                onChange={(e) => handleFileChange(e, type)}
+                            />
                         </div>
                     ))}
                 </div>
