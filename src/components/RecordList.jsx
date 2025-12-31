@@ -13,10 +13,8 @@ const RecordList = ({
   const [inputValue, setInputValue] = useState(''); 
   const [debouncedSearch, setDebouncedSearch] = useState(''); 
   const [statusFilter, setStatusFilter] = useState('all'); 
-  const [showDatePicker, setShowDatePicker] = useState(false); // 控制自訂日期彈窗
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
-  
-  // 新增：用來記錄目前選中的日期按鈕是哪一個，用來變色
   const [activeDateTab, setActiveDateTab] = useState('all'); 
 
   // --- 2. 搜尋防抖動 ---
@@ -79,7 +77,7 @@ const RecordList = ({
 
   // --- 5. 日期快速設定邏輯 ---
   const handleDateTabClick = (type) => {
-    setActiveDateTab(type); // 設定按鈕變色
+    setActiveDateTab(type);
     const today = new Date();
     const formatDate = (date) => date.toLocaleDateString('en-CA');
 
@@ -110,7 +108,6 @@ const RecordList = ({
         setDateRange({ start: formatDate(first), end: formatDate(last) });
         setShowDatePicker(false);
     } else if (type === 'custom') {
-        // 如果選自訂，打開日期選擇器，但不清空目前的範圍
         setShowDatePicker(!showDatePicker);
     }
   };
@@ -140,9 +137,8 @@ const RecordList = ({
             {inputValue && <button onClick={() => setInputValue('')} className="absolute right-6 top-2 text-slate-400"><X size={16}/></button>}
          </div>
 
-         {/* 3. 日期快速按鈕 (橫向滑動區) - 這就是您要的新功能 */}
+         {/* 3. 日期快速按鈕 (橫向滑動區) - 修改樣式為藍色系 */}
          <div className="px-4 py-2 flex gap-2 overflow-x-auto no-scrollbar items-center">
-            {/* 定義按鈕列表 */}
             {[
                 { id: 'all', label: '全部' },
                 { id: 'today', label: '今日' },
@@ -155,7 +151,8 @@ const RecordList = ({
                     onClick={() => handleDateTabClick(btn.id)}
                     className={`whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-bold transition-all border ${
                         activeDateTab === btn.id 
-                            ? 'bg-slate-800 text-white border-slate-800 shadow-sm' 
+                            // 這裡改成藍色背景 + 藍色陰影，符合 App 主色調
+                            ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-200' 
                             : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
                     }`}
                 >
@@ -163,12 +160,12 @@ const RecordList = ({
                 </button>
             ))}
             
-            {/* 自訂日期按鈕 (日曆圖示) */}
+            {/* 自訂日期按鈕 */}
             <button 
                 onClick={() => handleDateTabClick('custom')}
                 className={`whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-bold transition-all border flex items-center gap-1 ${
                     activeDateTab === 'custom'
-                        ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                        ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-200'
                         : 'bg-white text-blue-600 border-blue-100 hover:bg-blue-50'
                 }`}
             >
@@ -177,7 +174,7 @@ const RecordList = ({
             </button>
          </div>
 
-         {/* 隱藏的日期選擇器面板 (只有點選「自訂」時才會出現) */}
+         {/* 日期選擇器面板 (僅點自訂時出現) */}
          {showDatePicker && activeDateTab === 'custom' && (
             <div className="px-4 pb-3 animate-in slide-in-from-top-2">
                 <div className="bg-white border border-blue-200 rounded-xl p-3 shadow-lg bg-blue-50/50">
@@ -190,12 +187,11 @@ const RecordList = ({
             </div>
          )}
          
-         {/* 4. 狀態篩選 Tabs (保持原樣) */}
+         {/* 4. 狀態篩選 Tabs */}
          <div className="flex border-t border-slate-100">
              {['all', 'pending', 'monitor', 'completed'].map(id => (
                  <button key={id} onClick={() => setStatusFilter(id)} className={`flex-1 text-xs py-3 font-bold transition-colors relative ${statusFilter === id ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}>
                     {id === 'all' ? '全部案件' : id === 'pending' ? '待處理' : id === 'monitor' ? '觀察中' : '已完修'}
-                    {/* 底部選取條 */}
                     {statusFilter === id && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 rounded-t-full"></div>}
                  </button>
              ))}
