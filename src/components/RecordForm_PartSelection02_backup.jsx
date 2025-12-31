@@ -579,48 +579,11 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
         return ['ALL', ...Array.from(models).sort()];
     }, [inventory]);
 
-    // 判斷型號是否匹配（包括系列匹配）
-    const isModelMatch = (itemModel, targetModel) => {
-        if (!itemModel || !targetModel || targetModel === 'ALL') return false;
-        
-        // 完全匹配
-        if (itemModel === targetModel) return true;
-        
-        // 提取基礎型號（例如 "MP 3352" 從 "MP 3352/270" 中提取）
-        const normalizeModel = (model) => {
-            // 移除空格並轉大寫
-            const cleaned = model.trim().toUpperCase();
-            // 提取基礎型號（例如 "MP 3352" 或 "MPC 3003"）
-            // 匹配模式：字母+數字，可能包含空格
-            const match = cleaned.match(/^([A-Z]+\s*\d+)/);
-            return match ? match[1].replace(/\s+/g, ' ') : cleaned;
-        };
-        
-        const baseTarget = normalizeModel(targetModel);
-        const baseItem = normalizeModel(itemModel);
-        
-        // 檢查是否屬於同一系列
-        // 情況1：itemModel 以 targetModel 的基礎型號開頭（例如：targetModel = "MP 3352"，itemModel = "MP 3352/270"）
-        // 情況2：targetModel 以 itemModel 的基礎型號開頭（例如：targetModel = "MP 3352/270"，itemModel = "MP 3352"）
-        // 情況3：基礎型號相同（例如：兩者都是 "MP 3352"）
-        if (baseItem === baseTarget) {
-            return true;
-        }
-        if (baseItem.startsWith(baseTarget + ' ') || baseItem.startsWith(baseTarget + '/')) {
-            return true;
-        }
-        if (baseTarget.startsWith(baseItem + ' ') || baseTarget.startsWith(baseItem + '/')) {
-            return true;
-        }
-        
-        return false;
-    };
-
     // 修復：根據客戶機器型號過濾零件，並按分類分組
     const filteredInventory = useMemo(() => {
         let items = inventory.filter(item => {
             // 輔助變數定義
-            const isCurrentModel = selectedModel !== 'ALL' && isModelMatch(item.model, selectedModel);
+            const isCurrentModel = selectedModel !== 'ALL' && item.model === selectedModel;
             const isUniversal = !item.model || item.model === '通用' || item.model === '未分類';
             const itemCategoryId = item.categoryId || migrateCategory(item.model, item);
             const isToner = itemCategoryId === 'cat_toner' || 
@@ -638,16 +601,16 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
             // Tab 過濾邏輯
             let matchTab = false;
             if (activeTab === 'main') {
-                // 主件：isCurrentModel AND !isToner（當前型號系列的非碳粉零件）
+                // 主件：isCurrentModel AND !isToner
                 matchTab = isCurrentModel && !isToner;
             } else if (activeTab === 'toner') {
-                // 碳粉：isCurrentModel AND isToner（當前型號系列的碳粉零件）
+                // 碳粉：isCurrentModel AND isToner
                 matchTab = isCurrentModel && isToner;
             } else if (activeTab === 'backup') {
-                // 備用：isUniversal（通用零件）
+                // 備用：isUniversal
                 matchTab = isUniversal;
             } else if (activeTab === 'all') {
-                // 全部：isCurrentModel OR isUniversal（當前型號系列所有零件 + 通用零件）
+                // 全部：isCurrentModel OR isUniversal
                 matchTab = isCurrentModel || isUniversal;
             }
             
@@ -662,14 +625,9 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
         // 如果客戶有機器型號，優先顯示匹配的零件
         if (customerMachineModel && selectedModel !== 'ALL') {
             items = items.sort((a, b) => {
-                const aMatch = isModelMatch(a.model, customerMachineModel);
-                const bMatch = isModelMatch(b.model, customerMachineModel);
-                
-                // 完全匹配客戶型號的優先，然後是系列匹配，最後是通用零件
+                // 完全匹配的優先，然後是通用零件
                 if (a.model === customerMachineModel && b.model !== customerMachineModel) return -1;
                 if (a.model !== customerMachineModel && b.model === customerMachineModel) return 1;
-                if (aMatch && !bMatch) return -1;
-                if (!aMatch && bMatch) return 1;
                 if ((!a.model || a.model === '通用' || a.model === '未分類') && b.model && b.model !== '通用' && b.model !== '未分類') return -1;
                 if (a.model && a.model !== '通用' && a.model !== '未分類' && (!b.model || b.model === '通用' || b.model === '未分類')) return 1;
                 return 0;
@@ -684,7 +642,7 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
         return form.parts?.reduce((sum, part) => sum + part.qty, 0) || 0;
     }, [form.parts]);
 
-    // 按分類分組（確保按照 PART_CATEGORIES 順序，符合車載庫存的排放順序）
+    // 按分類分組
     const inventoryByCategory = useMemo(() => {
         const grouped = {};
         filteredInventory.forEach(item => {
@@ -694,7 +652,6 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
             }
             grouped[categoryId].push(item);
         });
-        // 渲染時會按照 PART_CATEGORIES.map 的順序顯示
         return grouped;
     }, [filteredInventory]);
 
