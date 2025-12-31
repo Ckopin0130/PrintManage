@@ -76,7 +76,11 @@ export default function App() {
   const today = new Date().toLocaleDateString('zh-TW', { month: 'long', day: 'numeric', weekday: 'long' });
   const pendingTasks = records.filter(r => r.status === 'tracking' || r.status === 'monitor' || r.status === 'pending').length;
   const currentLocalTime = new Date().toLocaleDateString('en-CA'); 
-  const todayCompletedCount = records.filter(r => r.date === currentLocalTime).length;
+  // 修復：今日完成統計應檢查完成日期，而非創建日期
+  const todayCompletedCount = records.filter(r => 
+    r.status === 'completed' && 
+    (r.completedDate === currentLocalTime || (!r.completedDate && r.date === currentLocalTime))
+  ).length;
   
   // --- 3. Firebase 連線邏輯 ---
   useEffect(() => {
@@ -201,7 +205,9 @@ export default function App() {
       photoBefore: record.photoBefore || null,
       photoAfter: record.photoAfter || null,
       // 保留 nextVisitDate 和 return_date（RecordForm 會處理）
-      nextVisitDate: record.nextVisitDate || record.return_date || ''
+      nextVisitDate: record.nextVisitDate || record.return_date || '',
+      // 保留完成日期
+      completedDate: record.completedDate || null
     };
     setEditingRecordData(formData);
     // 記錄當前視圖作為前一個視圖，以便取消時能正確返回
@@ -252,7 +258,9 @@ export default function App() {
       photoBefore: record.photoBefore || null,
       photoAfter: record.photoAfter || null,
       // 保留 nextVisitDate 和 return_date（RecordForm 會處理）
-      nextVisitDate: record.nextVisitDate || record.return_date || ''
+      nextVisitDate: record.nextVisitDate || record.return_date || '',
+      // 保留完成日期
+      completedDate: record.completedDate || null
     };
     setEditingRecordData(formData);
     
@@ -395,7 +403,11 @@ export default function App() {
         isTracking: formData.status === 'tracking' || formData.status === 'monitor',
         // 確保 tracking 和 monitor 狀態正確處理
         status: formData.status || 'completed',
-        nextVisitDate: formData.nextVisitDate || formData.return_date || ''
+        nextVisitDate: formData.nextVisitDate || formData.return_date || '',
+        // 修復：如果狀態是 completed，記錄完成日期
+        completedDate: formData.status === 'completed' 
+            ? new Date().toLocaleDateString('en-CA') 
+            : (formData.completedDate || null)
     };
     Object.keys(newRecord).forEach(key => newRecord[key] === undefined && delete newRecord[key]);
     

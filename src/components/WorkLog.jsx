@@ -15,8 +15,14 @@ const WorkLog = ({ records, customers, setCurrentView, showToast }) => {
   };
 
   // 優化 1: 使用 useMemo 篩選當日紀錄，避免無謂的重複運算
+  // 修復：對於已完成的記錄，使用完成日期；對於未完成的記錄，使用創建日期
   const targetRecords = useMemo(() => {
-    return records.filter(r => r.date === selectedDate);
+    return records.filter(r => {
+      const recordDate = r.status === 'completed' && r.completedDate 
+        ? r.completedDate 
+        : r.date;
+      return recordDate === selectedDate;
+    });
   }, [records, selectedDate]);
 
   // 優化 2: 使用 useMemo 生成日誌文字，只有當紀錄改變時才重新組字串

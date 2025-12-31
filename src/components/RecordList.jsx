@@ -38,12 +38,23 @@ const RecordList = ({
       if (statusFilter === 'completed') matchesStatus = (r.status === 'completed');
 
       // C. 日期篩選 (如果有設定的話)
+      // 修復：對於已完成的記錄，使用完成日期；對於未完成的記錄，使用創建日期
       let matchesDate = true;
-      if (dateRange.start) matchesDate = matchesDate && (r.date >= dateRange.start);
-      if (dateRange.end) matchesDate = matchesDate && (r.date <= dateRange.end);
+      if (dateRange.start || dateRange.end) {
+        const recordDate = r.status === 'completed' && r.completedDate 
+          ? r.completedDate 
+          : r.date;
+        if (dateRange.start) matchesDate = matchesDate && (recordDate >= dateRange.start);
+        if (dateRange.end) matchesDate = matchesDate && (recordDate <= dateRange.end);
+      }
 
       return matchesSearch && matchesStatus && matchesDate;
-    }).sort((a, b) => new Date(b.date) - new Date(a.date)); // 依照日期新到舊排序
+    }).sort((a, b) => {
+      // 修復：排序時使用完成日期（如果已完成）或創建日期
+      const dateA = a.status === 'completed' && a.completedDate ? a.completedDate : a.date;
+      const dateB = b.status === 'completed' && b.completedDate ? b.completedDate : b.date;
+      return new Date(dateB) - new Date(dateA); // 依照日期新到舊排序
+    });
   }, [records, customers, searchTerm, statusFilter, dateRange]);
 
   // --- 3. 快速日期設定 ---
