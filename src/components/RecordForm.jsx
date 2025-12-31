@@ -3,7 +3,8 @@ import {
   ArrowLeft, FileText, Trash2, Camera, Loader2, Save,
   CheckCircle, Clock, Eye, ClipboardList, PhoneIncoming, Briefcase, 
   Package, Search, Wrench, AlertTriangle, Image as ImageIcon, X, Plus, 
-  Minus, Settings, Edit3, ChevronRight, ChevronDown, RefreshCw, Pencil, Calendar
+  Minus, Settings, Edit3, ChevronRight, ChevronDown, RefreshCw, Pencil, Calendar,
+  Droplet, Archive, Layers, Zap // 新增圖示
 } from 'lucide-react';
 import { ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { storage } from '../firebaseConfig'; 
@@ -84,11 +85,11 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
     
-    // 新增：維修前/後照片的 input ref
+    // 維修前/後照片的 input ref
     const beforeFileInputRef = useRef(null);
     const afterFileInputRef = useRef(null);
     
-    // 🌟 新增：日期輸入框的 ref (為了解決手機版點擊問題)
+    // 日期輸入框的 ref
     const dateInputRef = useRef(null);
     
     // UI 控制 State
@@ -96,7 +97,7 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
     const [hasFaultFound, setHasFaultFound] = useState(initialData.serviceSource !== 'invoice_check');
     const [activeFaultTab, setActiveFaultTab] = useState(initialData.errorCode ? 'sc' : 'jam');
     
-    // --- 標籤系統 State (載入 LocalStorage 或 預設值) ---
+    // --- 標籤系統 State ---
     const [allTags, setAllTags] = useState(() => {
         try {
             const saved = localStorage.getItem('app_tags_v2');
@@ -136,21 +137,28 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
         return date.toISOString().split('T')[0];
     };
     
-    // 🌟 處理「自訂」日期按鈕點擊
-    const handleCustomDateClick = () => {
+    // 🌟 強化：處理「自訂」日期按鈕點擊
+    const handleCustomDateClick = (e) => {
+        if (e) e.preventDefault(); // 防止按鈕預設行為
         setNextVisitDate(''); // 先清空
-        // 延遲一點點時間觸發，確保 UI 更新
-        setTimeout(() => {
-            if (dateInputRef.current) {
-                try {
-                    // 嘗試呼叫原生日期選擇器 (現代瀏覽器/手機支援)
+        
+        // 嘗試多種方式開啟日期選擇器
+        if (dateInputRef.current) {
+            // 1. 聚焦
+            dateInputRef.current.focus();
+            
+            // 2. 模擬點擊 (部分手機瀏覽器需要這個)
+            try {
+                dateInputRef.current.click();
+            } catch (err) {}
+
+            // 3. 呼叫原生 showPicker (現代瀏覽器)
+            try {
+                if (typeof dateInputRef.current.showPicker === 'function') {
                     dateInputRef.current.showPicker();
-                } catch (e) {
-                    // 如果不支援 showPicker，則退回到 focus
-                    dateInputRef.current.focus();
                 }
-            }
-        }, 50);
+            } catch (err) {}
+        }
     };
 
     // 初始化資料
@@ -679,6 +687,7 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
                                     type="button" 
                                     onClick={() => handleSourceChange(option.id)} 
                                     className={`flex flex-col items-center justify-center py-3 rounded-xl border-2 transition-all active:scale-95 outline-none focus:outline-none focus:ring-2 focus:ring-blue-100 ${form.serviceSource === option.id ? `${option.bg} ${option.border} ${option.color}` : 'bg-white border-transparent text-slate-400 hover:bg-slate-50 shadow-sm'}`}
+                                    style={{ WebkitTapHighlightColor: 'transparent' }}
                                 >
                                     <Icon className="w-6 h-6 mb-1" strokeWidth={2.5} />
                                     <span className="text-xs font-bold">{option.label}</span>
@@ -723,7 +732,7 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
                             const Icon = tab.icon;
                             const isActive = activeFaultTab === tab.id;
                             return (
-                                <button key={tab.id} onClick={() => setActiveFaultTab(tab.id)} className={`flex-1 py-3 flex items-center justify-center gap-2 text-sm font-bold transition-colors outline-none focus:outline-none ${isActive ? 'text-blue-600 bg-blue-50/50 border-b-2 border-blue-600' : 'text-slate-400 hover:bg-slate-50'}`}>
+                                <button key={tab.id} onClick={() => setActiveFaultTab(tab.id)} className={`flex-1 py-3 flex items-center justify-center gap-2 text-sm font-bold transition-colors outline-none focus:outline-none ${isActive ? 'text-blue-600 bg-blue-50/50 border-b-2 border-blue-600' : 'text-slate-400 hover:bg-slate-50'}`} style={{ WebkitTapHighlightColor: 'transparent' }}>
                                     <Icon size={18} strokeWidth={isActive ? 2.5 : 2}/> {tab.label}
                                 </button>
                             )
@@ -755,11 +764,11 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
                                 />
                                 <div className="flex flex-wrap gap-2">
                                     {getCurrentTabTags().map(item => (
-                                        <button key={item} onClick={() => appendText('symptom', item)} className="px-3 py-1.5 bg-white text-slate-600 rounded-full text-xs font-bold border border-slate-200 shadow-sm active:scale-95 active:bg-blue-50 active:text-blue-600 outline-none focus:outline-none">
+                                        <button key={item} onClick={() => appendText('symptom', item)} className="px-3 py-1.5 bg-white text-slate-600 rounded-full text-xs font-bold border border-slate-200 shadow-sm active:scale-95 active:bg-blue-50 active:text-blue-600 outline-none focus:outline-none" style={{ WebkitTapHighlightColor: 'transparent' }}>
                                             {item}
                                         </button>
                                     ))}
-                                    <button onClick={() => openTagManager(activeFaultTab)} className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-full text-xs font-bold border border-blue-100 flex items-center gap-1 active:bg-blue-100 outline-none focus:outline-none">
+                                    <button onClick={() => openTagManager(activeFaultTab)} className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-full text-xs font-bold border border-blue-100 flex items-center gap-1 active:bg-blue-100 outline-none focus:outline-none" style={{ WebkitTapHighlightColor: 'transparent' }}>
                                         <Settings size={12}/>管理標籤
                                     </button>
                                 </div>
@@ -784,18 +793,18 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
                     ></textarea>
                     <div className="flex flex-wrap gap-2">
                         {getActionTags().map(tag => (
-                             <button key={tag} onClick={() => appendText('action', tag)} className="px-2 py-1 bg-slate-50 text-slate-500 rounded text-xs border border-slate-200 font-bold active:bg-blue-50 active:text-blue-600 outline-none focus:outline-none">
+                             <button key={tag} onClick={() => appendText('action', tag)} className="px-2 py-1 bg-slate-50 text-slate-500 rounded text-xs border border-slate-200 font-bold active:bg-blue-50 active:text-blue-600 outline-none focus:outline-none" style={{ WebkitTapHighlightColor: 'transparent' }}>
                                 {tag}
                              </button>
                         ))}
-                        <button onClick={() => openTagManager('action')} className="px-2 py-1 bg-blue-50 text-blue-600 rounded text-xs border border-blue-100 font-bold flex items-center gap-1 active:bg-blue-100 outline-none focus:outline-none">
+                        <button onClick={() => openTagManager('action')} className="px-2 py-1 bg-blue-50 text-blue-600 rounded text-xs border border-blue-100 font-bold flex items-center gap-1 active:bg-blue-100 outline-none focus:outline-none" style={{ WebkitTapHighlightColor: 'transparent' }}>
                             <Settings size={10}/>管理標籤
                         </button>
                     </div>
                 </div>
 
                 <div className="pt-4 border-t border-dashed border-slate-200">
-                    <button onClick={() => setIsPartModalOpen(true)} className="w-full py-3 bg-blue-50 text-blue-600 border border-blue-100 rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-blue-100 transition-colors outline-none focus:outline-none focus:ring-2 focus:ring-blue-100">
+                    <button onClick={() => setIsPartModalOpen(true)} className="w-full py-3 bg-blue-50 text-blue-600 border border-blue-100 rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-blue-100 transition-colors outline-none focus:outline-none focus:ring-2 focus:ring-blue-100" style={{ WebkitTapHighlightColor: 'transparent' }}>
                         <Package size={18} strokeWidth={2.5} /> 新增更換零件
                     </button>
                         {form.parts && form.parts.length > 0 && (
@@ -816,9 +825,9 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-3 bg-slate-50 rounded-lg p-1 border border-slate-100 shrink-0">
-                                            <button onClick={() => updatePartQty(index, -1)} className="p-1 text-slate-400 hover:text-rose-500 active:scale-90 outline-none focus:outline-none"><Minus size={16}/></button>
+                                            <button onClick={() => updatePartQty(index, -1)} className="p-1 text-slate-400 hover:text-rose-500 active:scale-90 outline-none focus:outline-none" style={{ WebkitTapHighlightColor: 'transparent' }}><Minus size={16}/></button>
                                             <span className="font-mono font-bold text-slate-800 w-6 text-center">{part.qty}</span>
-                                            <button onClick={() => updatePartQty(index, 1)} className="p-1 text-slate-400 hover:text-blue-500 active:scale-90 outline-none focus:outline-none"><Plus size={16}/></button>
+                                            <button onClick={() => updatePartQty(index, 1)} className="p-1 text-slate-400 hover:text-blue-500 active:scale-90 outline-none focus:outline-none" style={{ WebkitTapHighlightColor: 'transparent' }}><Plus size={16}/></button>
                                         </div>
                                     </div>
                                 ))}
@@ -842,6 +851,7 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
                                 <button 
                                     onClick={() => type === 'before' ? beforeFileInputRef.current?.click() : afterFileInputRef.current?.click()}
                                     className="w-full py-4 border-2 border-dashed border-slate-200 rounded-xl text-slate-400 font-bold flex flex-col items-center justify-center hover:bg-slate-50 transition-colors outline-none focus:outline-none focus:border-blue-300"
+                                    style={{ WebkitTapHighlightColor: 'transparent' }}
                                 >
                                     <Camera size={24} className="mb-2 opacity-50"/>
                                     <span className="text-xs">點擊上傳多張{type === 'before' ? '維修前' : '完修後'}照片</span>
@@ -862,6 +872,7 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
                                     <button 
                                         onClick={() => type === 'before' ? beforeFileInputRef.current?.click() : afterFileInputRef.current?.click()}
                                         className="aspect-square border-2 border-dashed border-slate-200 rounded-lg text-slate-400 flex flex-col items-center justify-center hover:bg-slate-50 transition-colors outline-none focus:border-blue-300"
+                                        style={{ WebkitTapHighlightColor: 'transparent' }}
                                     >
                                         <Camera size={20} className="opacity-50"/>
                                     </button>
@@ -892,6 +903,7 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
                                     type="button" 
                                     onClick={() => setForm({...form, status: option.id})} 
                                     className={`flex flex-col items-center justify-center rounded-lg text-xs font-bold transition-all outline-none focus:outline-none ${isSelected ? `bg-white text-slate-800 shadow-sm border border-slate-200` : 'text-slate-400'}`}
+                                    style={{ WebkitTapHighlightColor: 'transparent' }}
                                 >
                                     <option.icon size={16} strokeWidth={2.5} className={`mb-0.5 ${isSelected ? option.color : ''}`}/>
                                     {option.label}
@@ -907,6 +919,7 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
                         } ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
                         onClick={handlePreSubmit} 
                         disabled={isSubmitting}
+                        style={{ WebkitTapHighlightColor: 'transparent' }}
                     >
                         {isSubmitting ? <Loader2 className="w-6 h-6 animate-spin" /> : 
                          form.status === 'tracking' ? <span className="flex items-center">建立追蹤 <ChevronRight size={20}/></span> :
@@ -929,7 +942,7 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
                             <Settings size={18} className="mr-2 text-blue-600"/> 
                             標籤管理
                         </h3>
-                        <button onClick={resetTagsToDefault} className="text-xs text-rose-500 font-bold flex items-center gap-1 bg-rose-50 px-2 py-1 rounded hover:bg-rose-100 outline-none focus:outline-none">
+                        <button onClick={resetTagsToDefault} className="text-xs text-rose-500 font-bold flex items-center gap-1 bg-rose-50 px-2 py-1 rounded hover:bg-rose-100 outline-none focus:outline-none" style={{ WebkitTapHighlightColor: 'transparent' }}>
                             <RefreshCw size={10}/> 還原預設
                         </button>
                     </div>
@@ -969,21 +982,21 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
                             value={newTagInput}
                             onChange={(e) => setNewTagInput(e.target.value)}
                         />
-                        <button onClick={handleAddTag} className="bg-blue-600 text-white px-4 rounded-xl font-bold shadow-md shadow-blue-200 active:scale-95 outline-none focus:outline-none">新增</button>
+                        <button onClick={handleAddTag} className="bg-blue-600 text-white px-4 rounded-xl font-bold shadow-md shadow-blue-200 active:scale-95 outline-none focus:outline-none" style={{ WebkitTapHighlightColor: 'transparent' }}>新增</button>
                     </div>
-                    <button onClick={() => setIsTagManagerOpen(false)} className="mt-3 w-full py-2 bg-slate-100 text-slate-500 font-bold rounded-xl outline-none focus:outline-none">關閉</button>
+                    <button onClick={() => setIsTagManagerOpen(false)} className="mt-3 w-full py-2 bg-slate-100 text-slate-500 font-bold rounded-xl outline-none focus:outline-none" style={{ WebkitTapHighlightColor: 'transparent' }}>關閉</button>
                 </div>
             </div>
         )}
 
-        {/* 1. 零件選擇 Modal (庫存即時連動版 - 風格修正) */}
+        {/* 1. 零件選擇 Modal (已更換圖示 & 去除黑色點擊感) */}
         {isPartModalOpen && (
             <div className="fixed inset-0 bg-black/60 z-[60] flex items-end sm:items-center justify-center animate-in fade-in" onClick={() => setIsPartModalOpen(false)}>
                 <div className="bg-white w-full max-w-lg h-[80vh] rounded-t-2xl flex flex-col shadow-2xl" onClick={e => e.stopPropagation()}>
                     {/* Header */}
                     <div className="p-4 border-b border-slate-100 flex justify-between items-center shrink-0">
                         <h3 className="font-bold text-lg text-slate-800">選擇零件</h3>
-                        <button onClick={() => setIsPartModalOpen(false)} className="p-2 bg-slate-100 rounded-full text-slate-500 hover:bg-slate-200 transition-colors outline-none focus:outline-none">
+                        <button onClick={() => setIsPartModalOpen(false)} className="p-2 bg-slate-100 rounded-full text-slate-500 hover:bg-slate-200 transition-colors outline-none focus:outline-none" style={{ WebkitTapHighlightColor: 'transparent' }}>
                             <X size={20}/>
                         </button>
                     </div>
@@ -1020,48 +1033,56 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
                         </div>
                     </div>
                     
-                    {/* Tabs: 快速分類切換 (預設改為 main) */}
+                    {/* Tabs: 快速分類切換 (🌟更換為 Lucide Icon，去除黑色點擊感) */}
                     <div className="px-4 py-3 bg-white border-b border-slate-100 shrink-0">
                         <div className="flex gap-2">
                             <button
                                 onClick={() => setActiveTab('main')}
-                                className={`flex-1 px-3 py-2 rounded-xl text-xs font-bold transition-colors outline-none focus:outline-none ${
+                                className={`flex-1 px-3 py-2 rounded-xl text-xs font-bold transition-colors outline-none focus:outline-none flex flex-col items-center justify-center gap-1 ${
                                     activeTab === 'main'
                                         ? 'bg-blue-600 text-white shadow-md shadow-blue-200'
                                         : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                                 }`}
+                                style={{ WebkitTapHighlightColor: 'transparent' }}
                             >
-                                🔧 主件
+                                <Wrench size={18} />
+                                主件
                             </button>
                             <button
                                 onClick={() => setActiveTab('toner')}
-                                className={`flex-1 px-3 py-2 rounded-xl text-xs font-bold transition-colors outline-none focus:outline-none ${
+                                className={`flex-1 px-3 py-2 rounded-xl text-xs font-bold transition-colors outline-none focus:outline-none flex flex-col items-center justify-center gap-1 ${
                                     activeTab === 'toner'
                                         ? 'bg-purple-600 text-white shadow-md shadow-purple-200'
                                         : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                                 }`}
+                                style={{ WebkitTapHighlightColor: 'transparent' }}
                             >
-                                💧 碳粉
+                                <Droplet size={18} />
+                                碳粉
                             </button>
                             <button
                                 onClick={() => setActiveTab('backup')}
-                                className={`flex-1 px-3 py-2 rounded-xl text-xs font-bold transition-colors outline-none focus:outline-none ${
+                                className={`flex-1 px-3 py-2 rounded-xl text-xs font-bold transition-colors outline-none focus:outline-none flex flex-col items-center justify-center gap-1 ${
                                     activeTab === 'backup'
                                         ? 'bg-emerald-600 text-white shadow-md shadow-emerald-200'
                                         : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                                 }`}
+                                style={{ WebkitTapHighlightColor: 'transparent' }}
                             >
-                                📦 備用
+                                <Archive size={18} />
+                                備用
                             </button>
                             <button
                                 onClick={() => setActiveTab('all')}
-                                className={`flex-1 px-3 py-2 rounded-xl text-xs font-bold transition-colors outline-none focus:outline-none ${
+                                className={`flex-1 px-3 py-2 rounded-xl text-xs font-bold transition-colors outline-none focus:outline-none flex flex-col items-center justify-center gap-1 ${
                                     activeTab === 'all'
                                         ? 'bg-slate-600 text-white shadow-md shadow-slate-200'
                                         : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                                 }`}
+                                style={{ WebkitTapHighlightColor: 'transparent' }}
                             >
-                                🗃️ 全部
+                                <Layers size={18} />
+                                全部
                             </button>
                         </div>
                     </div>
@@ -1129,6 +1150,7 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
                                                                 ? 'text-slate-300 cursor-not-allowed'
                                                                 : 'text-slate-400 hover:text-rose-500 hover:bg-rose-50 active:scale-90'
                                                         }`}
+                                                        style={{ WebkitTapHighlightColor: 'transparent' }}
                                                     >
                                                         <Minus size={18} strokeWidth={2.5}/>
                                                     </button>
@@ -1145,6 +1167,7 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
                                                                 ? 'text-slate-300 cursor-not-allowed'
                                                                 : 'text-slate-400 hover:text-blue-500 hover:bg-blue-50 active:scale-90'
                                                         }`}
+                                                        style={{ WebkitTapHighlightColor: 'transparent' }}
                                                     >
                                                         <Plus size={18} strokeWidth={2.5}/>
                                                     </button>
@@ -1167,6 +1190,7 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
                         <button
                             onClick={() => setIsPartModalOpen(false)}
                             className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold text-base shadow-lg shadow-blue-200 hover:bg-blue-700 active:scale-[0.98] transition-all flex items-center justify-center gap-2 outline-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                            style={{ WebkitTapHighlightColor: 'transparent' }}
                         >
                             <CheckCircle size={20} strokeWidth={2.5}/>
                             確認並返回
@@ -1191,6 +1215,7 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
                                 key={days}
                                 onClick={() => setNextVisitDate(getFutureDate(days))}
                                 className="flex-1 py-2 bg-white border border-slate-200 rounded-lg text-sm font-bold text-slate-600 shadow-sm active:bg-blue-50 active:text-blue-600 transition-colors outline-none focus:outline-none focus:ring-2 focus:ring-blue-100"
+                                style={{ WebkitTapHighlightColor: 'transparent' }}
                             >
                                 {days}天
                             </button>
@@ -1199,6 +1224,7 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
                         <button 
                             onClick={handleCustomDateClick}
                             className="flex-1 py-2 bg-white border border-slate-200 rounded-lg text-sm font-bold text-slate-600 shadow-sm outline-none focus:outline-none focus:ring-2 focus:ring-blue-100"
+                            style={{ WebkitTapHighlightColor: 'transparent' }}
                         >
                             自訂
                         </button>
@@ -1222,6 +1248,7 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
                         <button 
                             onClick={() => { setShowVisitDateModal(false); setNextVisitDate(''); }} 
                             className="flex-1 py-3 bg-slate-100 font-bold text-slate-500 rounded-xl outline-none focus:outline-none"
+                            style={{ WebkitTapHighlightColor: 'transparent' }}
                         >
                             取消
                         </button>
@@ -1232,6 +1259,7 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
                                     ? 'bg-orange-500 shadow-orange-200 focus:ring-orange-500' 
                                     : 'bg-blue-500 shadow-blue-200 focus:ring-blue-500'
                             }`}
+                            style={{ WebkitTapHighlightColor: 'transparent' }}
                         >
                             建立{form.status === 'tracking' ? '追蹤' : '觀察'}
                         </button>
