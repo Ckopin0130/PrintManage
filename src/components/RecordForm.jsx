@@ -83,11 +83,8 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
         before: initialData.photosBefore || (initialData.photoBefore ? [initialData.photoBefore] : []), 
         after: initialData.photosAfter || (initialData.photoAfter ? [initialData.photoAfter] : [])
     });
-    const [additionalPhotos, setAdditionalPhotos] = useState([]);
-    const [additionalPhotoPreviews, setAdditionalPhotoPreviews] = useState([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
     
-    const additionalFileInputRef = useRef(null);
     // 新增：維修前/後照片的 input ref
     const beforeFileInputRef = useRef(null);
     const afterFileInputRef = useRef(null);
@@ -143,7 +140,6 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
             setForm({
                 ...initialData,
                 parts: initialData.parts || [],
-                photos: initialData.photos || [],
                 // 舊資料的 pending 轉為 tracking
                 status: initialData.status === 'pending' ? 'tracking' : (initialData.status || 'completed')
             });
@@ -159,18 +155,6 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
             const beforePhotos = initialData.photosBefore || (initialData.photoBefore ? [initialData.photoBefore] : []);
             const afterPhotos = initialData.photosAfter || (initialData.photoAfter ? [initialData.photoAfter] : []);
             setPreviews({ before: beforePhotos, after: afterPhotos });
-            
-            // 初始化額外照片（排除 before/after，這些已經在 previews 中）
-            if (initialData.photos && Array.isArray(initialData.photos)) {
-                const additional = initialData.photos.filter(p => 
-                    p && typeof p === 'string' && !p.includes('_before') && !p.includes('_after')
-                );
-                setAdditionalPhotos(additional);
-                setAdditionalPhotoPreviews(additional);
-            } else {
-                setAdditionalPhotos([]);
-                setAdditionalPhotoPreviews([]);
-            }
         }
     }, [initialData]);
 
@@ -323,87 +307,47 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
 
     // 圖片邏輯
     const handleFileChange = async (e, type) => {
-        if (type === 'additional') {
-            // 處理多張額外照片
-            const files = Array.from(e.target.files || []);
-            if (files.length === 0) return;
+        // 處理 before/after 多張照片
+        const files = Array.from(e.target.files || []);
+        if (files.length === 0) return;
 
-            const newPhotos = [];
-            const newPreviews = [];
+        const newPhotos = [];
+        const newPreviews = [];
 
-            for (const file of files) {
-                if (file.size > 5 * 1024 * 1024) {
-                    alert(`${file.name} 圖片過大，請選擇小於 5MB 的圖片`);
-                    continue;
-                }
-
-                try {
-                    const compressedBase64 = await compressImage(file);
-                    newPhotos.push(compressedBase64);
-                    newPreviews.push(compressedBase64);
-                } catch (err) {
-                    console.error("圖片壓縮失敗", err);
-                    alert(`圖片處理失敗: ${file.name}`);
-                }
+        for (const file of files) {
+            if (file.size > 5 * 1024 * 1024) {
+                alert(`${file.name} 圖片過大，請選擇小於 5MB 的圖片`);
+                continue;
             }
 
-            if (newPhotos.length > 0) {
-                setAdditionalPhotos(prev => [...prev, ...newPhotos]);
-                setAdditionalPhotoPreviews(prev => [...prev, ...newPreviews]);
-                // 將新照片添加到 form.photos 陣列
-                setForm(prev => ({
-                    ...prev,
-                    photos: [...(prev.photos || []), ...newPhotos]
-                }));
+            try {
+                const compressedBase64 = await compressImage(file);
+                newPhotos.push(compressedBase64);
+                newPreviews.push(compressedBase64);
+            } catch (err) {
+                console.error("圖片壓縮失敗", err);
+                alert(`圖片處理失敗: ${file.name}`);
             }
+        }
 
-            // 重置 input
-            if (e.target) {
-                e.target.value = '';
-            }
-        } else {
-            // 修改：處理 before/after 多張照片
-            const files = Array.from(e.target.files || []);
-            if (files.length === 0) return;
+        if (newPhotos.length > 0) {
+            setPreviews(prev => ({
+                ...prev,
+                [type]: [...prev[type], ...newPreviews]
+            }));
+            // 更新 form 中的照片陣列
+            const fieldName = type === 'before' ? 'photosBefore' : 'photosAfter';
+            setForm(prev => ({
+                ...prev,
+                [fieldName]: [...(prev[fieldName] || []), ...newPhotos],
+                // 保留舊的單張照片欄位以向後兼容
+                [`photo${type === 'before' ? 'Before' : 'After'}`]: newPhotos[0]
+            }));
+        }
 
-            const newPhotos = [];
-            const newPreviews = [];
-
-            for (const file of files) {
-                if (file.size > 5 * 1024 * 1024) {
-                    alert(`${file.name} 圖片過大，請選擇小於 5MB 的圖片`);
-                    continue;
-                }
-
-                try {
-                    const compressedBase64 = await compressImage(file);
-                    newPhotos.push(compressedBase64);
-                    newPreviews.push(compressedBase64);
-                } catch (err) {
-                    console.error("圖片壓縮失敗", err);
-                    alert(`圖片處理失敗: ${file.name}`);
-                }
-            }
-
-            if (newPhotos.length > 0) {
-                setPreviews(prev => ({
-                    ...prev,
-                    [type]: [...prev[type], ...newPreviews]
-                }));
-                // 更新 form 中的照片陣列
-                const fieldName = type === 'before' ? 'photosBefore' : 'photosAfter';
-                setForm(prev => ({
-                    ...prev,
-                    [fieldName]: [...(prev[fieldName] || []), ...newPhotos],
-                    // 保留舊的單張照片欄位以向後兼容
-                    [`photo${type === 'before' ? 'Before' : 'After'}`]: newPhotos[0]
-                }));
-            }
-
-            // 重置 input
-            if (e.target) {
-                e.target.value = '';
-            }
+        // 重置 input
+        if (e.target) {
+            e.target.value = '';
         }
     };
     
@@ -425,17 +369,6 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
                 [`photo${type === 'before' ? 'Before' : 'After'}`]: newPhotos.length > 0 ? newPhotos[0] : null
             };
         });
-    };
-
-    const handleRemoveAdditionalPhoto = (index) => {
-        const photoToRemove = additionalPhotos[index];
-        setAdditionalPhotos(prev => prev.filter((_, i) => i !== index));
-        setAdditionalPhotoPreviews(prev => prev.filter((_, i) => i !== index));
-        // 從 form.photos 中移除對應的照片
-        setForm(prev => ({
-            ...prev,
-            photos: (prev.photos || []).filter(p => p !== photoToRemove)
-        }));
     };
 
     // --- 5. 核心送出邏輯 ---
@@ -490,21 +423,6 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
                 const task = uploadImageToStorage(dataToSubmit.photoAfter, `repairs/${Date.now()}_after.jpg`)
                     .then(url => { dataToSubmit.photoAfter = url; });
                 uploadTasks.push(task);
-            }
-            // 處理額外照片陣列
-            if (dataToSubmit.photos && Array.isArray(dataToSubmit.photos) && dataToSubmit.photos.length > 0) {
-                dataToSubmit.photos.forEach((photo, index) => {
-                    if (photo && photo.startsWith('data:image')) {
-                        const task = uploadImageToStorage(photo, `repairs/${Date.now()}_additional_${index}.jpg`)
-                            .then(url => {
-                                const photoIndex = dataToSubmit.photos.findIndex(p => p === photo);
-                                if (photoIndex >= 0) {
-                                    dataToSubmit.photos[photoIndex] = url;
-                                }
-                            });
-                        uploadTasks.push(task);
-                    }
-                });
             }
 
             await Promise.all(uploadTasks);
@@ -797,48 +715,6 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
                             />
                         </div>
                     ))}
-                </div>
-
-                {/* 額外照片 */}
-                <div className="space-y-2">
-                    <div className="text-xs font-bold text-slate-500 mb-2">其他照片（選填）</div>
-                    {additionalPhotoPreviews.length === 0 ? (
-                        <button 
-                            onClick={() => additionalFileInputRef.current?.click()}
-                            className="w-full py-3 border-2 border-dashed border-slate-200 rounded-xl text-slate-400 font-bold flex flex-col items-center justify-center hover:bg-slate-50 transition-colors"
-                        >
-                            <Camera size={20} className="mb-1 opacity-50"/>
-                            <span className="text-xs">點擊上傳多張照片</span>
-                        </button>
-                    ) : (
-                        <div className="grid grid-cols-3 gap-2">
-                            {additionalPhotoPreviews.map((preview, index) => (
-                                <div key={index} className="relative aspect-square rounded-lg overflow-hidden border border-slate-200 bg-slate-100">
-                                    <img src={preview} alt={`Additional ${index + 1}`} className="w-full h-full object-cover" />
-                                    <button 
-                                        onClick={() => handleRemoveAdditionalPhoto(index)}
-                                        className="absolute top-1 right-1 p-1 bg-black/50 text-white rounded-full backdrop-blur-sm"
-                                    >
-                                        <X size={12}/>
-                                    </button>
-                                </div>
-                            ))}
-                            <button 
-                                onClick={() => additionalFileInputRef.current?.click()}
-                                className="aspect-square border-2 border-dashed border-slate-200 rounded-lg text-slate-400 flex flex-col items-center justify-center hover:bg-slate-50 transition-colors"
-                            >
-                                <Camera size={20} className="opacity-50"/>
-                            </button>
-                        </div>
-                    )}
-                    <input 
-                        type="file" 
-                        accept="image/*"
-                        multiple
-                        className="hidden" 
-                        ref={additionalFileInputRef}
-                        onChange={(e) => handleFileChange(e, 'additional')}
-                    />
                 </div>
             </section>
         </div>
