@@ -308,7 +308,7 @@ const CustomerDetail = ({
                  </div>
                  <span>維修履歷</span>
                </h3>
-               <button onClick={startAddRecord} className="flex items-center text-blue-600 text-sm font-bold bg-white px-3 py-1.5 rounded-lg border border-blue-100 shadow-sm active:scale-95 transition-transform hover:bg-blue-50">
+               <button onClick={() => startAddRecord(selectedCustomer)} className="flex items-center text-blue-600 text-sm font-bold bg-white px-3 py-1.5 rounded-lg border border-blue-100 shadow-sm active:scale-95 transition-transform hover:bg-blue-50">
                  <Plus size={16} className="mr-1"/> 新增
                </button>
             </div>
