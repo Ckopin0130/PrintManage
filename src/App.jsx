@@ -255,9 +255,25 @@ export default function App() {
       sessionStorage.setItem('navigatingToMaps', 'true');
       
       const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(customer.address)}`;
-      const newWindow = window.open(url, '_blank');
-      if (!newWindow || newWindow.closed || typeof newWindow.closed == 'undefined') {
+      
+      // 检测是否是移动设备
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      
+      if (isMobile) {
+        // 移动设备：直接在当前窗口打开，避免打开多个标签页
         window.location.href = url;
+      } else {
+        // 桌面设备：尝试在新标签页打开
+        try {
+          const newWindow = window.open(url, '_blank', 'noopener,noreferrer');
+          // 如果 newWindow 为 null，说明被阻止了，使用当前窗口
+          if (!newWindow) {
+            window.location.href = url;
+          }
+        } catch (e) {
+          // 如果出错，使用当前窗口
+          window.location.href = url;
+        }
       }
     }
   };
