@@ -1,68 +1,81 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { 
   ArrowLeft, Search, X, Calendar, User, AlertCircle, Wrench, Package, 
-  Clock, FileText, Copy, Check, Filter
+  Clock, FileText, Copy, Check
 } from 'lucide-react';
 
-// --- 1. 報表預覽視窗 ---
-// 增加 records = [] 與 customers = [] 預設值，防止 undefined 錯誤
+// --- 1. 報表預覽視窗 (風格與符號系統全面翻新) ---
 const WorkLogReportModal = ({ isOpen, onClose, records = [], customers = [], dateLabel }) => {
   const [isCopied, setIsCopied] = useState(false);
 
   // 生成報表文字
   const reportText = useMemo(() => {
-    // 雙重保險：如果 records 不是陣列，直接回傳無資料
     if (!Array.isArray(records) || records.length === 0) return '無資料';
 
-    // A. 案件清單
+    // === A. 維修行程列表 (Job List) ===
     const listText = records.map((r, i) => {
-        // 確保 customers 是陣列再進行 find
         const cust = Array.isArray(customers) ? customers.find(c => c.customerID === r.customerID) : null;
         const model = cust?.assets?.[0]?.model ? `(${cust.assets[0].model})` : '';
         
+        // 狀態文字
         let statusStr = '觀察';
         if (r.status === 'completed') statusStr = '完修';
         if (r.status === 'pending' || r.status === 'tracking') statusStr = '待料';
 
-        // 零件顯示 (縮排與符號)
-        // 增加 r.parts 的陣列檢查
-        const partsStr = (Array.isArray(r.parts) && r.parts.length > 0) 
-          ? `\n   📦 更換: ${r.parts.map(p => `${p.name} x${p.qty}`).join('、')}` 
-          : '';
+        // 組合內容
+        // 使用 ◆ 作為案件標題
+        let text = `◆ ${i+1}. ${cust?.name || '未知'} ${model} [${statusStr}]`;
+        
+        // 使用 🔹 作為一般內容 (故障、處理)
+        text += `\n🔹 故障: ${r.fault || r.symptom}`;
+        text += `\n🔹 處理: ${r.solution || r.action}`;
 
-        return `${i+1}. ${cust?.name || '未知'} ${model} [${statusStr}]\n   🔧 故障: ${r.fault || r.symptom}\n   📝 處理: ${r.solution || r.action}${partsStr}`;
+        // 使用 🔸 作為零件更換 (特別突顯)
+        if (Array.isArray(r.parts) && r.parts.length > 0) {
+            text += `\n🔸 更換: ${r.parts.map(p => `${p.name} x${p.qty}`).join('、')}`;
+        }
+
+        return text;
     }).join('\n\n');
 
-    // B. 耗材統計 (包含機型對照)
-    const partsMap = {};
+    // === B. 耗材統計 (Summary) - 改為「依機型分組」 ===
+    const summaryByModel = {};
     records.forEach(r => {
-        // 這裡再次檢查 parts 是否為陣列
         if (Array.isArray(r.parts) && r.parts.length > 0) {
             const cust = Array.isArray(customers) ? customers.find(c => c.customerID === r.customerID) : null;
-            const modelName = cust?.assets?.[0]?.model || '通用/未知';
+            // 抓取機型，若無則歸類為通用
+            const modelName = cust?.assets?.[0]?.model || '通用/其他';
+
+            if (!summaryByModel[modelName]) {
+                summaryByModel[modelName] = {};
+            }
 
             r.parts.forEach(p => {
-                if (!partsMap[p.name]) {
-                    partsMap[p.name] = { totalQty: 0, models: new Set() };
-                }
-                partsMap[p.name].totalQty += (p.qty || 1);
-                partsMap[p.name].models.add(modelName); 
+                // 累加該機型下的零件數量
+                summaryByModel[modelName][p.name] = (summaryByModel[modelName][p.name] || 0) + (p.qty || 1);
             });
         }
     });
 
-    // 格式化耗材統計文字
-    let summaryList = '無更換零件';
-    const partKeys = Object.keys(partsMap);
-    if (partKeys.length > 0) {
-        summaryList = partKeys.map(name => {
-            const data = partsMap[name];
-            const modelsStr = Array.from(data.models).join(', ');
-            return `● ${name} x${data.totalQty} (機型: ${modelsStr})`;
-        }).join('\n');
+    // 格式化耗材統計文字 (比照庫存報表：◆ 機型 -> 🔹 零件)
+    let summaryList = '';
+    const models = Object.keys(summaryByModel).sort(); // 依機型名稱排序
+
+    if (models.length > 0) {
+        summaryList = models.map(model => {
+            const partsObj = summaryByModel[model];
+            const partsLines = Object.entries(partsObj).map(([name, qty]) => {
+                return `🔹 ${name} x${qty}`;
+            }).join('\n');
+
+            return `◆ ${model}\n${partsLines}`;
+        }).join('\n\n');
+    } else {
+        summaryList = '無更換零件';
     }
 
-    return `【維修工作日報】 ${dateLabel}\n====================\n\n${listText}\n\n====================\n📊 今日耗材統計 (含機型)：\n${summaryList}\n\n系統自動生成`;
+    // 組合最終報表
+    return `【維修工作日報】 ${dateLabel}\n----------------\n\n📦 維修行程\n${listText}\n\n📦 今日耗材統計\n${summaryList}\n\n----------------\n系統自動生成`;
   }, [records, customers, dateLabel]);
 
   const handleCopy = () => {
@@ -99,7 +112,6 @@ const WorkLogReportModal = ({ isOpen, onClose, records = [], customers = [], dat
 };
 
 // --- 2. 主元件 WorkLog ---
-// 增加 records = [] 與 customers = [] 預設值
 const WorkLog = ({ 
   records = [], customers = [], setCurrentView, showToast 
 }) => {
@@ -162,13 +174,11 @@ const WorkLog = ({
     }
   };
 
-  // 資料篩選 (增加 records 存在性檢查)
+  // 資料篩選
   const filteredRecords = useMemo(() => {
-    // 增加防呆：如果 records 不是陣列，回傳空陣列
     if (!Array.isArray(records)) return [];
 
     return records.filter(r => {
-      // 確保 customers 是陣列
       const cust = Array.isArray(customers) ? customers.find(c => c.customerID === r.customerID) : null;
       const custName = cust ? cust.name.toLowerCase() : '';
       const fault = (r.fault || '').toLowerCase();
@@ -218,6 +228,7 @@ const WorkLog = ({
                 <button onClick={() => setCurrentView('dashboard')} className="p-2 -ml-2 text-slate-600 hover:bg-slate-100 rounded-full"><ArrowLeft size={22}/></button>
                 <h2 className="text-lg font-bold text-slate-800 ml-1">工作日誌</h2>
              </div>
+             {/* 產生報表按鈕 */}
              <button 
                 onClick={() => setShowReportModal(true)}
                 className="p-2 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 transition-colors flex items-center gap-1"
@@ -226,6 +237,7 @@ const WorkLog = ({
              </button>
          </div>
 
+         {/* 搜尋框 */}
          <div className="px-4 pb-2 relative">
             <Search size={16} className="absolute left-7 top-2.5 text-slate-400" />
             <input 
@@ -237,6 +249,7 @@ const WorkLog = ({
             {inputValue && <button onClick={() => setInputValue('')} className="absolute right-6 top-2 text-slate-400"><X size={16}/></button>}
          </div>
 
+         {/* 日期快速按鈕 */}
          <div className="px-4 pb-3 flex gap-2 overflow-x-auto no-scrollbar items-center">
             {[
                 { id: 'all', label: '全部' },
@@ -271,6 +284,7 @@ const WorkLog = ({
             </button>
          </div>
 
+         {/* 自訂日期選擇面板 */}
          {showDatePicker && activeDateTab === 'custom' && (
             <div className="px-4 pb-3 animate-in slide-in-from-top-2">
                 <div className="bg-white border border-blue-200 rounded-xl p-3 shadow-lg bg-blue-50/50">
@@ -284,6 +298,7 @@ const WorkLog = ({
          )}
       </div>
 
+      {/* --- 列表內容區域 --- */}
       <div className="flex-1 overflow-y-auto bg-slate-50 p-2 space-y-3">
         {filteredRecords.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 opacity-40">
