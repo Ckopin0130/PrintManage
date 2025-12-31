@@ -1,588 +1,373 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { 
-  ArrowLeft, Plus, Search, ChevronRight, ChevronDown, 
-  RotateCcw, CheckCircle, Trash2, AlertTriangle, Box, 
-  Printer, Palette, Archive, MoreHorizontal, Droplets,
-  GripVertical, FileText, Copy, X, Settings, FolderPlus
+  ArrowLeft, Search, X, Calendar, User, AlertCircle, Wrench, Package, 
+  Clock, FileText, Copy, Check, Filter
 } from 'lucide-react';
-import {
-  DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, TouchSensor
-} from '@dnd-kit/core';
-import {
-  arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 
-const ICON_MAP = { Droplets, Palette, Printer, Archive, MoreHorizontal, Box, Settings, FolderPlus };
+// --- 1. 報表預覽視窗 ---
+// 增加 records = [] 與 customers = [] 預設值，防止 undefined 錯誤
+const WorkLogReportModal = ({ isOpen, onClose, records = [], customers = [], dateLabel }) => {
+  const [isCopied, setIsCopied] = useState(false);
 
-const DEFAULT_CATEGORIES = [
-  { id: 'cat_toner', name: '碳粉系列', icon: 'Droplets', color: 'text-sky-600', bg: 'bg-sky-100', border: 'border-sky-200' },
-  { id: 'cat_color', name: '彩色影印機', icon: 'Palette', color: 'text-purple-600', bg: 'bg-purple-100', border: 'border-purple-200' },
-  { id: 'cat_bw', name: '黑白影印機', icon: 'Printer', color: 'text-zinc-600', bg: 'bg-zinc-100', border: 'border-zinc-200' },
-  { id: 'cat_common', name: '共用耗材', icon: 'Archive', color: 'text-orange-600', bg: 'bg-orange-100', border: 'border-orange-200' },
-  { id: 'cat_other', name: '其他周邊', icon: 'MoreHorizontal', color: 'text-blue-600', bg: 'bg-blue-100', border: 'border-blue-200' }
-];
-
-// 自動歸類邏輯
-const migrateCategory = (modelName, item) => {
-    if (item.categoryId) return item.categoryId;
-    const up = (modelName || '').toUpperCase();
-    if (item.categoryType === 'TONER' || up.includes('碳粉') || up.includes('TONER') || up.includes('INK')) return 'cat_toner';
-    if (item.categoryType === 'COLOR' || up.includes(' C') || up.includes('MPC') || up.includes('IMC') || up.includes('彩色')) return 'cat_color';
-    if (item.categoryType === 'BW' || up.includes('MP') || up.includes('IM') || up.includes('AFICIO') || up.includes('黑白')) return 'cat_bw';
-    if (item.categoryType === 'COMMON' || up.includes('耗材') || up.includes('共用') || up.includes('COMMON')) return 'cat_common';
-    return 'cat_other';
-};
-
-// 淨化品名：移除包含的型號文字
-const cleanItemName = (modelName, itemName) => {
-    if (!modelName || !itemName) return itemName;
-    let display = itemName;
-    const modelClean = modelName.trim();
-    // 移除括號內的型號 (e.g. "滾筒(MP5000)")
-    const escapedModel = modelClean.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    display = display.replace(new RegExp(`\\(${escapedModel}\\)`, 'gi'), '');
-    // 移除直接連結的型號 (e.g. "MP5000滾筒")
-    display = display.replace(new RegExp(`${escapedModel}`, 'gi'), '');
-    // 移除空括號
-    display = display.replace(/\(\s*\)/g, '');
-    return display.trim();
-};
-
-// --- Report Modal (修正報表格式) ---
-const ReportModal = ({ isOpen, onClose, inventory, categories, modelOrder, itemOrder }) => {
-  const [copied, setCopied] = useState(false);
-  const [onlyMissing, setOnlyMissing] = useState(false);
-
+  // 生成報表文字
   const reportText = useMemo(() => {
-    if (!inventory || inventory.length === 0) return '無庫存資料';
-    const strItemOrder = itemOrder ? itemOrder.map(String) : [];
-    const groupedData = {}; 
+    // 雙重保險：如果 records 不是陣列，直接回傳無資料
+    if (!Array.isArray(records) || records.length === 0) return '無資料';
 
-    // 1. 資料分組
-    inventory.forEach(item => {
-        const catId = item.categoryId || migrateCategory(item.model, item);
-        const model = item.model || '未分類';
-        if (!groupedData[catId]) groupedData[catId] = {};
-        if (!groupedData[catId][model]) groupedData[catId][model] = [];
-        groupedData[catId][model].push(item);
-    });
+    // A. 案件清單
+    const listText = records.map((r, i) => {
+        // 確保 customers 是陣列再進行 find
+        const cust = Array.isArray(customers) ? customers.find(c => c.customerID === r.customerID) : null;
+        const model = cust?.assets?.[0]?.model ? `(${cust.assets[0].model})` : '';
+        
+        let statusStr = '觀察';
+        if (r.status === 'completed') statusStr = '完修';
+        if (r.status === 'pending' || r.status === 'tracking') statusStr = '待料';
 
-    // 2. 報表標頭
-    let text = `【庫存盤點報表】${new Date().toLocaleDateString()}\n`;
-    if(onlyMissing) text += `(僅顯示需補貨)\n`;
-    text += `----------------`; 
-    
-    let hasContent = false;
+        // 零件顯示 (縮排與符號)
+        // 增加 r.parts 的陣列檢查
+        const partsStr = (Array.isArray(r.parts) && r.parts.length > 0) 
+          ? `\n   📦 更換: ${r.parts.map(p => `${p.name} x${p.qty}`).join('、')}` 
+          : '';
 
-    // 3. 依分類迴圈
-    categories.forEach(cat => {
-        const modelsObj = groupedData[cat.id];
-        if (!modelsObj) return;
-        const modelsInThisCat = Object.keys(modelsObj);
-        if (modelsInThisCat.length === 0) return;
+        return `${i+1}. ${cust?.name || '未知'} ${model} [${statusStr}]\n   🔧 故障: ${r.fault || r.symptom}\n   📝 處理: ${r.solution || r.action}${partsStr}`;
+    }).join('\n\n');
 
-        // 型號排序
-        modelsInThisCat.sort((a, b) => {
-            if (modelOrder) {
-               const idxA = modelOrder.indexOf(a);
-               const idxB = modelOrder.indexOf(b);
-               if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-               if (idxA !== -1) return -1;
-               if (idxB !== -1) return 1;
-            }
-            return a.localeCompare(b);
-        });
+    // B. 耗材統計 (包含機型對照)
+    const partsMap = {};
+    records.forEach(r => {
+        // 這裡再次檢查 parts 是否為陣列
+        if (Array.isArray(r.parts) && r.parts.length > 0) {
+            const cust = Array.isArray(customers) ? customers.find(c => c.customerID === r.customerID) : null;
+            const modelName = cust?.assets?.[0]?.model || '通用/未知';
 
-        let categoryContent = '';
-        let hasModelsInThisCat = false;
-
-        modelsInThisCat.forEach((model, modelIndex) => {
-            const items = modelsObj[model];
-            // 項目排序
-            items.sort((a, b) => {
-                 const idxA = strItemOrder.indexOf(String(a.id));
-                 const idxB = strItemOrder.indexOf(String(b.id));
-                 if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-                 if (idxA !== -1) return -1;
-                 if (idxB !== -1) return 1;
-                 return a.name.localeCompare(b.name);
+            r.parts.forEach(p => {
+                if (!partsMap[p.name]) {
+                    partsMap[p.name] = { totalQty: 0, models: new Set() };
+                }
+                partsMap[p.name].totalQty += (p.qty || 1);
+                partsMap[p.name].models.add(modelName); 
             });
-
-            let linesForThisModel = [];
-            items.forEach(item => {
-                const isFull = item.qty >= item.max;
-                if (onlyMissing && isFull) return;
-                
-                // --- 格式設定 ---
-                const icon = isFull ? '🔹' : '🔸';
-                let displayName = cleanItemName(model, item.name);
-                // 產生行： "🔹品名: 1/1 支"
-                linesForThisModel.push(`${icon}${displayName}: ${item.qty}/${item.max} ${item.unit}`);
-            });
-
-            if (linesForThisModel.length > 0) {
-                hasModelsInThisCat = true;
-                // 第一個型號前空一行(換行)，之後的型號前空兩行(區隔)
-                const prefix = modelIndex === 0 ? '\n' : '\n\n'; 
-                categoryContent += `${prefix}◆ ${model}`; 
-                linesForThisModel.forEach(line => categoryContent += `\n${line}`);
-            }
-        });
-
-        if (hasModelsInThisCat) {
-            hasContent = true;
-            // 分類前空兩行
-            text += `\n\n📦 ${cat.name}`;
-            text += categoryContent;
         }
     });
 
-    if (!hasContent) text += `\n\n目前沒有${onlyMissing ? '需補貨' : ''}項目。`;
-    text += `\n\n----------------\n系統自動生成`;
-    return text;
-  }, [inventory, categories, modelOrder, itemOrder, onlyMissing]);
+    // 格式化耗材統計文字
+    let summaryList = '無更換零件';
+    const partKeys = Object.keys(partsMap);
+    if (partKeys.length > 0) {
+        summaryList = partKeys.map(name => {
+            const data = partsMap[name];
+            const modelsStr = Array.from(data.models).join(', ');
+            return `● ${name} x${data.totalQty} (機型: ${modelsStr})`;
+        }).join('\n');
+    }
+
+    return `【維修工作日報】 ${dateLabel}\n====================\n\n${listText}\n\n====================\n📊 今日耗材統計 (含機型)：\n${summaryList}\n\n系統自動生成`;
+  }, [records, customers, dateLabel]);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(reportText);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setIsCopied(true);
+    setTimeout(() => setIsCopied(false), 2000);
   };
 
   if (!isOpen) return null;
+
   return (
     <div className="fixed inset-0 bg-black/60 z-[90] flex items-start justify-center pt-10 px-4 animate-in fade-in" onClick={onClose}>
         <div className="bg-white w-full max-w-sm rounded-2xl p-5 shadow-2xl flex flex-col max-h-[85vh]" onClick={e => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-2 border-b pb-3">
-                <h3 className="text-lg font-bold text-slate-800 flex items-center"><FileText className="mr-2 text-blue-600"/> 庫存報表</h3>
-                <button onClick={onClose} className="p-1.5 bg-gray-100 rounded-full text-gray-500 hover:bg-gray-200"><X size={20} /></button> 
+                <h3 className="text-lg font-bold text-slate-800 flex items-center">
+                    <FileText className="mr-2 text-blue-600"/> 日報表預覽
+                </h3>
+                <button onClick={onClose} className="p-1.5 bg-gray-100 rounded-full text-gray-500 hover:bg-gray-200">
+                    <X size={20} />
+                </button> 
             </div>
-            <div className="flex items-center gap-2 mb-3 bg-slate-50 p-2 rounded-lg border border-slate-200">
-                <input type="checkbox" id="onlyMissing" checked={onlyMissing} onChange={e => setOnlyMissing(e.target.checked)} className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500" />
-                <label htmlFor="onlyMissing" className="text-sm font-bold text-slate-700 cursor-pointer select-none">只顯示需補貨</label>
-            </div>
+            
             <div className="flex-1 overflow-y-auto bg-slate-50 p-3 rounded-xl border border-slate-200 mb-4 font-mono text-sm leading-relaxed whitespace-pre-wrap text-slate-700 shadow-inner">
                 {reportText}
             </div>
-            <button onClick={handleCopy} className={`w-full py-3.5 rounded-xl font-bold text-white flex items-center justify-center transition-all ${copied ? 'bg-green-600' : 'bg-blue-600 hover:bg-blue-700'}`}>
-                {copied ? <CheckCircle className="mr-2" size={20}/> : <Copy className="mr-2" size={20}/>}
-                {copied ? '已複製' : '複製文字 (傳送給 LINE)'}
+            
+            <button onClick={handleCopy} className={`w-full py-3.5 rounded-xl font-bold text-white flex items-center justify-center transition-all ${isCopied ? 'bg-green-600' : 'bg-blue-600 hover:bg-blue-700'}`}>
+                {isCopied ? <Check className="mr-2" size={20}/> : <Copy className="mr-2" size={20}/>}
+                {isCopied ? '已複製' : '複製內容 (傳送給 LINE)'}
             </button>
         </div>
     </div>
   );
 };
 
-// --- Edit Modal (修正：自訂下拉選單) ---
-const EditInventoryModal = ({ isOpen, onClose, onSave, onDelete, initialItem, categories, defaultCategoryId, defaultModel, inventory }) => {
-  const [formData, setFormData] = useState({ name: '', model: '', subGroup: '', qty: 0, max: 5, unit: '個', categoryId: '' });
-  const [showModelSuggestions, setShowModelSuggestions] = useState(false);
-
-  const modelSuggestions = useMemo(() => {
-      if (!formData.categoryId || !inventory) return [];
-      const inputVal = formData.model || '';
-      const models = new Set(
-          inventory
-            .filter(i => (i.categoryId || migrateCategory(i.model, i)) === formData.categoryId)
-            .map(i => i.model)
-            .filter(m => m && m.trim() !== '' && m !== '未分類')
-      );
-      return [...models].filter(m => m.includes(inputVal)).sort();
-  }, [inventory, formData.categoryId, formData.model]);
-
-  useEffect(() => {
-    if (isOpen) {
-      if (initialItem) {
-        setFormData({ 
-            ...initialItem, 
-            subGroup: initialItem.subGroup || '', 
-            categoryId: initialItem.categoryId || migrateCategory(initialItem.model, initialItem) 
-        });
-      } else {
-        const targetCatId = defaultCategoryId || categories[0]?.id || 'cat_other';
-        setFormData({ 
-            name: '', model: defaultModel || '', subGroup: '', 
-            qty: 1, max: 5, unit: '個', categoryId: targetCatId 
-        });
-      }
-      setShowModelSuggestions(false);
-    }
-  }, [isOpen, initialItem, categories, defaultCategoryId, defaultModel]);
-
-  if (!isOpen) return null;
+// --- 2. 主元件 WorkLog ---
+// 增加 records = [] 與 customers = [] 預設值
+const WorkLog = ({ 
+  records = [], customers = [], setCurrentView, showToast 
+}) => {
   
+  // 狀態管理
+  const [inputValue, setInputValue] = useState(''); 
+  const [debouncedSearch, setDebouncedSearch] = useState(''); 
+  const [activeDateTab, setActiveDateTab] = useState('today'); 
+  const [dateRange, setDateRange] = useState({ start: '', end: '' });
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
+
+  // 初始化：預設選中「今日」
+  useEffect(() => {
+    handleDateTabClick('today');
+  }, []);
+
+  // 搜尋防抖動
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(inputValue);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [inputValue]);
+
+  // 日期快速設定
+  const handleDateTabClick = (type) => {
+    setActiveDateTab(type);
+    const today = new Date();
+    const formatDate = (date) => date.toLocaleDateString('en-CA');
+
+    if (type === 'all') {
+        setDateRange({ start: '', end: '' });
+        setShowDatePicker(false);
+    } else if (type === 'today') {
+        const str = formatDate(today);
+        setDateRange({ start: str, end: str });
+        setShowDatePicker(false);
+    } else if (type === 'yesterday') {
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        const str = formatDate(yesterday);
+        setDateRange({ start: str, end: str });
+        setShowDatePicker(false);
+    } else if (type === 'week') {
+        const day = today.getDay(); 
+        const diff = today.getDate() - day + (day === 0 ? -6 : 1); 
+        const monday = new Date(today.setDate(diff));
+        const sunday = new Date(monday);
+        sunday.setDate(monday.getDate() + 6);
+        setDateRange({ start: formatDate(monday), end: formatDate(sunday) });
+        setShowDatePicker(false);
+    } else if (type === 'month') {
+        const first = new Date(today.getFullYear(), today.getMonth(), 1);
+        const last = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+        setDateRange({ start: formatDate(first), end: formatDate(last) });
+        setShowDatePicker(false);
+    } else if (type === 'custom') {
+        setShowDatePicker(!showDatePicker);
+    }
+  };
+
+  // 資料篩選 (增加 records 存在性檢查)
+  const filteredRecords = useMemo(() => {
+    // 增加防呆：如果 records 不是陣列，回傳空陣列
+    if (!Array.isArray(records)) return [];
+
+    return records.filter(r => {
+      // 確保 customers 是陣列
+      const cust = Array.isArray(customers) ? customers.find(c => c.customerID === r.customerID) : null;
+      const custName = cust ? cust.name.toLowerCase() : '';
+      const fault = (r.fault || '').toLowerCase();
+      const solution = (r.solution || '').toLowerCase();
+      const partsText = (Array.isArray(r.parts)) ? r.parts.map(p => p.name).join(' ').toLowerCase() : '';
+      const searchLower = debouncedSearch.toLowerCase();
+
+      // 關鍵字搜尋
+      const matchesSearch = 
+        custName.includes(searchLower) || 
+        fault.includes(searchLower) || 
+        solution.includes(searchLower) ||
+        partsText.includes(searchLower);
+
+      // 日期篩選
+      let matchesDate = true;
+      if (dateRange.start || dateRange.end) {
+        const recordDate = r.status === 'completed' && r.completedDate ? r.completedDate : r.date;
+        if (dateRange.start) matchesDate = matchesDate && (recordDate >= dateRange.start);
+        if (dateRange.end) matchesDate = matchesDate && (recordDate <= dateRange.end);
+      }
+
+      return matchesSearch && matchesDate;
+    }).sort((a, b) => {
+       const dateA = a.status === 'completed' && a.completedDate ? a.completedDate : a.date;
+       const dateB = b.status === 'completed' && b.completedDate ? b.completedDate : b.date;
+       return new Date(dateB) - new Date(dateA);
+    });
+  }, [records, customers, debouncedSearch, dateRange]);
+
+  // 取得當前日期的顯示文字
+  const getDateLabel = () => {
+      if(activeDateTab === 'today') return '今日';
+      if(activeDateTab === 'yesterday') return '昨日';
+      if(dateRange.start && dateRange.end) return `${dateRange.start} ~ ${dateRange.end}`;
+      if(dateRange.start) return `${dateRange.start} 之後`;
+      return '全部紀錄';
+  };
+
   return (
-    <div className="fixed inset-0 bg-black/60 z-[80] flex items-center justify-center p-4 animate-in fade-in" onClick={onClose}>
-      <div 
-        className="bg-white w-full max-w-sm rounded-2xl shadow-2xl flex flex-col max-h-[85vh]"
-        onClick={e => { e.stopPropagation(); setShowModelSuggestions(false); }}
-      >
-        <div className="flex justify-between items-center p-5 border-b border-gray-100 flex-shrink-0">
-           <h3 className="text-xl font-bold text-slate-800">{initialItem ? '編輯項目' : '新增項目'}</h3>
-           {initialItem && <button onClick={() => { if(window.confirm(`確定要刪除「${formData.name}」嗎？`)) onDelete(formData.id); }} className="p-2 bg-rose-50 text-rose-500 rounded-xl hover:bg-rose-100 transition-colors"><Trash2 size={20}/></button>}
-        </div>
-        
-        <div className="p-6 overflow-y-auto space-y-4 flex-1">
-           <div>
-              <label className="text-sm font-bold text-slate-500 block mb-2">所屬分類</label>
-              <select className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none text-slate-800 font-bold text-base" value={formData.categoryId} onChange={e => setFormData({...formData, categoryId: e.target.value})}>
-                  {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
-           </div>
-           
-           <div className="relative">
-             <label className="text-sm font-bold text-slate-500 block mb-2">歸屬型號 (資料夾名稱)</label>
-             <div className="relative">
-                 <input 
-                     className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none font-bold text-base" 
-                     placeholder="輸入或從下方選擇..."
-                     value={formData.model} 
-                     onChange={e => {
-                         setFormData({...formData, model: e.target.value});
-                         setShowModelSuggestions(true);
-                     }}
-                     onFocus={() => setShowModelSuggestions(true)}
-                     onClick={(e) => { e.stopPropagation(); setShowModelSuggestions(true); }}
-                 />
-                 <div className="absolute right-3 top-3.5 text-slate-400 pointer-events-none"><ChevronDown size={16}/></div>
+    <div className="bg-slate-50 min-h-screen pb-24 font-sans flex flex-col">
+      {/* --- 頂部固定區塊 --- */}
+      <div className="bg-white/95 backdrop-blur shadow-sm sticky top-0 z-30 border-b border-slate-100/50">
+         
+         <div className="px-4 py-3 flex items-center justify-between">
+             <div className="flex items-center">
+                <button onClick={() => setCurrentView('dashboard')} className="p-2 -ml-2 text-slate-600 hover:bg-slate-100 rounded-full"><ArrowLeft size={22}/></button>
+                <h2 className="text-lg font-bold text-slate-800 ml-1">工作日誌</h2>
              </div>
-             
-             {showModelSuggestions && modelSuggestions.length > 0 && (
-                 <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-40 overflow-y-auto animate-in fade-in slide-in-from-top-1">
-                     {modelSuggestions.map(m => (
-                         <div 
-                             key={m}
-                             className="p-3 hover:bg-blue-50 cursor-pointer text-slate-700 font-bold border-b border-slate-50 last:border-0"
-                             onClick={(e) => {
-                                 e.stopPropagation();
-                                 setFormData({...formData, model: m});
-                                 setShowModelSuggestions(false);
-                             }}
-                         >
-                             {m}
-                         </div>
-                     ))}
-                 </div>
-             )}
-             <p className="text-xs text-slate-400 mt-1">相同型號的零件會自動歸類在同一個資料夾中。</p>
-           </div>
+             <button 
+                onClick={() => setShowReportModal(true)}
+                className="p-2 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 transition-colors flex items-center gap-1"
+             >
+                <FileText size={20}/>
+             </button>
+         </div>
 
-           <div><label className="text-sm font-bold text-slate-500 block mb-2">品名</label><input placeholder="例: 黃色碳粉" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none text-base text-slate-800 font-bold placeholder:font-normal" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} /></div>
-           <div className="grid grid-cols-3 gap-3">
-              <div className="col-span-1">
-                <label className="text-xs font-bold text-slate-400 block mb-1.5 text-center">數量</label>
-                <input 
-                  type="number"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none text-center font-mono font-bold text-xl text-blue-600" 
-                  value={formData.qty} 
-                  onChange={e => setFormData({...formData, qty: Number(e.target.value)})}
-                  onFocus={e => e.target.select()}
-                />
-              </div>
-              <div className="col-span-1">
-                <label className="text-xs font-bold text-slate-400 block mb-1.5 text-center">應備</label>
-                <input 
-                  type="number"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none text-center font-mono font-bold text-base" 
-                  value={formData.max} 
-                  onChange={e => setFormData({...formData, max: Number(e.target.value)})}
-                  onFocus={e => e.target.select()}
-                />
-              </div>
-              <div className="col-span-1"><label className="text-xs font-bold text-slate-400 block mb-1.5 text-center">單位</label><input placeholder="個" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none text-center font-bold text-base" value={formData.unit} onChange={e => setFormData({...formData, unit: e.target.value})} /></div>
-           </div>
-        </div>
+         <div className="px-4 pb-2 relative">
+            <Search size={16} className="absolute left-7 top-2.5 text-slate-400" />
+            <input 
+                className="w-full bg-slate-100 border-none rounded-xl py-2 pl-9 pr-8 text-sm outline-none font-medium text-slate-700 placeholder-slate-400 focus:bg-white focus:ring-2 focus:ring-blue-100 transition-all" 
+                placeholder="搜尋客戶、故障、處理內容..." 
+                value={inputValue} 
+                onChange={e => setInputValue(e.target.value)} 
+            />
+            {inputValue && <button onClick={() => setInputValue('')} className="absolute right-6 top-2 text-slate-400"><X size={16}/></button>}
+         </div>
 
-        <div className="p-5 border-t border-gray-100 flex gap-3 flex-shrink-0 bg-white rounded-b-2xl">
-            <button onClick={onClose} className="flex-1 py-3 bg-slate-100 font-bold text-slate-500 rounded-xl hover:bg-slate-200 transition-colors text-base">取消</button>
-            <button onClick={() => { if(formData.name && formData.model) onSave(formData); }} className="flex-1 py-3 bg-blue-600 font-bold text-white rounded-xl shadow-lg shadow-blue-200 hover:bg-blue-700 transition-colors active:scale-95 text-base">儲存</button>
-        </div>
-      </div>
-    </div>
-  );
-};
+         <div className="px-4 pb-3 flex gap-2 overflow-x-auto no-scrollbar items-center">
+            {[
+                { id: 'all', label: '全部' },
+                { id: 'today', label: '今日' },
+                { id: 'yesterday', label: '昨日' },
+                { id: 'week', label: '本週' },
+                { id: 'month', label: '本月' },
+            ].map(btn => (
+                <button
+                    key={btn.id}
+                    onClick={() => handleDateTabClick(btn.id)}
+                    className={`whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-bold transition-all border ${
+                        activeDateTab === btn.id 
+                            ? 'bg-slate-800 text-white border-slate-800 shadow-sm' 
+                            : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
+                    }`}
+                >
+                    {btn.label}
+                </button>
+            ))}
+            
+            <button 
+                onClick={() => handleDateTabClick('custom')}
+                className={`whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-bold transition-all border flex items-center gap-1 ${
+                    activeDateTab === 'custom'
+                        ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                        : 'bg-white text-blue-600 border-blue-100 hover:bg-blue-50'
+                }`}
+            >
+                <Calendar size={12}/> 
+                {dateRange.start && activeDateTab === 'custom' ? '範圍' : '自訂'}
+            </button>
+         </div>
 
-// --- Category Manager ---
-const CategoryManagerModal = ({ isOpen, onClose, categories, onSaveCategories }) => {
-    const [localCats, setLocalCats] = useState([]);
-    useEffect(() => { setLocalCats(categories); }, [categories, isOpen]);
-    const handleAdd = () => setLocalCats([...localCats, { id: `cat_${Date.now()}`, name: '新分類', icon: 'Box', color: 'text-slate-600', bg: 'bg-slate-100', border: 'border-slate-200' }]);
-    const handleChange = (id, val) => setLocalCats(localCats.map(c => c.id === id ? { ...c, name: val } : c));
-    const handleDelete = (id) => { if(window.confirm('確定刪除？商品將變為未分類。')) setLocalCats(localCats.filter(c => c.id !== id)); };
-    if(!isOpen) return null;
-    return (
-        <div className="fixed inset-0 bg-black/60 z-[90] flex items-center justify-center p-4 animate-in fade-in" onClick={onClose}>
-            <div className="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
-                <h3 className="text-xl font-bold text-slate-800 mb-4 flex items-center"><Settings className="mr-2"/> 管理分類</h3>
-                <div className="flex-1 overflow-y-auto space-y-3 mb-4 pr-1">
-                    {localCats.map(cat => (
-                        <div key={cat.id} className="flex items-center gap-2 p-2 border rounded-xl bg-slate-50">
-                            <div className={`p-2 rounded-lg ${cat.bg} ${cat.color}`}><Box size={20}/></div>
-                            <input className="flex-1 bg-transparent font-bold outline-none text-slate-700" value={cat.name} onChange={e => handleChange(cat.id, e.target.value)} />
-                            <button onClick={() => handleDelete(cat.id)} className="p-2 text-rose-400 hover:bg-rose-50 rounded"><Trash2 size={18}/></button>
-                        </div>
-                    ))}
-                    <button onClick={handleAdd} className="w-full py-3 border-2 border-dashed border-slate-200 rounded-xl text-slate-400 font-bold flex items-center justify-center"><Plus size={18} className="mr-1"/> 新增分類</button>
-                </div>
-                <div className="flex gap-3">
-                    <button onClick={onClose} className="flex-1 py-3 bg-slate-100 font-bold text-slate-500 rounded-xl">取消</button>
-                    <button onClick={() => { onSaveCategories(localCats); onClose(); }} className="flex-1 py-3 bg-blue-600 font-bold text-white rounded-xl shadow-lg">儲存</button>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-// --- Sortable Components ---
-const SortableBigCategory = ({ category, count, onClick, isActive }) => {
-    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: category.id });
-    const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1, zIndex: isDragging ? 50 : 'auto' };
-    const Icon = ICON_MAP[category.icon] || Box;
-    return (
-        <div ref={setNodeRef} style={style} className={`w-full bg-white p-4 rounded-2xl shadow-sm border flex items-center active:scale-[0.98] transition-all group mb-3 relative cursor-pointer ${isActive ? 'border-blue-500 ring-2 ring-blue-100' : 'border-slate-100 hover:border-blue-200'}`} onClick={onClick}>
-            <div className={`p-3.5 rounded-2xl mr-4 border transition-colors shadow-sm ${category.bg} ${category.color} ${category.border}`}>
-                <Icon size={24} strokeWidth={2.5} />
-            </div>
-            <div className="flex-1 text-left min-w-0">
-                <h3 className="text-base font-bold text-slate-700 truncate mb-0.5">{category.name}</h3>
-                <span className="text-xs font-bold text-slate-400 mt-1 block">共 {count} 個項目</span>
-            </div>
-            <div {...attributes} {...listeners} style={{ touchAction: 'none' }} className="text-slate-300 cursor-grab active:cursor-grabbing hover:text-slate-500 p-3" onClick={e => e.stopPropagation()}><GripVertical size={20} /></div>
-        </div>
-    );
-};
-
-const SortableModelRow = ({ id, title, count, lowStock, onClick }) => {
-    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
-    const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1, zIndex: isDragging ? 50 : 'auto' };
-    return (
-        <div ref={setNodeRef} style={style} onClick={onClick} className="bg-white p-3.5 rounded-xl border border-slate-100 shadow-[0_1px_3px_rgb(0,0,0,0.02)] active:scale-[0.99] transition-all cursor-pointer flex items-center justify-between mb-3 hover:border-blue-200 hover:shadow-md group">
-            <div className="flex items-center flex-1 min-w-0">
-                <div className={`p-2.5 rounded-lg mr-3.5 shrink-0 bg-slate-50 text-slate-500`}><FolderPlus size={20} /></div>
-                <div className="min-w-0">
-                    <h3 className="text-base font-extrabold text-slate-800 truncate mb-0.5">{title}</h3>
-                    <div className="flex items-center gap-2 text-xs font-bold text-slate-400">
-                        <span>{count} 個項目</span>
-                        {lowStock > 0 && <span className="text-rose-500 flex items-center bg-rose-50 px-1.5 py-0.5 rounded"><AlertTriangle size={10} className="mr-0.5"/> {lowStock} 缺</span>}
+         {showDatePicker && activeDateTab === 'custom' && (
+            <div className="px-4 pb-3 animate-in slide-in-from-top-2">
+                <div className="bg-white border border-blue-200 rounded-xl p-3 shadow-lg bg-blue-50/50">
+                    <div className="flex gap-2 items-center">
+                        <input type="date" className="flex-1 border border-blue-200 p-2 rounded-lg text-sm font-bold text-slate-700 outline-none" value={dateRange.start} onChange={e => setDateRange({...dateRange, start: e.target.value})} />
+                        <span className="text-blue-300 font-bold">~</span>
+                        <input type="date" className="flex-1 border border-blue-200 p-2 rounded-lg text-sm font-bold text-slate-700 outline-none" value={dateRange.end} onChange={e => setDateRange({...dateRange, end: e.target.value})} />
                     </div>
                 </div>
             </div>
-            <div className="flex items-center pl-2 gap-1">
-                <div {...attributes} {...listeners} style={{ touchAction: 'none' }} className="text-slate-300 cursor-grab active:cursor-grabbing hover:text-slate-500 p-2" onClick={e => e.stopPropagation()}><GripVertical size={20} /></div>
-                <ChevronRight className="text-slate-300 group-hover:text-blue-400 transition-colors" size={20} />
-            </div>
-        </div>
-    );
-};
-
-const SortableItemRow = ({ item, onEdit, onRestock, isLast }) => {
-    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
-    const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1, zIndex: isDragging ? 50 : 'auto' };
-    const isOut = item.qty <= 0;
-    const rowClass = isOut ? "bg-rose-50/60" : "bg-white hover:bg-slate-50";
-    const textClass = isOut ? "text-rose-700" : "text-slate-700";
-    const borderClass = isLast ? "" : "border-b border-slate-100";
-    return (
-        <div ref={setNodeRef} style={style} className={`flex items-center justify-between py-3 px-4 transition-colors ${rowClass} ${borderClass} group touch-manipulation`}>
-            <div className="flex items-center flex-1 min-w-0 mr-3 cursor-pointer" onClick={() => onEdit(item)}>
-                <div className="flex items-baseline truncate">
-                    <span className={`text-base font-bold truncate ${textClass}`}>{item.name}</span>
-                    <span className="text-sm text-slate-400 ml-1.5 shrink-0">({item.unit})</span>
-                </div>
-                {isOut && <span className="ml-3 px-2 py-0.5 bg-rose-200 text-rose-700 text-[10px] font-black rounded shrink-0 self-center">缺貨</span>}
-            </div>
-            <div className="flex items-center gap-3 shrink-0">
-                <div className={`font-mono font-bold text-lg ${isOut ? 'text-rose-600' : 'text-blue-600'}`}>
-                    {item.qty} <span className="text-slate-300 text-xs font-bold">/ {item.max}</span>
-                </div>
-                {item.qty < item.max ? (
-                    <button onClick={() => onRestock(item.id, item.max)} className="p-1.5 rounded-lg bg-blue-100 text-blue-600 hover:bg-blue-600 hover:text-white transition-colors shadow-sm active:scale-90"><RotateCcw size={18} /></button>
-                ) : ( <div className="p-1.5 text-emerald-400"><CheckCircle size={20} /></div> )}
-                <div {...attributes} {...listeners} style={{ touchAction: 'none' }} className="text-slate-300 cursor-grab active:cursor-grabbing hover:text-slate-500 p-1 pl-2 border-l border-slate-100" onClick={e => e.stopPropagation()}>
-                    <GripVertical size={18} />
-                </div>
-            </div>
-        </div>
-    );
-};
-
-// --- Main Component ---
-const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteInventory, onBack }) => {
-  const [categories, setCategories] = useState(() => { try { return JSON.parse(localStorage.getItem('inventoryCategories')) || DEFAULT_CATEGORIES; } catch { return DEFAULT_CATEGORIES; } });
-  const [selectedCatId, setSelectedCatId] = useState(null); 
-  const [activeModel, setActiveModel] = useState(null); 
-  const [editingItem, setEditingItem] = useState(null);
-  const [isAddMode, setIsAddMode] = useState(false);
-  const [isCatManagerOpen, setIsCatManagerOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState(''); 
-  const [showReport, setShowReport] = useState(false);
-  const [modelOrder, setModelOrder] = useState(() => { try { return JSON.parse(localStorage.getItem('invModelOrder')) || []; } catch { return []; } });
-  const [itemOrder, setItemOrder] = useState(() => { try { return JSON.parse(localStorage.getItem('invItemOrder')) || []; } catch { return []; } });
-
-  useEffect(() => { localStorage.setItem('inventoryCategories', JSON.stringify(categories)); }, [categories]);
-  useEffect(() => { localStorage.setItem('invModelOrder', JSON.stringify(modelOrder)); }, [modelOrder]);
-  useEffect(() => { localStorage.setItem('invItemOrder', JSON.stringify(itemOrder)); }, [itemOrder]);
-
-  useEffect(() => {
-      let hasChanges = false;
-      const newInventory = inventory.map(item => {
-          if (!item.categoryId) {
-              hasChanges = true;
-              return { ...item, categoryId: migrateCategory(item.model, item) };
-          }
-          return item;
-      });
-  }, [inventory]);
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } })
-  );
-
-  const itemsInCurrentCat = useMemo(() => {
-      if (!selectedCatId) return [];
-      return inventory.filter(i => (i.categoryId || migrateCategory(i.model, i)) === selectedCatId);
-  }, [inventory, selectedCatId]);
-
-  const folders = useMemo(() => {
-      const groups = {};
-      itemsInCurrentCat.forEach(item => {
-          const m = item.model || '未分類';
-          if (!groups[m]) groups[m] = [];
-          groups[m].push(item);
-      });
-      return Object.keys(groups).sort((a, b) => {
-          const idxA = modelOrder.indexOf(a);
-          const idxB = modelOrder.indexOf(b);
-          if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-          return a.localeCompare(b);
-      });
-  }, [itemsInCurrentCat, modelOrder]);
-
-  const currentItems = useMemo(() => {
-      let list = itemsInCurrentCat;
-      if (activeModel) list = list.filter(i => (i.model || '未分類') === activeModel);
-      else if (searchTerm) list = inventory.filter(i => i.name.toLowerCase().includes(searchTerm.toLowerCase()));
-      else return [];
-      
-      const strItemOrder = itemOrder.map(String);
-      return list.sort((a, b) => {
-          const idxA = strItemOrder.indexOf(String(a.id));
-          const idxB = strItemOrder.indexOf(String(b.id));
-          if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-          return a.name.localeCompare(b.name);
-      });
-  }, [itemsInCurrentCat, activeModel, searchTerm, inventory, itemOrder]);
-
-  const catCounts = useMemo(() => {
-      const counts = {};
-      inventory.forEach(i => { const cid = i.categoryId || migrateCategory(i.model, i); counts[cid] = (counts[cid] || 0) + 1; });
-      return counts;
-  }, [inventory]);
-
-  const handleDragEnd = (event) => {
-      const { active, over } = event;
-      if (!over || active.id === over.id) return;
-      if (!selectedCatId) {
-          const oldIdx = categories.findIndex(c => c.id === active.id);
-          const newIdx = categories.findIndex(c => c.id === over.id);
-          setCategories(arrayMove(categories, oldIdx, newIdx));
-      } else if (!activeModel) {
-          setModelOrder(prev => {
-             const newOrder = [...prev];
-             folders.forEach(f => { if(!newOrder.includes(f)) newOrder.push(f); });
-             return arrayMove(newOrder, newOrder.indexOf(active.id), newOrder.indexOf(over.id));
-          });
-      } else {
-          const currentIds = currentItems.map(i => String(i.id));
-          if (currentIds.includes(String(active.id))) {
-              setItemOrder(prev => {
-                  const newOrder = arrayMove(currentIds, currentIds.indexOf(String(active.id)), currentIds.indexOf(String(over.id)));
-                  const prevStrings = prev.map(String);
-                  const otherItems = prevStrings.filter(id => !currentIds.includes(id));
-                  return [...otherItems, ...newOrder];
-              });
-          }
-      }
-  };
-
-  const handleBack = () => {
-      if (activeModel) setActiveModel(null);
-      else if (selectedCatId) setSelectedCatId(null);
-      else onBack();
-      setSearchTerm('');
-  };
-
-  return (
-    <div className="bg-slate-50 min-h-screen pb-24 flex flex-col font-sans">
-       <div className="bg-white/95 backdrop-blur px-4 py-3 shadow-sm sticky top-0 z-30 border-b border-slate-100/50">
-         <div className="flex justify-between items-center mb-3">
-            <div className="flex items-center overflow-hidden flex-1">
-              <button onClick={handleBack} className="p-2 -ml-2 text-slate-500 hover:bg-slate-50 rounded-full mr-1 transition-colors"><ArrowLeft size={24}/></button>
-              <h2 className="text-xl font-extrabold text-slate-800 tracking-wide truncate">
-                  {activeModel || (selectedCatId ? categories.find(c=>c.id===selectedCatId)?.name : '庫存管理')}
-              </h2>
-            </div>
-            <div className="flex items-center gap-2">
-                {!selectedCatId && !activeModel && (
-                    <>
-                        <button onClick={() => setIsCatManagerOpen(true)} className="p-2 bg-slate-100 text-slate-600 rounded-xl hover:bg-blue-50 hover:text-blue-600"><Settings size={20}/></button>
-                        <button onClick={() => setShowReport(true)} className="p-2 bg-slate-100 text-slate-600 rounded-xl hover:bg-blue-50 hover:text-blue-600"><FileText size={20}/></button>
-                    </>
-                )}
-                <button onClick={() => setIsAddMode(true)} className="flex items-center text-sm font-bold bg-blue-600 text-white px-3 py-2 rounded-xl shadow-lg shadow-blue-200 hover:bg-blue-700 active:scale-95 transition-all"><Plus size={20} className="mr-1"/>新增</button>
-            </div>
-         </div>
-         {!activeModel && (
-             <div className="relative animate-in fade-in slide-in-from-top-1 mb-1">
-                <Search size={20} className="absolute left-3 top-2.5 text-slate-400" />
-                <input className="w-full bg-slate-100 border-none rounded-xl py-2 pl-10 pr-4 text-base outline-none focus:ring-2 focus:ring-blue-100 font-bold text-slate-700 transition-all placeholder-slate-400" placeholder="搜尋零件..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
-             </div>
          )}
       </div>
 
-      <div className="p-4 flex-1">
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-              {!selectedCatId && !searchTerm && (
-                 <div className="space-y-1 animate-in slide-in-from-left-4 duration-300">
-                    <SortableContext items={categories.map(c => c.id)} strategy={verticalListSortingStrategy}>
-                        {categories.map(cat => <SortableBigCategory key={cat.id} category={cat} count={catCounts[cat.id] || 0} onClick={() => setSelectedCatId(cat.id)} />)}
-                    </SortableContext>
-                 </div>
-              )}
-              {selectedCatId && !activeModel && !searchTerm && (
-                  <div className="animate-in slide-in-from-right-4 duration-300 space-y-1">
-                      {folders.length === 0 ? <div className="col-span-full text-center text-slate-400 mt-20"><Box size={48} className="mx-auto mb-3 opacity-20"/><p className="font-bold">此分類無項目</p></div> : (
-                          <SortableContext items={folders} strategy={verticalListSortingStrategy}>
-                              {folders.map(model => <SortableModelRow key={model} id={model} title={model} count={itemsInCurrentCat.filter(i => (i.model || '未分類') === model).length} lowStock={itemsInCurrentCat.filter(i => (i.model || '未分類') === model && i.qty <= 0).length} onClick={() => setActiveModel(model)} />)}
-                          </SortableContext>
-                      )}
-                  </div>
-              )}
-              {(activeModel || searchTerm) && (
-                  <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm animate-in slide-in-from-right-4 duration-300">
-                       {currentItems.length === 0 ? <div className="p-8 text-center text-slate-400">沒有找到項目</div> : (
-                           <SortableContext items={currentItems.map(i => i.id)} strategy={verticalListSortingStrategy}>
-                                {currentItems.map((item, idx) => (
-                                    <SortableItemRow key={item.id} item={item} isLast={idx === currentItems.length - 1} onEdit={setEditingItem} onRestock={(id, max) => {const i = inventory.find(x=>x.id===id); if(i) onUpdateInventory({...i, qty: max})}} />
-                                ))}
-                           </SortableContext>
-                       )}
-                  </div>
-              )}
-          </DndContext>
+      <div className="flex-1 overflow-y-auto bg-slate-50 p-2 space-y-3">
+        {filteredRecords.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 opacity-40">
+                <Search size={48} className="text-slate-300 mb-2" />
+                <p className="font-bold text-slate-400">查無資料</p>
+            </div>
+        ) : (
+            filteredRecords.map(r => {
+                const cust = Array.isArray(customers) ? customers.find(c => c.customerID === r.customerID) : null;
+                
+                let borderClass = 'border-l-4 border-l-slate-300';
+                let statusLabel = '觀察';
+                let statusBg = 'bg-slate-100 text-slate-500';
+
+                if(r.status === 'completed') {
+                    borderClass = 'border-l-4 border-l-emerald-500';
+                    statusLabel = '完修';
+                    statusBg = 'bg-emerald-50 text-emerald-600';
+                } else if(r.status === 'pending' || r.status === 'tracking') {
+                    borderClass = 'border-l-4 border-l-amber-500';
+                    statusLabel = '待料';
+                    statusBg = 'bg-amber-50 text-amber-600';
+                } else if (r.status === 'monitor') {
+                    borderClass = 'border-l-4 border-l-blue-500';
+                    statusLabel = '觀察';
+                    statusBg = 'bg-blue-50 text-blue-600';
+                }
+
+                return (
+                    <div 
+                      key={r.id} 
+                      className={`bg-white p-4 shadow-sm border border-slate-100 rounded-r-xl ${borderClass}`}
+                    >
+                        <div className="flex justify-between items-start mb-2">
+                            <div className="text-base text-slate-800 font-bold flex items-center flex-wrap">
+                                <User size={16} className="text-slate-400 mr-2 shrink-0"/>
+                                <span className="mr-1">{cust?.name || '未知客戶'}</span>
+                                {cust?.assets?.[0]?.model && <span className="text-slate-500 font-normal">({cust.assets[0].model})</span>}
+                            </div>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${statusBg}`}>
+                                {statusLabel}
+                            </span>
+                        </div>
+
+                        <div className="flex items-start mb-2 text-base text-slate-700">
+                            <AlertCircle size={16} className="text-slate-400 mr-2 mt-1 shrink-0"/>
+                            <span>{r.fault || r.symptom || '無故障描述'}</span>
+                        </div>
+
+                        <div className="flex items-start mb-2 text-base text-slate-700 whitespace-pre-wrap">
+                            <Wrench size={16} className="text-slate-400 mr-2 mt-1 shrink-0"/>
+                            <span>{r.solution || r.action || '無處理內容'}</span>
+                        </div>
+
+                        {Array.isArray(r.parts) && r.parts.length > 0 && (
+                            <div className="flex items-start mb-2 text-base text-purple-700">
+                                <Package size={16} className="text-purple-400 mr-2 mt-1 shrink-0"/>
+                                <span className="font-bold">{r.parts.map(p => `${p.name} x${p.qty}`).join('、')}</span>
+                            </div>
+                        )}
+
+                        <div className="text-xs text-slate-400 mt-2 text-right border-t border-slate-50 pt-2 flex items-center justify-end gap-1">
+                           <Clock size={12}/> {r.date}
+                        </div>
+                    </div>
+                )
+            })
+        )}
       </div>
 
-      <EditInventoryModal isOpen={!!editingItem || isAddMode} onClose={() => { setEditingItem(null); setIsAddMode(false); }} onSave={(data) => { if (isAddMode) onAddInventory(data); else onUpdateInventory(data); setIsAddMode(false); setEditingItem(null); }} onDelete={onDeleteInventory} initialItem={editingItem} categories={categories} defaultCategoryId={selectedCatId} defaultModel={activeModel} inventory={inventory} />
-      <CategoryManagerModal isOpen={isCatManagerOpen} onClose={() => setIsCatManagerOpen(false)} categories={categories} onSaveCategories={setCategories} />
-      <ReportModal isOpen={showReport} onClose={() => setShowReport(false)} inventory={inventory} categories={categories} modelOrder={modelOrder} itemOrder={itemOrder} />
+      <WorkLogReportModal 
+         isOpen={showReportModal} 
+         onClose={() => setShowReportModal(false)} 
+         records={filteredRecords}
+         customers={customers}
+         dateLabel={getDateLabel()}
+      />
+
+      <style>{`
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      `}</style>
     </div>
   );
 };
 
-export default InventoryView;
+export default WorkLog;
