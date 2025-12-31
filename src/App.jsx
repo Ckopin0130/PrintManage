@@ -857,7 +857,7 @@ export default function App() {
 
       {(currentView === 'add_record' || currentView === 'edit_record') && (
         <RecordForm 
-           initialData={editingRecordData} onSubmit={handleSaveRecord} inventory={inventory}
+           initialData={editingRecordData} onSubmit={handleSaveRecord} inventory={inventory} customers={customers}
            onCancel={() => {
              if (previousView) {
                setCurrentView(previousView);

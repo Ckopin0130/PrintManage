@@ -75,7 +75,7 @@ const uploadImageToStorage = async (base64String, path) => {
 };
 
 // --- 3. 元件本體 ---
-const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) => {
+const RecordForm = ({ initialData, onSubmit, onCancel, inventory }) => {
     // --- State 定義 ---
     const [form, setForm] = useState(initialData);
     // 修改：將 previews 改為陣列結構，支援多張照片
@@ -159,14 +159,6 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
     }, [initialData]);
 
     const pageTitle = form.id ? '編輯維修紀錄' : '新增維修紀錄';
-    
-    // 獲取客戶信息（用於顯示機器型號）
-    const customer = useMemo(() => {
-        if (!form.customerID || !customers) return null;
-        return customers.find(c => c.customerID === form.customerID);
-    }, [form.customerID, customers]);
-    
-    const customerMachineModel = customer?.assets?.[0]?.model || '';
 
     // --- 4. 邏輯處理區 ---
 
@@ -481,70 +473,20 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
     };
 
     // --- 輔助計算 ---
-    // 零件分類定義
-    const PART_CATEGORIES = [
-        { id: 'cat_toner', name: '碳粉', color: 'bg-purple-100 text-purple-700' },
-        { id: 'cat_color', name: '彩色', color: 'bg-pink-100 text-pink-700' },
-        { id: 'cat_bw', name: '黑白', color: 'bg-gray-100 text-gray-700' },
-        { id: 'cat_common', name: '共用耗材', color: 'bg-blue-100 text-blue-700' },
-        { id: 'cat_other', name: '其他', color: 'bg-slate-100 text-slate-700' }
-    ];
-    
-    // 遷移分類函數（與 Inventory 一致）
-    const migrateCategory = (modelName, item) => {
-        if (item.categoryId) return item.categoryId;
-        const up = (modelName || '').toUpperCase();
-        if (item.categoryType === 'TONER' || up.includes('碳粉') || up.includes('TONER') || up.includes('INK')) return 'cat_toner';
-        if (item.categoryType === 'COLOR' || up.includes(' C') || up.includes('MPC') || up.includes('IMC') || up.includes('彩色')) return 'cat_color';
-        if (item.categoryType === 'BW' || up.includes('MP') || up.includes('IM') || up.includes('AFICIO') || up.includes('黑白')) return 'cat_bw';
-        if (item.categoryType === 'COMMON' || up.includes('耗材') || up.includes('共用') || up.includes('COMMON')) return 'cat_common';
-        return 'cat_other';
-    };
-    
     const uniqueModels = useMemo(() => {
         const models = new Set(inventory.map(i => i.model).filter(Boolean));
         return ['ALL', ...Array.from(models).sort()];
     }, [inventory]);
 
-    // 修復：根據客戶機器型號過濾零件，並按分類分組
     const filteredInventory = useMemo(() => {
-        let items = inventory.filter(item => {
+        return inventory.filter(item => {
             const matchModel = selectedModel === 'ALL' || item.model === selectedModel;
             const matchSearch = partSearch === '' || 
                                 item.name.toLowerCase().includes(partSearch.toLowerCase()) || 
                                 item.model.toLowerCase().includes(partSearch.toLowerCase());
             return matchModel && matchSearch;
         });
-        
-        // 如果客戶有機器型號，優先顯示匹配的零件
-        if (customerMachineModel) {
-            items = items.sort((a, b) => {
-                const aMatch = a.model === customerMachineModel || !a.model || a.model === '通用' || a.model === '未分類';
-                const bMatch = b.model === customerMachineModel || !b.model || b.model === '通用' || b.model === '未分類';
-                // 完全匹配的優先，然後是通用零件
-                if (a.model === customerMachineModel && b.model !== customerMachineModel) return -1;
-                if (a.model !== customerMachineModel && b.model === customerMachineModel) return 1;
-                if ((!a.model || a.model === '通用' || a.model === '未分類') && b.model && b.model !== '通用' && b.model !== '未分類') return -1;
-                if (a.model && a.model !== '通用' && a.model !== '未分類' && (!b.model || b.model === '通用' || b.model === '未分類')) return 1;
-                return 0;
-            });
-        }
-        
-        return items;
-    }, [inventory, selectedModel, partSearch, customerMachineModel]);
-    
-    // 按分類分組
-    const inventoryByCategory = useMemo(() => {
-        const grouped = {};
-        filteredInventory.forEach(item => {
-            const categoryId = item.categoryId || migrateCategory(item.model, item);
-            if (!grouped[categoryId]) {
-                grouped[categoryId] = [];
-            }
-            grouped[categoryId].push(item);
-        });
-        return grouped;
-    }, [filteredInventory]);
+    }, [inventory, selectedModel, partSearch]);
 
     // 取得當前標籤列表
     const getCurrentTabTags = () => {
@@ -566,18 +508,10 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
     return (
       <div className="bg-gray-100 min-h-screen pb-24 font-sans selection:bg-blue-100 flex flex-col">
         {/* Top Navigation */}
-        <div className="bg-white px-4 py-3 flex flex-col shadow-sm sticky top-0 z-40 shrink-0">
-            <div className="flex items-center">
-                <button onClick={onCancel} className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-full"><ArrowLeft /></button>
-                <h2 className="text-lg font-bold flex-1 text-center pr-8 text-slate-800">{pageTitle}</h2>
-                <div className="text-sm font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded-lg">{form.date}</div>
-            </div>
-            {/* 顯示機器型號 */}
-            {customerMachineModel && (
-                <div className="text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1 mx-auto mt-1 rounded-full">
-                    機型：{customerMachineModel}
-                </div>
-            )}
+        <div className="bg-white px-4 py-3 flex items-center shadow-sm sticky top-0 z-40 shrink-0">
+            <button onClick={onCancel} className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-full"><ArrowLeft /></button>
+            <h2 className="text-lg font-bold flex-1 text-center pr-8 text-slate-800">{pageTitle}</h2>
+            <div className="text-sm font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded-lg">{form.date}</div>
         </div>
 
         {/* Scrollable Content */}
@@ -710,11 +644,11 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
                     </div>
                 </div>
 
-                {/* 修復：例行巡檢也要有更換零件功能 */}
-                <div className="pt-4 border-t border-dashed border-gray-200">
-                    <button onClick={() => setIsPartModalOpen(true)} className="w-full py-3 bg-blue-50 text-blue-600 border border-blue-100 rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-blue-100 transition-colors">
-                        <Package size={18} /> 新增更換零件
-                    </button>
+                {(hasFaultFound || form.parts?.length > 0) && (
+                    <div className="pt-4 border-t border-dashed border-gray-200">
+                        <button onClick={() => setIsPartModalOpen(true)} className="w-full py-3 bg-blue-50 text-blue-600 border border-blue-100 rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-blue-100 transition-colors">
+                            <Package size={18} /> 新增更換零件
+                        </button>
                         {form.parts && form.parts.length > 0 && (
                             <div className="mt-3 space-y-2">
                                 {form.parts.map((part, index) => (
@@ -743,6 +677,7 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
                             </div>
                         )}
                     </div>
+                )}
             </section>
 
             {/* 4. 照片紀錄 */}
@@ -914,51 +849,27 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
                             ))}
                         </div>
                     </div>
-                    <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                        {/* 修復：按分類顯示零件 */}
-                        {PART_CATEGORIES.map(category => {
-                            const itemsInCategory = inventoryByCategory[category.id] || [];
-                            if (itemsInCategory.length === 0) return null;
-                            
+                    <div className="flex-1 overflow-y-auto p-4 space-y-2">
+                        {filteredInventory.map(item => {
+                            // 計算有效庫存 (原始庫存 - 表單已選)
+                            const effectiveStock = getEffectiveStock(item);
+                            const outOfStock = effectiveStock <= 0;
                             return (
-                                <div key={category.id} className="space-y-2">
-                                    <div className={`text-xs font-bold px-2 py-1 rounded ${category.color} w-fit`}>
-                                        {category.name}
+                                <button key={item.id} onClick={() => handleAddPart(item)} disabled={outOfStock} className={`w-full flex items-center justify-between p-3 rounded-xl border text-left active:scale-[0.98] ${outOfStock ? 'bg-gray-50 opacity-50' : 'bg-white hover:border-blue-300'}`}>
+                                    <div className="flex-1 mr-3 min-w-0">
+                                        <div className="font-bold text-slate-800 text-sm mb-1">{item.name}</div>
+                                        <div className="text-[10px] text-slate-400 bg-slate-50 px-2 py-0.5 rounded w-fit">{item.model || '通用'}</div>
                                     </div>
-                                    {itemsInCategory.map(item => {
-                                        // 計算有效庫存 (原始庫存 - 表單已選)
-                                        const effectiveStock = getEffectiveStock(item);
-                                        const outOfStock = effectiveStock <= 0;
-                                        const isMatchingModel = customerMachineModel && item.model === customerMachineModel;
-                                        return (
-                                            <button 
-                                                key={item.id} 
-                                                onClick={() => handleAddPart(item)} 
-                                                disabled={outOfStock} 
-                                                className={`w-full flex items-center justify-between p-3 rounded-xl border text-left active:scale-[0.98] ${outOfStock ? 'bg-gray-50 opacity-50' : isMatchingModel ? 'bg-blue-50 border-blue-300 hover:border-blue-400' : 'bg-white hover:border-blue-300'}`}
-                                            >
-                                                <div className="flex-1 mr-3 min-w-0">
-                                                    <div className="font-bold text-slate-800 text-sm mb-1 flex items-center gap-2">
-                                                        {item.name}
-                                                        {isMatchingModel && (
-                                                            <span className="text-[9px] bg-blue-200 text-blue-700 px-1.5 py-0.5 rounded font-bold">匹配</span>
-                                                        )}
-                                                    </div>
-                                                    <div className="text-[10px] text-slate-400 bg-slate-50 px-2 py-0.5 rounded w-fit">{item.model || '通用'}</div>
-                                                </div>
-                                                <div className="flex flex-col items-end">
-                                                    <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${outOfStock ? 'bg-rose-100 text-rose-600' : 'bg-emerald-100 text-emerald-600'}`}>
-                                                        {outOfStock ? '已用盡' : `庫存 ${effectiveStock}`}
-                                                    </span>
-                                                    {/* 顯示原始庫存對比 */}
-                                                    {effectiveStock < item.qty && (
-                                                        <span className="text-[9px] text-gray-400 mt-1">原庫存: {item.qty}</span>
-                                                    )}
-                                                </div>
-                                            </button>
-                                        );
-                                    })}
-                                </div>
+                                    <div className="flex flex-col items-end">
+                                        <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${outOfStock ? 'bg-rose-100 text-rose-600' : 'bg-emerald-100 text-emerald-600'}`}>
+                                            {outOfStock ? '已用盡' : `庫存 ${effectiveStock}`}
+                                        </span>
+                                        {/* 顯示原始庫存對比 */}
+                                        {effectiveStock < item.qty && (
+                                            <span className="text-[9px] text-gray-400 mt-1">原庫存: {item.qty}</span>
+                                        )}
+                                    </div>
+                                </button>
                             );
                         })}
                     </div>
