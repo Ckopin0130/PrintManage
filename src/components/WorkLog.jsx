@@ -4,7 +4,7 @@ import {
   Clock, FileText, Copy, Check
 } from 'lucide-react';
 
-// --- 1. 報表預覽視窗 (修正：符號後方移除所有空格) ---
+// --- 1. 報表預覽視窗 (修正：自動移除使用者輸入的 1. 2. 3. 編號) ---
 const WorkLogReportModal = ({ isOpen, onClose, records = [], customers = [], dateLabel }) => {
   const [isCopied, setIsCopied] = useState(false);
 
@@ -12,35 +12,43 @@ const WorkLogReportModal = ({ isOpen, onClose, records = [], customers = [], dat
   const reportText = useMemo(() => {
     if (!Array.isArray(records) || records.length === 0) return '無資料';
 
+    // Helper: 移除開頭的數字編號 (例如 "1. 送發票" -> "送發票")
+    const stripNumbering = (str) => {
+        // Regex 解釋：開頭是數字(\d+)，後面跟著點(.)、頓號(、)或空白(\s)，然後把這些取代為空字串
+        return str.replace(/^\d+[.、\s]+\s*/, '');
+    };
+
     // === A. 維修行程列表 (Job List) ===
     const listText = records.map((r) => {
         const cust = Array.isArray(customers) ? customers.find(c => c.customerID === r.customerID) : null;
         const model = cust?.assets?.[0]?.model ? `(${cust.assets[0].model})` : '';
         
-        // 🔸 層級：客戶名稱 (機型) - [無空格]
+        // 🔸 層級：客戶名稱 (機型)
         let text = `🔸${cust?.name || '未知'} ${model}`;
         
-        // 🔹 層級：故障 - [無空格]
+        // 🔹 層級：故障
         const faultContent = r.fault || r.symptom;
         if (faultContent) {
             text += `\n🔹故障：`;
-            // ▪️ 層級：內容 - [無空格]
+            // ▪️ 層級：依換行切分 -> 移除編號 -> 加 ▪️
             const lines = faultContent.split('\n');
             lines.forEach(line => {
-                if(line.trim()) text += `\n▪️${line.trim()}`;
+                const cleanLine = stripNumbering(line.trim());
+                if(cleanLine) text += `\n▪️${cleanLine}`;
             });
         }
 
-        // 🔹 層級：處理 - [無空格]
+        // 🔹 層級：處理
         const solutionContent = r.solution || r.action || '無填寫';
         text += `\n🔹處理：`;
-        // ▪️ 層級：內容 - [無空格]
+        // ▪️ 層級：依換行切分 -> 移除編號 -> 加 ▪️
         const solLines = solutionContent.split('\n');
         solLines.forEach(line => {
-             if(line.trim()) text += `\n▪️${line.trim()}`;
+             const cleanLine = stripNumbering(line.trim());
+             if(cleanLine) text += `\n▪️${cleanLine}`;
         });
 
-        // 🔹 層級：更換零件 - [無空格]
+        // 🔹 層級：更換零件
         if (Array.isArray(r.parts) && r.parts.length > 0) {
             const partsStr = r.parts.map(p => `${p.name} x${p.qty}`).join('、');
             text += `\n🔹更換: ${partsStr}`;
@@ -66,7 +74,7 @@ const WorkLogReportModal = ({ isOpen, onClose, records = [], customers = [], dat
         }
     });
 
-    // 格式化耗材統計文字 (🔸機型 -> ▪️零件) - [無空格]
+    // 格式化耗材統計文字 (🔸機型 -> ▪️零件)
     let summaryList = '';
     const models = Object.keys(summaryByModel).sort();
 
@@ -83,7 +91,7 @@ const WorkLogReportModal = ({ isOpen, onClose, records = [], customers = [], dat
         summaryList = '🔸無更換零件';
     }
 
-    // 組合最終報表 (🔺層級) - [無空格]
+    // 組合最終報表
     return `【維修工作日報】 ${dateLabel}\n----------------\n\n🔺維修行程\n${listText}\n\n🔺今日耗材統計\n${summaryList}\n\n----------------\n系統自動生成`;
   }, [records, customers, dateLabel]);
 
