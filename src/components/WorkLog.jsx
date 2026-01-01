@@ -1,34 +1,10 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { 
   ArrowLeft, Search, X, Calendar, User, AlertCircle, Wrench, Package, 
-  Clock, FileText, Copy, Check, Phone, Briefcase
+  Clock, FileText, Copy, Check
 } from 'lucide-react';
 
-// --- Helper: 取得來源對應文字 (給報表用) ---
-const getSourceText = (source) => {
-    switch(source) {
-      case 'customer_call': return '客戶叫修';
-      case 'company_dispatch': return '公司派工';
-      case 'invoice_check': return '例行巡檢';
-      default: return '';
-    }
-};
-
-// --- Helper: 取得來源對應 UI (給列表用) ---
-const getSourceBadge = (source) => {
-    const baseClass = "text-[10px] px-1.5 py-0.5 rounded flex items-center gap-1 font-bold ml-2 border";
-    switch(source) {
-      case 'customer_call': 
-        return <span className={`${baseClass} bg-rose-50 text-rose-600 border-rose-100`}><Phone size={10}/> 客戶叫修</span>;
-      case 'company_dispatch': 
-        return <span className={`${baseClass} bg-blue-50 text-blue-600 border-blue-100`}><Briefcase size={10}/> 公司派工</span>;
-      case 'invoice_check': 
-        return <span className={`${baseClass} bg-emerald-50 text-emerald-600 border-emerald-100`}><Calendar size={10}/> 例行巡檢</span>;
-      default: return null;
-    }
-};
-
-// --- 1. 報表預覽視窗 ---
+// --- 1. 報表預覽視窗 (修正：完整結尾與去編號邏輯) ---
 const WorkLogReportModal = ({ isOpen, onClose, records = [], customers = [], dateLabel }) => {
   const [isCopied, setIsCopied] = useState(false);
 
@@ -36,27 +12,28 @@ const WorkLogReportModal = ({ isOpen, onClose, records = [], customers = [], dat
   const reportText = useMemo(() => {
     if (!Array.isArray(records) || records.length === 0) return '無資料';
 
-    // Helper: 移除開頭的數字編號
+    // ★★★ 智慧去編號函式 ★★★
+    // 能移除： "1. 文字", "2、文字", "(1) 文字", "1 文字", "① 文字"
     const stripNumbering = (str) => {
-        return str.replace(/^\d+[.、\s]+\s*/, '');
+        if (!str) return '';
+        return str.replace(/^([\d０-９]+[.、\s)）\uff0e]+|[(（][\d０-９]+[)）]|[\u2460-\u2473])\s*/, '');
     };
 
     // === A. 維修行程列表 (Job List) ===
     const listText = records.map((r) => {
         const cust = Array.isArray(customers) ? customers.find(c => c.customerID === r.customerID) : null;
         const model = cust?.assets?.[0]?.model ? `(${cust.assets[0].model})` : '';
-        const source = getSourceText(r.serviceSource); // 取得來源文字
-        const sourceStr = source ? ` [${source}]` : '';
-
-        // 🔸 層級：客戶名稱 (機型) [來源]
-        let text = `🔸${cust?.name || '未知'} ${model}${sourceStr}`;
         
-        // 🔹 層級：故障
-        const faultContent = r.fault || r.symptom;
+        // 🔸 層級：客戶名稱 (機型)
+        let text = `🔸${cust?.name || '未知'} ${model}`;
+        
+        // 🔹 層級：故障 (若無內容則不顯示)
+        const faultContent = r.fault || r.symptom || '';
         if (faultContent) {
-            text += `\n🔹故障：`;
-            const lines = faultContent.split('\n');
+            text += `\n🔹 故障：`;
+            const lines = String(faultContent).split('\n');
             lines.forEach(line => {
+                // 自動移除每一行開頭的編號
                 const cleanLine = stripNumbering(line.trim());
                 if(cleanLine) text += `\n▪️${cleanLine}`;
             });
@@ -64,17 +41,18 @@ const WorkLogReportModal = ({ isOpen, onClose, records = [], customers = [], dat
 
         // 🔹 層級：處理
         const solutionContent = r.solution || r.action || '無填寫';
-        text += `\n🔹處理：`;
-        const solLines = solutionContent.split('\n');
+        text += `\n🔹 處理：`;
+        const solLines = String(solutionContent).split('\n');
         solLines.forEach(line => {
+             // 自動移除每一行開頭的編號
              const cleanLine = stripNumbering(line.trim());
              if(cleanLine) text += `\n▪️${cleanLine}`;
         });
 
-        // 🔹 層級：更換零件
+        // 🔹 層級：更換零件 (黑白文字)
         if (Array.isArray(r.parts) && r.parts.length > 0) {
             const partsStr = r.parts.map(p => `${p.name} x${p.qty}`).join('、');
-            text += `\n🔹更換: ${partsStr}`;
+            text += `\n🔹 更換: ${partsStr}`;
         }
 
         return text;
@@ -97,23 +75,26 @@ const WorkLogReportModal = ({ isOpen, onClose, records = [], customers = [], dat
         }
     });
 
-    // 格式化耗材統計文字
+    // 格式化耗材統計文字 (🔸機型 -> ▪️零件)
     let summaryList = '';
     const models = Object.keys(summaryByModel).sort();
 
     if (models.length > 0) {
         summaryList = models.map(model => {
+            // 這裡也自動去除機型名稱可能帶有的編號
+            const cleanModel = stripNumbering(model);
             const partsObj = summaryByModel[model];
             const partsLines = Object.entries(partsObj).map(([name, qty]) => {
                 return `▪️${name} x${qty}`;
             }).join('\n');
 
-            return `🔸${model}\n${partsLines}`;
+            return `🔸${cleanModel}\n${partsLines}`;
         }).join('\n\n');
     } else {
         summaryList = '🔸無更換零件';
     }
 
+    // 組合最終報表 (🔺層級)
     return `【維修工作日報】 ${dateLabel}\n----------------\n\n🔺維修行程\n${listText}\n\n🔺今日耗材統計\n${summaryList}\n\n----------------\n系統自動生成`;
   }, [records, customers, dateLabel]);
 
@@ -361,7 +342,6 @@ const WorkLog = ({
                                 <User size={16} className="text-slate-400 mr-2 shrink-0"/>
                                 <span className="mr-1">{cust?.name || '未知客戶'}</span>
                                 {cust?.assets?.[0]?.model && <span className="text-slate-500 font-normal">({cust.assets[0].model})</span>}
-                                {getSourceBadge(r.serviceSource)}
                             </div>
                             <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${statusBg}`}>
                                 {statusLabel}
@@ -396,4 +376,18 @@ const WorkLog = ({
 
       <WorkLogReportModal 
          isOpen={showReportModal} 
-         on
+         onClose={() => setShowReportModal(false)} 
+         records={filteredRecords}
+         customers={customers}
+         dateLabel={getDateLabel()}
+      />
+
+      <style>{`
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      `}</style>
+    </div>
+  );
+};
+
+export default WorkLog;
