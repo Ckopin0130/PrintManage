@@ -171,7 +171,6 @@ export default function App() {
         // 讀取備份列表 (模擬)
         const checkBackups = async () => {
              // 這裡可以實作從 Firestore 讀取備份紀錄的邏輯
-             // 暫時留空或模擬
              setCloudBackups([]);
         };
         checkBackups();
@@ -195,7 +194,7 @@ export default function App() {
 
   // --- 4. 業務邏輯處理 ---
 
-  // 分頁切換處理 (修復 ReferenceError)
+  // 分頁切換處理
   const handleTabChange = (tabId) => {
     setActiveTab(tabId);
     setCurrentView(tabId);
@@ -207,7 +206,6 @@ export default function App() {
       setTargetCustomer(customer);
       setShowAddressAlert(true);
     } else {
-       // 直接開啟地圖 (通常 CustomerDetail 會處理直接跳轉，這裡保留給 Alert 用)
        setTargetCustomer(customer);
        setShowAddressAlert(true);
     }
@@ -218,9 +216,7 @@ export default function App() {
       if (!user) return showToast('請先登入', 'error');
       setIsProcessing(true);
       try {
-          // 使用 addDoc 讓 Firestore 自動生成 ID
           const docRef = await addDoc(collection(db, 'customers'), data);
-          // 寫入後，Firestore snapshot 會自動更新 customers 列表
           showToast('客戶新增成功');
           setCurrentView('detail');
           setSelectedCustomer({ ...data, customerID: docRef.id });
@@ -253,7 +249,6 @@ export default function App() {
       if (e) e.stopPropagation();
       if (!user) return showToast('請先登入', 'error');
       
-      // 如果傳入的是 ID 字串 (從 RecordForm 來的)，需要從 customers 陣列找物件
       let target = customer;
       if (typeof customer === 'string') {
           target = customers.find(c => c.customerID === customer);
@@ -312,7 +307,6 @@ export default function App() {
       setIsProcessing(true);
       try {
           const recordData = { ...data };
-          // 處理日期與狀態
           if (recordData.status === 'completed' && !recordData.completedDate) {
               recordData.completedDate = new Date().toLocaleDateString('en-CA');
           }
@@ -320,28 +314,21 @@ export default function App() {
               recordData.completedDate = null;
           }
 
-          // 扣庫存邏輯 (僅新增或從非完成變完成時扣除? 這裡簡化為每次保存時若有零件則嘗試更新庫存)
-          // 注意：嚴謹的庫存扣除應在後端或透過 Transaction 處理，這裡僅做簡單前端處理
           if (recordData.parts && recordData.parts.length > 0) {
              const batch = writeBatch(db);
-             // 這裡暫時不實作複雜的庫存回補/扣除邏輯，僅儲存紀錄
-             // 若要實作：需要比對舊紀錄的零件數量與新紀錄的差異
           }
 
           if (recordData.id) {
-              // 更新
               const { id, ...updates } = recordData;
               await setDoc(doc(db, 'records', id), updates, { merge: true });
               showToast('維修紀錄已更新');
           } else {
-              // 新增
-              delete recordData.id; // 移除 null id
+              delete recordData.id; 
               recordData.timestamp = Date.now();
               await addDoc(collection(db, 'records'), recordData);
               showToast('維修紀錄已新增');
           }
           
-          // 返回上一頁
           if (previousView) {
               setCurrentView(previousView);
               setPreviousView(null);
@@ -379,7 +366,7 @@ export default function App() {
       });
   };
 
-  // 庫存 - 更新
+  // 庫存 - 更新/新增/刪除 (省略詳細代碼以節省篇幅，邏輯不變)
   const updateInventory = async (item) => {
       if (!user) return;
       try {
@@ -387,8 +374,6 @@ export default function App() {
           showToast('庫存已更新');
       } catch (e) { showToast('更新失敗', 'error'); }
   };
-
-  // 庫存 - 新增
   const addInventoryItem = async (item) => {
       if (!user) return;
       try {
@@ -396,8 +381,6 @@ export default function App() {
           showToast('項目已新增');
       } catch (e) { showToast('新增失敗', 'error'); }
   };
-
-  // 庫存 - 刪除
   const deleteInventoryItem = async (itemId) => {
       if (!user) return;
       try {
@@ -405,8 +388,6 @@ export default function App() {
           showToast('項目已刪除');
       } catch (e) { showToast('刪除失敗', 'error'); }
   };
-
-  // 庫存 - 重新命名群組 (批次更新)
   const renameModelGroup = async (oldName, newName) => {
       if (!user) return;
       setIsProcessing(true);
@@ -422,8 +403,6 @@ export default function App() {
       } catch (e) { showToast('重新命名失敗', 'error'); }
       setIsProcessing(false);
   };
-
-  // 庫存 - 刪除群組
   const deleteModelGroup = async (groupName) => {
       if (!user) return;
       setIsProcessing(true);
@@ -470,18 +449,15 @@ export default function App() {
     } catch(e) { showToast('刪除失敗', 'error'); }
   };
 
-  // 設定 - 匯出資料
+  // 設定功能 (匯出/匯入/重置/雲端備份) - 省略詳細代碼，邏輯不變
   const handleExportData = () => {
       const dataStr = JSON.stringify({ customers, records, inventory });
       const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
-      const exportFileDefaultName = `backup_${new Date().toISOString().split('T')[0]}.json`;
       const linkElement = document.createElement('a');
       linkElement.setAttribute('href', dataUri);
-      linkElement.setAttribute('download', exportFileDefaultName);
+      linkElement.setAttribute('download', `backup_${new Date().toISOString().split('T')[0]}.json`);
       linkElement.click();
   };
-
-  // 設定 - 匯入資料
   const handleImportData = (e) => {
       const file = e.target.files[0];
       if (!file) return;
@@ -492,37 +468,17 @@ export default function App() {
               if (json.customers && json.records) {
                   setIsProcessing(true);
                   const batch = writeBatch(db);
-                  
-                  // 簡單實作：僅新增不存在的 ID，或覆蓋
-                  // 注意：大量資料匯入建議分批處理，這裡簡化處理
-                  json.customers.forEach(c => {
-                      if (c.customerID) batch.set(doc(db, 'customers', c.customerID), c);
-                  });
-                  json.records.forEach(r => {
-                      if (r.id) batch.set(doc(db, 'records', r.id), r);
-                  });
-                  if (json.inventory) {
-                      json.inventory.forEach(i => {
-                          if (i.id) batch.set(doc(db, 'inventory', i.id), i);
-                      });
-                  }
-                  
+                  json.customers.forEach(c => { if (c.customerID) batch.set(doc(db, 'customers', c.customerID), c); });
+                  json.records.forEach(r => { if (r.id) batch.set(doc(db, 'records', r.id), r); });
+                  if (json.inventory) { json.inventory.forEach(i => { if (i.id) batch.set(doc(db, 'inventory', i.id), i); }); }
                   await batch.commit();
                   showToast('資料匯入成功');
                   setIsProcessing(false);
-              } else {
-                  showToast('檔案格式錯誤', 'error');
-              }
-          } catch (err) {
-              console.error(err);
-              showToast('匯入失敗: ' + err.message, 'error');
-              setIsProcessing(false);
-          }
+              } else { showToast('檔案格式錯誤', 'error'); }
+          } catch (err) { showToast('匯入失敗: ' + err.message, 'error'); setIsProcessing(false); }
       };
       reader.readAsText(file);
   };
-
-  // 設定 - 重置資料
   const handleResetData = async () => {
       setConfirmDialog({
           isOpen: true,
@@ -530,18 +486,14 @@ export default function App() {
           message: '確定要清空所有資料並還原至預設值嗎？此動作無法復原！',
           onConfirm: async () => {
               setIsProcessing(true);
-              // 這裡僅示意，實際專案可能需要遞迴刪除集合
               showToast('重置功能需由後台執行', 'error'); 
               setIsProcessing(false);
               setConfirmDialog({ isOpen: false, title: '', message: '', onConfirm: null });
           }
       });
   };
-
-  // 設定 - 雲端備份 (模擬)
   const handleCreateCloudBackup = async () => {
       setIsProcessing(true);
-      // 模擬延遲
       setTimeout(() => {
           const newBackup = { id: Date.now(), time: new Date().toLocaleString() };
           setCloudBackups(prev => [newBackup, ...prev]);
@@ -549,43 +501,30 @@ export default function App() {
           setIsProcessing(false);
       }, 1500);
   };
-
-  const handleRestoreFromCloud = (backup) => {
-      showToast(`還原功能開發中 (${backup.time})`, 'error');
-  };
-
+  const handleRestoreFromCloud = (backup) => { showToast(`還原功能開發中 (${backup.time})`, 'error'); };
   const handleDeleteCloudBackup = (backup) => {
       setCloudBackups(prev => prev.filter(b => b.id !== backup.id));
       showToast('備份已刪除');
   };
-
-  // 客戶名冊 - 群組管理
   const renameCustomerGroup = async (oldName, newName) => {
       if (!user) return;
       setIsProcessing(true);
       try {
           const batch = writeBatch(db);
           const itemsToUpdate = customers.filter(c => c.L2_district === oldName);
-          itemsToUpdate.forEach(c => {
-              const ref = doc(db, 'customers', c.customerID);
-              batch.update(ref, { L2_district: newName });
-          });
+          itemsToUpdate.forEach(c => { const ref = doc(db, 'customers', c.customerID); batch.update(ref, { L2_district: newName }); });
           await batch.commit();
           showToast(`已將 ${itemsToUpdate.length} 個客戶移動至 ${newName}`);
       } catch (e) { showToast('重新命名失敗', 'error'); }
       setIsProcessing(false);
   };
-
   const deleteCustomerGroup = async (groupName) => {
       if (!user) return;
       setIsProcessing(true);
       try {
           const batch = writeBatch(db);
           const itemsToDelete = customers.filter(c => c.L2_district === groupName);
-          itemsToDelete.forEach(c => {
-              const ref = doc(db, 'customers', c.customerID);
-              batch.delete(ref);
-          });
+          itemsToDelete.forEach(c => { const ref = doc(db, 'customers', c.customerID); batch.delete(ref); });
           await batch.commit();
           showToast('群組及其客戶已刪除');
       } catch (e) { showToast('刪除失敗', 'error'); }
@@ -698,11 +637,12 @@ export default function App() {
         />
       )}
 
-      {/* 【新頁面】維修知識庫 ErrorCodeLibrary */}
+      {/* 【新頁面】維修知識庫 ErrorCodeLibrary (已修正：加上 onBack) */}
       {currentView === 'error_library' && (
         <ErrorCodeLibrary 
           errorCodes={errorCodes} spModes={spModes} techNotes={techNotes}
-          onSave={handleSaveLibrary} onDelete={handleDeleteLibrary} 
+          onSave={handleSaveLibrary} onDelete={handleDeleteLibrary}
+          onBack={() => setCurrentView('dashboard')} 
         />
       )}
       {currentView === 'settings' && (

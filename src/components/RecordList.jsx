@@ -5,15 +5,15 @@ import {
   FileText, Copy, Check
 } from 'lucide-react';
 
-// --- 內建報表模組 (源自原本的 WorkLog) ---
+// --- 內建報表模組 (還原原本 WorkLog 的精美格式) ---
 const WorkLogReportModal = ({ isOpen, onClose, records = [], customers = [], dateLabel }) => {
   const [isCopied, setIsCopied] = useState(false);
 
-  // 生成報表文字 (還原原本的精美格式)
+  // 生成報表文字
   const reportText = useMemo(() => {
     if (!Array.isArray(records) || records.length === 0) return '無資料';
 
-    // 智慧去編號函式
+    // 智慧去編號函式 (移除 1. (1) ① 等編號)
     const stripNumbering = (str) => {
         if (!str) return '';
         return str.replace(/^([\d０-９]+[.、\s)）\uff0e]+|[(（][\d０-９]+[)）]|[\u2460-\u2473])\s*/, '');

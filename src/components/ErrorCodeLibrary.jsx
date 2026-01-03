@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { 
   ArrowLeft, Search, Plus, Wrench, Save, X, Trash2, 
-  BookOpen, Hash, StickyNote
+  BookOpen, Hash, StickyNote, Edit3
 } from 'lucide-react';
 
 const ErrorCodeLibrary = ({ 
@@ -20,11 +20,11 @@ const ErrorCodeLibrary = ({
   const [editingItem, setEditingItem] = useState(null);
   const [formData, setFormData] = useState({});
 
-  // 定義分頁屬性
+  // 定義分頁屬性 (使用紫色系為主，搭配各類別顏色)
   const tabs = [
-    { id: 'error', label: '故障代碼', icon: BookOpen, color: 'text-rose-600', activeBorder: 'border-rose-600', activeText: 'text-rose-600', bg: 'bg-rose-50' },
-    { id: 'sp', label: 'SP 模式', icon: Hash, color: 'text-amber-600', activeBorder: 'border-amber-600', activeText: 'text-amber-600', bg: 'bg-amber-50' },
-    { id: 'note', label: '技術筆記', icon: StickyNote, color: 'text-emerald-600', activeBorder: 'border-emerald-600', activeText: 'text-emerald-600', bg: 'bg-emerald-50' }
+    { id: 'error', label: '故障代碼', icon: BookOpen, color: 'text-rose-600', activeBorder: 'border-rose-600', activeText: 'text-rose-600' },
+    { id: 'sp', label: 'SP 模式', icon: Hash, color: 'text-amber-600', activeBorder: 'border-amber-600', activeText: 'text-amber-600' },
+    { id: 'note', label: '技術筆記', icon: StickyNote, color: 'text-emerald-600', activeBorder: 'border-emerald-600', activeText: 'text-emerald-600' }
   ];
 
   // --- 篩選邏輯 ---
@@ -75,7 +75,7 @@ const ErrorCodeLibrary = ({
     if (activeTab === 'sp' && !newItem.cmd) return alert('指令必填');
     if (activeTab === 'note' && !newItem.title) return alert('標題必填');
 
-    // 呼叫父層儲存 (注意：這裡將 type 傳回，配合 App.jsx 的 handleSaveLibrary)
+    // 呼叫父層儲存
     onSave(activeTab, newItem, editingItem ? editingItem.id : null);
     setIsModalOpen(false);
   };
@@ -158,8 +158,6 @@ const ErrorCodeLibrary = ({
               onClick={() => handleOpenModal(item)}
               className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 active:bg-slate-50 transition-all cursor-pointer relative overflow-hidden group hover:shadow-md hover:border-violet-100"
             >
-              {/* 根據不同分頁顯示不同卡片樣式 */}
-              
               {/* 1. 故障代碼卡片 */}
               {activeTab === 'error' && (
                 <>

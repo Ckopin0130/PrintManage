@@ -95,13 +95,12 @@ const Dashboard = ({
       infoColor: 'text-emerald-600 font-extrabold',
       action: () => { setActiveTab('inventory'); setCurrentView('inventory'); } 
     },
-    // ★★★ 修改處：名稱改為「知識庫」，顏色改為紫色以區隔 ★★★
     { 
       id: 'error_library', 
       title: '知識庫', 
       icon: BookOpen, 
-      color: 'text-violet-600', // 改為紫色
-      iconBg: 'bg-violet-50',   // 改為紫色背景
+      color: 'text-violet-600', // 紫色系
+      iconBg: 'bg-violet-50',
       info: '故障/SP/筆記', 
       infoColor: 'text-violet-600 font-extrabold',
       action: () => setCurrentView('error_library') 
