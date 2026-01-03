@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { FileText, Copy, X } from 'lucide-react';
 import { 
   ArrowLeft, Calendar, Trash2, Search, X, 
   User, AlertCircle, Wrench, Package, Briefcase, Phone, Clock
@@ -15,7 +16,11 @@ const RecordList = ({
   const [statusFilter, setStatusFilter] = useState('all'); 
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
-  const [activeDateTab, setActiveDateTab] = useState('all'); 
+  const [activeDateTab, setActiveDateTab] = useState('all');
+
+  // 日報表彈窗狀態
+  const [showReportModal, setShowReportModal] = useState(false);
+
 
   // --- 2. 搜尋防抖動 ---
   useEffect(() => {
@@ -75,6 +80,27 @@ const RecordList = ({
     });
   }, [records, customers, debouncedSearch, statusFilter, dateRange]);
 
+  // 報表內容生成
+  const generateReportText = () => {
+    // 維修行程
+    const tripRows = filteredRecords.map(r => {
+      const cust = customers.find(c => c.customerID === r.customerID);
+      return `日期：${r.date}　客戶：${cust ? cust.name : ''}　內容：${r.fault || r.symptom || ''}　處理：${r.solution || r.action || ''}　耗材：$${r.parts && r.parts.length > 0 ? r.parts.map((p) => `${p.name}x${p.qty}`).join('、') : '無'}`;
+    });
+    // 耗材統計
+    const parts = {};
+    filteredRecords.forEach(r => {
+      if(r.parts && r.parts.length > 0) {
+        r.parts.forEach(p => {
+          if(!parts[p.name]) parts[p.name] = 0;
+          parts[p.name] += Number(p.qty || 1);
+        });
+      }
+    });
+    const statPart = Object.entries(parts).map(([name, qty]) => `${name}：${qty}`).join('\n');
+    return `【維修行程】\n${tripRows.join('\n')}\n\n【耗材統計】\n${statPart || '無'}`;
+  };
+
   // --- 5. 日期快速設定邏輯 ---
   const handleDateTabClick = (type) => {
     setActiveDateTab(type);
@@ -118,11 +144,18 @@ const RecordList = ({
       <div className="bg-white shadow-sm sticky top-0 z-30 border-b border-slate-200">
          
          {/* 1. 標題列 */}
-         <div className="px-4 py-3 flex items-center justify-between">
+           <div className="px-4 py-3 flex items-center justify-between">
              <div className="flex items-center">
                 <button onClick={() => {setCurrentView('dashboard'); setActiveTab('dashboard');}} className="p-2 -ml-2 text-slate-600 hover:bg-slate-100 rounded-full"><ArrowLeft size={22}/></button>
                 <h2 className="text-lg font-bold text-slate-800 ml-1">維修紀錄</h2>
              </div>
+             <button
+                className="inline-flex items-center px-3 py-1 bg-slate-100 text-slate-600 rounded hover:bg-slate-200 ml-2"
+                onClick={() => setShowReportModal(true)}
+             >
+                <FileText className="mr-1" size={18} />
+                產生日報表
+             </button>
          </div>
 
          {/* 2. 搜尋框 */}
@@ -304,6 +337,11 @@ const RecordList = ({
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
       `}</style>
+
+      {/* 日報表 Modal */}
+      {showReportModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40"><div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-lg border"><div className="flex justify-between items-center mb-3"><div className="font-bold text-lg">日報表預覽</div><button onClick={()=>setShowReportModal(false)} className="text-slate-400 hover:text-red-500"><X size={20}/></button></div><pre className="bg-slate-50 rounded p-3 text-sm overflow-x-auto max-h-64 whitespace-pre-wrap mb-4">{generateReportText()}</pre><div className="flex justify-end gap-2"><button className="inline-flex items-center px-3 py-1.5 rounded bg-slate-200 hover:bg-slate-300 text-slate-600 font-medium" onClick={()=>{navigator.clipboard.writeText(generateReportText())}}><Copy size={16} className="mr-1" />複製內容</button><button className="px-4 py-1 rounded bg-red-200 text-red-700 hover:bg-red-300" onClick={()=>setShowReportModal(false)}>關閉</button></div></div></div>
+      )}
     </div>
   );
 };

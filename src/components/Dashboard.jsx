@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
-  ClipboardList, Users, Search, PenTool, 
+  ClipboardList, Users, Search, BookOpen, 
   Package, FileText, Settings, 
   Sun, Cloud, CloudRain, Printer, ChevronRight
 } from 'lucide-react';
@@ -96,14 +96,14 @@ const Dashboard = ({
       action: () => { setActiveTab('inventory'); setCurrentView('inventory'); } 
     },
     { 
-      id: 'worklog', 
-      title: '工作日誌', 
-      icon: PenTool, 
-      color: 'text-violet-500', 
-      iconBg: 'bg-violet-50',
-      info: '日報生成', 
-      infoColor: 'text-violet-600 font-extrabold',
-      action: () => setCurrentView('worklog') 
+      id: 'error_library', 
+      title: '維修知識庫', 
+      icon: BookOpen, 
+      color: 'text-red-700', 
+      iconBg: 'bg-red-50',
+      info: '故障/SP/筆記', 
+      infoColor: 'text-red-700 font-extrabold',
+      action: () => setCurrentView('error_library') 
     },
     { 
       id: 'settings', 
