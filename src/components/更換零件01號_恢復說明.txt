@@ -15,3 +15,4 @@ copy src\components\RecordForm_PartSelection01.jsx src\components\RecordForm.jsx
 3. 行內數量控制：列表項右側顯示加減按鈕和當前數量
 4. 底部確認列：顯示已選項目總數和確認按鈕
 
+

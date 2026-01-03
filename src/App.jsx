@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
   collection, onSnapshot, deleteDoc, doc, setDoc, writeBatch, query, orderBy, limit, deleteField
 } from 'firebase/firestore';
@@ -71,16 +71,50 @@ export default function App() {
   };
   const [editingRecordData, setEditingRecordData] = useState(defaultRecordForm); 
 
+  // --- 工具函數：將資料庫格式轉換為表單格式 ---
+  const convertRecordToFormData = useCallback((record) => ({
+    ...record,
+    // 將 fault 轉換為 symptom（如果 symptom 不存在）
+    symptom: record.symptom || record.fault || record.description || '',
+    // 將 solution 轉換為 action（如果 action 不存在）
+    action: record.action || record.solution || '',
+    // 確保日期格式正確
+    date: record.date || new Date().toLocaleDateString('en-CA'),
+    // 確保其他必要欄位存在
+    serviceSource: record.serviceSource || 'customer_call',
+    status: record.status || 'completed',
+    errorCode: record.errorCode || '',
+    parts: record.parts || [],
+    photos: record.photos || [],
+    photoBefore: record.photoBefore || null,
+    photoAfter: record.photoAfter || null,
+    // 保留 nextVisitDate 和 return_date（RecordForm 會處理）
+    nextVisitDate: record.nextVisitDate || record.return_date || '',
+    // 保留完成日期
+    completedDate: record.completedDate || null
+  }), []);
+
   // --- 2. 輔助函數 ---
-  const showToast = (message, type = 'success') => setToast({ message, type });
-  const today = new Date().toLocaleDateString('zh-TW', { month: 'long', day: 'numeric', weekday: 'long' });
-  const pendingTasks = records.filter(r => r.status === 'tracking' || r.status === 'monitor' || r.status === 'pending').length;
-  const currentLocalTime = new Date().toLocaleDateString('en-CA'); 
-  // 修復：今日完成統計應檢查完成日期，而非創建日期
-  const todayCompletedCount = records.filter(r => 
-    r.status === 'completed' && 
-    (r.completedDate === currentLocalTime || (!r.completedDate && r.date === currentLocalTime))
-  ).length;
+  const showToast = useCallback((message, type = 'success') => setToast({ message, type }), []);
+
+  // 優化：使用 useMemo 快取計算結果
+  const today = useMemo(() => 
+    new Date().toLocaleDateString('zh-TW', { month: 'long', day: 'numeric', weekday: 'long' }),
+    []
+  );
+
+  const pendingTasks = useMemo(() => 
+    records.filter(r => r.status === 'tracking' || r.status === 'monitor' || r.status === 'pending').length,
+    [records]
+  );
+
+  const todayCompletedCount = useMemo(() => {
+    const currentLocalTime = new Date().toLocaleDateString('en-CA');
+    return records.filter(r => 
+      r.status === 'completed' && 
+      (r.completedDate === currentLocalTime || (!r.completedDate && r.date === currentLocalTime))
+    ).length;
+  }, [records]);
   
   // --- 3. Firebase 連線邏輯 ---
   useEffect(() => {
@@ -221,7 +255,7 @@ export default function App() {
   }, [currentView, selectedCustomer, isLoading]);
 
   // --- 4. 導覽切換 ---
-  const handleTabChange = (tab) => {
+  const handleTabChange = useCallback((tab) => {
     // 清除可能影响视图的状态
     setSelectedCustomer(null);
     setPreviousView(null);
@@ -243,9 +277,9 @@ export default function App() {
         fetchCloudBackups();
       }
     }
-  };
+  }, []);
 
-  const handleNavClick = (customer) => {
+  const handleNavClick = useCallback((customer) => {
     if (!customer.address) return showToast("無地址資料", 'error');
     if (customer.addressNote) { 
       setTargetCustomer(customer); 
@@ -276,48 +310,33 @@ export default function App() {
         }
       }
     }
-  };
+  }, [showToast]);
 
-  const startEdit = () => { setCurrentView('edit'); };
-  const startAddRecord = (customer) => {
+  // 優化：使用 useCallback 快取函數
+  const startEdit = useCallback(() => {
+    setCurrentView('edit');
+  }, []);
+
+  const startAddRecord = useCallback((customer) => {
     if (!customer) return;
     setEditingRecordData({ ...defaultRecordForm, customerID: customer.customerID });
     // 記錄當前視圖作為前一個視圖，以便取消時能正確返回
     setPreviousView(currentView);
     setCurrentView('add_record');
-  };
-  const startEditRecord = (e, record) => {
+  }, [currentView]);
+
+  const startEditRecord = useCallback((e, record) => {
     if (e) e.stopPropagation();
-    // 修復：將資料庫格式轉換為表單格式
-    const formData = {
-      ...record,
-      // 將 fault 轉換為 symptom（如果 symptom 不存在）
-      symptom: record.symptom || record.fault || record.description || '',
-      // 將 solution 轉換為 action（如果 action 不存在）
-      action: record.action || record.solution || '',
-      // 確保日期格式正確
-      date: record.date || new Date().toLocaleDateString('en-CA'),
-      // 確保其他必要欄位存在
-      serviceSource: record.serviceSource || 'customer_call',
-      status: record.status || 'completed',
-      errorCode: record.errorCode || '',
-      parts: record.parts || [],
-      photos: record.photos || [],
-      photoBefore: record.photoBefore || null,
-      photoAfter: record.photoAfter || null,
-      // 保留 nextVisitDate 和 return_date（RecordForm 會處理）
-      nextVisitDate: record.nextVisitDate || record.return_date || '',
-      // 保留完成日期
-      completedDate: record.completedDate || null
-    };
+    // 使用共用的轉換函數
+    const formData = convertRecordToFormData(record);
     setEditingRecordData(formData);
     // 記錄當前視圖作為前一個視圖，以便取消時能正確返回
     setPreviousView(currentView);
     setCurrentView('edit_record');
-  };
+  }, [currentView, convertRecordToFormData]);
 
   // --- [新增] 處理快速新增任務 (從 + 號彈窗來的) ---
-  const handleQuickAddRecord = (customer, symptom) => {
+  const handleQuickAddRecord = useCallback((customer, symptom) => {
     if (!customer) return;
     
     // 設定表單預設值，並帶入彈窗輸入的故障描述
@@ -337,32 +356,12 @@ export default function App() {
     // 切換視窗
     setCurrentView('add_record');
     setShowQuickAction(false);
-  };
+  }, [currentView]);
 
   // --- [新增] 處理快速編輯紀錄 (從 + 號彈窗來的) ---
-  const handleQuickEditRecord = (record) => {
-    // 修復：將資料庫格式轉換為表單格式（與 startEditRecord 相同的轉換邏輯）
-    const formData = {
-      ...record,
-      // 將 fault 轉換為 symptom（如果 symptom 不存在）
-      symptom: record.symptom || record.fault || record.description || '',
-      // 將 solution 轉換為 action（如果 action 不存在）
-      action: record.action || record.solution || '',
-      // 確保日期格式正確
-      date: record.date || new Date().toLocaleDateString('en-CA'),
-      // 確保其他必要欄位存在
-      serviceSource: record.serviceSource || 'customer_call',
-      status: record.status || 'completed',
-      errorCode: record.errorCode || '',
-      parts: record.parts || [],
-      photos: record.photos || [],
-      photoBefore: record.photoBefore || null,
-      photoAfter: record.photoAfter || null,
-      // 保留 nextVisitDate 和 return_date（RecordForm 會處理）
-      nextVisitDate: record.nextVisitDate || record.return_date || '',
-      // 保留完成日期
-      completedDate: record.completedDate || null
-    };
+  const handleQuickEditRecord = useCallback((record) => {
+    // 使用共用的轉換函數
+    const formData = convertRecordToFormData(record);
     setEditingRecordData(formData);
     
     // 關鍵：找出這筆紀錄的客戶並設定為 selectedCustomer
@@ -377,7 +376,7 @@ export default function App() {
     // 切換視窗
     setCurrentView('edit_record');
     setShowQuickAction(false);
-  };
+  }, [customers, convertRecordToFormData]);
 
   // --- 5. 資料庫操作 (CRUD) ---
   
@@ -491,7 +490,7 @@ export default function App() {
   };
 
   // 儲存維修紀錄
-  const handleSaveRecord = async (formData) => {
+  const handleSaveRecord = useCallback(async (formData) => {
     if (isProcessing) return;
     setIsProcessing(true);
     const recId = formData.id || `rec-${Date.now()}`;
@@ -545,10 +544,10 @@ export default function App() {
         }
     } catch (err) { console.error("儲存詳細錯誤:", err); showToast(`儲存失敗: ${err.message}`, 'error'); } 
     finally { setIsProcessing(false); }
-  };
+  }, [isProcessing, selectedCustomer, inventory, dbStatus, user, previousView, activeTab, showToast, updateInventory]);
 
   // 刪除維修紀錄
-  const handleDeleteRecord = (e, recordId) => {
+  const handleDeleteRecord = useCallback((e, recordId) => {
     if (e) { e.preventDefault(); e.stopPropagation(); }
     setConfirmDialog({
         isOpen: true, title: '刪除維修紀錄', message: '確定要刪除這筆紀錄嗎？',
@@ -565,10 +564,10 @@ export default function App() {
             } catch (err) { showToast('刪除失敗', 'error'); } finally { setIsProcessing(false); }
         }
     });
-  };
+  }, [isProcessing, dbStatus, user, showToast]);
 
   // 刪除客戶
-  const handleDeleteCustomer = (e, customerToDelete = null) => {
+  const handleDeleteCustomer = useCallback((e, customerToDelete = null) => {
     if (e) { e.preventDefault(); e.stopPropagation(); }
     const target = customerToDelete || selectedCustomer;
     if (!target) return;
@@ -590,7 +589,7 @@ export default function App() {
             } catch (err) { showToast('刪除失敗', 'error'); } finally { setIsProcessing(false); }
         }
     });
-  };
+  }, [isProcessing, dbStatus, user, selectedCustomer, showToast]);
 
   // 編輯客戶
   const handleEditSubmit = async (formData) => {

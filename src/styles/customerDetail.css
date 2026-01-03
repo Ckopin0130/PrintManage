@@ -1,0 +1,108 @@
+/* CustomerDetail 組件專用樣式 */
+
+/* 電話連結樣式 */
+a[href^="tel:"] {
+  text-decoration: none !important;
+  border: none !important;
+  outline: none !important;
+  -webkit-tap-highlight-color: transparent !important;
+  text-decoration-line: none !important;
+  text-decoration-style: none !important;
+  text-decoration-color: transparent !important;
+}
+
+a[href^="tel:"]:hover,
+a[href^="tel:"]:active,
+a[href^="tel:"]:focus {
+  text-decoration: none !important;
+  border: none !important;
+  outline: none !important;
+  text-decoration-line: none !important;
+  text-decoration-style: none !important;
+  text-decoration-color: transparent !important;
+}
+
+/* 強制移除所有電話和地址的底線 */
+div[class*="phone"] *,
+div[class*="address"] *,
+span[class*="address"],
+span[class*="phone"],
+div[style*="phone"],
+div[style*="address"],
+div[style*="textDecoration"],
+div[style*="border"] {
+  -webkit-touch-callout: none !important;
+  -webkit-user-select: none !important;
+  user-select: none !important;
+  text-decoration: none !important;
+  text-decoration-line: none !important;
+  text-decoration-style: none !important;
+  text-decoration-color: transparent !important;
+  border-bottom: none !important;
+  border-top: none !important;
+  border-left: none !important;
+  border-right: none !important;
+  outline: none !important;
+  -webkit-text-decoration: none !important;
+  -moz-text-decoration: none !important;
+  -ms-text-decoration: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  appearance: none !important;
+}
+
+/* 移除手機瀏覽器自動識別電話和地址 */
+* {
+  -webkit-tap-highlight-color: transparent !important;
+}
+
+/* 針對手機瀏覽器的特殊處理 */
+@media (max-width: 768px) {
+  div[style*="phone"],
+  div[style*="address"],
+  span[style*="phone"],
+  span[style*="address"] {
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    appearance: none !important;
+    text-decoration: none !important;
+    text-decoration-line: none !important;
+    text-decoration-style: none !important;
+    text-decoration-color: transparent !important;
+    border: none !important;
+    border-bottom: none !important;
+    border-top: none !important;
+    border-left: none !important;
+    border-right: none !important;
+    outline: none !important;
+    -webkit-text-decoration: none !important;
+    -moz-text-decoration: none !important;
+    -ms-text-decoration: none !important;
+  }
+}
+
+/* 電話和地址顯示區域的通用樣式 */
+.no-phone-decoration,
+.no-address-decoration {
+  text-decoration: none !important;
+  text-decoration-line: none !important;
+  text-decoration-style: none !important;
+  text-decoration-color: transparent !important;
+  border: none !important;
+  border-bottom: none !important;
+  border-top: none !important;
+  border-left: none !important;
+  border-right: none !important;
+  outline: none !important;
+  -webkit-tap-highlight-color: transparent !important;
+  -webkit-touch-callout: none !important;
+  -webkit-user-select: none !important;
+  user-select: none !important;
+  -webkit-text-decoration: none !important;
+  -moz-text-decoration: none !important;
+  -ms-text-decoration: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  appearance: none !important;
+}
+

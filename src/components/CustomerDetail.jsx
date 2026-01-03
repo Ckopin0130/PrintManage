@@ -1,8 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { 
-  ArrowLeft, Edit, Trash2, MapPin, ShieldAlert, Navigation, Info, User, Smartphone, 
+  ArrowLeft, Edit, Trash2, MapPin, Navigation, Info, User, Smartphone, 
   Printer, History, Plus, FileText, Search, X, Building2, PhoneForwarded, Wrench
 } from 'lucide-react';
+import '../styles/customerDetail.css';
 
 const CustomerDetail = ({ 
   selectedCustomer, records, setCurrentView, startEdit, 
@@ -26,14 +27,25 @@ const CustomerDetail = ({
     }).sort((a,b) => new Date(b.date) - new Date(a.date));
   }, [records, selectedCustomer.customerID, searchTerm]);
 
-  const serviceCount = records.filter(r => r.customerID === selectedCustomer.customerID).length;
-  const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedCustomer.address || '')}`;
-  const handlePhoneClick = (phoneNumber) => {
+  // 優化：使用 useMemo 快取計算結果
+  const serviceCount = useMemo(() => 
+    records.filter(r => r.customerID === selectedCustomer.customerID).length,
+    [records, selectedCustomer.customerID]
+  );
+
+  const mapUrl = useMemo(() => 
+    `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedCustomer.address || '')}`,
+    [selectedCustomer.address]
+  );
+
+  // 優化：使用 useCallback 快取函數
+  const handlePhoneClick = useCallback((phoneNumber) => {
     if (phoneNumber) {
       window.location.href = `tel:${phoneNumber.replace(/[^0-9+]/g, '')}`;
     }
-  };
-  const handleAddressClick = () => {
+  }, []);
+
+  const handleAddressClick = useCallback(() => {
     if (selectedCustomer.addressNote) {
       handleNavClick(selectedCustomer);
     } else if (selectedCustomer.address) {
@@ -48,87 +60,10 @@ const CustomerDetail = ({
         window.open(mapUrl, '_blank', 'noopener,noreferrer');
       }
     }
-  };
+  }, [selectedCustomer, mapUrl, handleNavClick]);
 
   return (
     <div className="bg-slate-50 min-h-screen pb-24 flex flex-col font-sans">
-      <style>{`
-        a[href^="tel:"] {
-          text-decoration: none !important;
-          border: none !important;
-          outline: none !important;
-          -webkit-tap-highlight-color: transparent !important;
-          text-decoration-line: none !important;
-          text-decoration-style: none !important;
-          text-decoration-color: transparent !important;
-        }
-        a[href^="tel:"]:hover,
-        a[href^="tel:"]:active,
-        a[href^="tel:"]:focus {
-          text-decoration: none !important;
-          border: none !important;
-          outline: none !important;
-          text-decoration-line: none !important;
-          text-decoration-style: none !important;
-          text-decoration-color: transparent !important;
-        }
-        /* 強制移除所有電話和地址的底線 */
-        div[class*="phone"] *,
-        div[class*="address"] *,
-        span[class*="address"],
-        span[class*="phone"],
-        div[style*="phone"],
-        div[style*="address"],
-        div[style*="textDecoration"],
-        div[style*="border"] {
-          -webkit-touch-callout: none !important;
-          -webkit-user-select: none !important;
-          user-select: none !important;
-          text-decoration: none !important;
-          text-decoration-line: none !important;
-          text-decoration-style: none !important;
-          text-decoration-color: transparent !important;
-          border-bottom: none !important;
-          border-top: none !important;
-          border-left: none !important;
-          border-right: none !important;
-          outline: none !important;
-          -webkit-text-decoration: none !important;
-          -moz-text-decoration: none !important;
-          -ms-text-decoration: none !important;
-          -webkit-appearance: none !important;
-          -moz-appearance: none !important;
-          appearance: none !important;
-        }
-        /* 移除手機瀏覽器自動識別電話和地址 */
-        * {
-          -webkit-tap-highlight-color: transparent !important;
-        }
-        /* 針對手機瀏覽器的特殊處理 */
-        @media (max-width: 768px) {
-          div[style*="phone"],
-          div[style*="address"],
-          span[style*="phone"],
-          span[style*="address"] {
-            -webkit-appearance: none !important;
-            -moz-appearance: none !important;
-            appearance: none !important;
-            text-decoration: none !important;
-            text-decoration-line: none !important;
-            text-decoration-style: none !important;
-            text-decoration-color: transparent !important;
-            border: none !important;
-            border-bottom: none !important;
-            border-top: none !important;
-            border-left: none !important;
-            border-right: none !important;
-            outline: none !important;
-            -webkit-text-decoration: none !important;
-            -moz-text-decoration: none !important;
-            -ms-text-decoration: none !important;
-          }
-        }
-      `}</style>
       {/* 頂部標題列 - 與 Dashboard 風格一致 */}
       <div className="bg-white/95 backdrop-blur px-4 py-3 flex items-center shadow-sm sticky top-0 z-30 border-b border-slate-100/50 shrink-0">
         <button onClick={() => setCurrentView('roster')} className="p-2 -ml-2 text-slate-600 hover:bg-slate-50 rounded-full transition-colors"><ArrowLeft size={24}/></button>
@@ -190,31 +125,7 @@ const CustomerDetail = ({
               <div className="bg-green-50 p-2.5 rounded-xl text-green-600 shrink-0 flex items-center justify-center">
                 <Smartphone size={20} strokeWidth={2.5} />
               </div>
-              <div 
-                className="flex-1 text-base font-bold text-slate-800 truncate min-w-0 no-phone-decoration"
-                style={{ 
-                  textDecoration: 'none',
-                  textDecorationLine: 'none',
-                  textDecorationStyle: 'none',
-                  textDecorationColor: 'transparent',
-                  border: 'none',
-                  borderBottom: 'none',
-                  borderTop: 'none',
-                  borderLeft: 'none',
-                  borderRight: 'none',
-                  outline: 'none',
-                  WebkitTapHighlightColor: 'transparent',
-                  WebkitTouchCallout: 'none',
-                  WebkitUserSelect: 'none',
-                  userSelect: 'none',
-                  WebkitTextDecoration: 'none',
-                  MozTextDecoration: 'none',
-                  MsTextDecoration: 'none',
-                  WebkitAppearance: 'none',
-                  MozAppearance: 'none',
-                  appearance: 'none'
-                }}
-              >
+              <div className="flex-1 text-base font-bold text-slate-800 truncate min-w-0 no-phone-decoration">
                 {selectedCustomer.phones[0].number}
               </div>
             </div>
@@ -226,31 +137,7 @@ const CustomerDetail = ({
               <div className="bg-blue-50 p-2.5 rounded-xl text-blue-600 shrink-0 flex items-center justify-center">
                 <MapPin size={20} strokeWidth={2.5} />
               </div>
-              <div 
-                className="flex-1 text-base text-slate-500 leading-relaxed min-w-0 no-address-decoration"
-                style={{ 
-                  textDecoration: 'none',
-                  textDecorationLine: 'none',
-                  textDecorationStyle: 'none',
-                  textDecorationColor: 'transparent',
-                  border: 'none',
-                  borderBottom: 'none',
-                  borderTop: 'none',
-                  borderLeft: 'none',
-                  borderRight: 'none',
-                  outline: 'none',
-                  WebkitTapHighlightColor: 'transparent',
-                  WebkitTouchCallout: 'none',
-                  WebkitUserSelect: 'none',
-                  userSelect: 'none',
-                  WebkitTextDecoration: 'none',
-                  MozTextDecoration: 'none',
-                  MsTextDecoration: 'none',
-                  WebkitAppearance: 'none',
-                  MozAppearance: 'none',
-                  appearance: 'none'
-                }}
-              >
+              <div className="flex-1 text-base text-slate-500 leading-relaxed min-w-0 no-address-decoration">
                 {selectedCustomer.address}
               </div>
             </div>
@@ -360,4 +247,4 @@ const CustomerDetail = ({
   );
 };
 
-export default CustomerDetail;
+export default React.memo(CustomerDetail);
