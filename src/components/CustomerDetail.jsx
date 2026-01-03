@@ -5,6 +5,53 @@ import {
 } from 'lucide-react';
 import '../styles/customerDetail.css';
 
+// 內部組件：資訊行（統一圖示+文字+動作按鈕的結構）
+const InfoRow = ({ 
+  icon: Icon, 
+  color, 
+  text, 
+  subText, 
+  onClick, 
+  actionIcon: ActionIcon,
+  actionTitle,
+  className = '',
+  textClassName = '',
+  align = 'center' // 'center' | 'start'
+}) => {
+  const containerClass = align === 'start' ? 'flex items-start gap-3' : 'flex items-center gap-3';
+  
+  return (
+    <div className={containerClass}>
+      <div className={`bg-${color}-50 p-2.5 rounded-xl text-${color}-600 shrink-0 flex items-center justify-center`}>
+        <Icon size={20} strokeWidth={2.5} />
+      </div>
+      <div className={`flex-1 min-w-0 ${className}`}>
+        {typeof text === 'string' ? (
+          <div className={`text-base font-bold ${textClassName || (text ? 'text-slate-800' : 'text-slate-400')}`}>
+            {text || '暫無資料'}
+          </div>
+        ) : (
+          text
+        )}
+        {subText && (
+          <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded ml-2">
+            {subText}
+          </span>
+        )}
+      </div>
+      {ActionIcon && onClick && (
+        <button
+          onClick={onClick}
+          className={`bg-${color}-50 hover:bg-${color}-100 p-2.5 rounded-lg transition-colors shrink-0 flex items-center justify-center ml-1`}
+          title={actionTitle}
+        >
+          <ActionIcon size={18} className={`text-${color}-600`} />
+        </button>
+      )}
+    </div>
+  );
+};
+
 const CustomerDetail = ({ 
   selectedCustomer, records, setCurrentView, startEdit, 
   handleDeleteCustomer, handleNavClick, startAddRecord, 
@@ -109,51 +156,51 @@ const CustomerDetail = ({
             )}
           </div>
 
-          {/* 第二行：聯絡人圖標 + 欄位 */}
-          <div className="flex items-center gap-3">
-            <div className="bg-emerald-50 p-2.5 rounded-xl text-emerald-600 shrink-0 flex items-center justify-center">
-              <User size={20} strokeWidth={2.5} />
-            </div>
-            <div className={`flex-1 text-base font-bold ${selectedCustomer.contactPerson ? 'text-slate-800' : 'text-slate-400'}`}>
-              {selectedCustomer.contactPerson || '暫無資料'}
-            </div>
-          </div>
+          {/* 第二行：聯絡人 */}
+          <InfoRow
+            icon={User}
+            color="emerald"
+            text={selectedCustomer.contactPerson}
+            textClassName={selectedCustomer.contactPerson ? 'text-slate-800' : 'text-slate-400'}
+          />
 
-          {/* 第三行：電話符號 + 電話欄位 */}
+          {/* 第三行：電話 */}
           {selectedCustomer.phones && selectedCustomer.phones.length > 0 && selectedCustomer.phones[0].number && (
-            <div className="flex items-center gap-3">
-              <div className="bg-green-50 p-2.5 rounded-xl text-green-600 shrink-0 flex items-center justify-center">
-                <Smartphone size={20} strokeWidth={2.5} />
-              </div>
-              <div className="flex-1 text-base font-bold text-slate-800 truncate min-w-0 no-phone-decoration">
-                {selectedCustomer.phones[0].number}
-              </div>
-            </div>
+            <InfoRow
+              icon={Smartphone}
+              color="green"
+              text={
+                <div className="text-base font-bold text-slate-800 truncate min-w-0 no-phone-decoration">
+                  {selectedCustomer.phones[0].number}
+                </div>
+              }
+            />
           )}
 
-          {/* 第四行：地址符號 + 地址 */}
+          {/* 第四行：地址 */}
           {selectedCustomer.address && (
-            <div className="flex items-center gap-3">
-              <div className="bg-blue-50 p-2.5 rounded-xl text-blue-600 shrink-0 flex items-center justify-center">
-                <MapPin size={20} strokeWidth={2.5} />
-              </div>
-              <div className="flex-1 text-base text-slate-500 leading-relaxed min-w-0 no-address-decoration">
-                {selectedCustomer.address}
-              </div>
-            </div>
+            <InfoRow
+              icon={MapPin}
+              color="blue"
+              text={
+                <div className="text-base text-slate-500 leading-relaxed min-w-0 no-address-decoration">
+                  {selectedCustomer.address}
+                </div>
+              }
+            />
           )}
 
-          {/* 第五行：備註 + 欄位 */}
-          <div className="flex items-start gap-3">
-            <div className="bg-violet-50 p-2.5 rounded-xl text-violet-600 shrink-0 flex items-center justify-center">
-              <Info size={20} strokeWidth={2.5} />
-            </div>
-            <div className="flex-1 min-w-0">
+          {/* 第五行：備註 */}
+          <InfoRow
+            icon={Info}
+            color="violet"
+            text={
               <div className={`text-base ${selectedCustomer.notes ? 'text-slate-700' : 'text-slate-400 bg-slate-50 px-2 py-1 rounded'} leading-relaxed`}>
                 {selectedCustomer.notes || '無備註'}
               </div>
-            </div>
-          </div>
+            }
+            align="start"
+          />
 
           {/* 第六行：機器型號符號 + 機型 + 板手符號 + 次數 */}
           <div className="flex items-center gap-3">
@@ -163,7 +210,10 @@ const CustomerDetail = ({
             <div className="flex-1 flex items-center gap-2 min-w-0 flex-wrap">
               {selectedCustomer.assets && selectedCustomer.assets.length > 0 ? (
                 selectedCustomer.assets.map((asset, idx) => (
-                  <span key={idx} className="text-base font-bold text-slate-800 bg-slate-50 px-2 py-1 rounded border border-slate-200">
+                  <span 
+                    key={asset.id || `asset-${idx}-${asset.model || 'unknown'}`} 
+                    className="text-base font-bold text-slate-800 bg-slate-50 px-2 py-1 rounded border border-slate-200"
+                  >
                     {asset.model || '無機型'}
                   </span>
                 ))
