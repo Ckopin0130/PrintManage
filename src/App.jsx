@@ -798,7 +798,7 @@ export default function App() {
           today={today} dbStatus={dbStatus} pendingTasks={pendingTasks} 
           todayCompletedCount={todayCompletedCount} totalCustomers={customers.length} 
           setCurrentView={setCurrentView} setActiveTab={setActiveTab}
-          onQuickAction={() => setShowQuickAction(true)}
+          onQuickAction={() => setCurrentView('quick_action')}
         />
       )}
 
