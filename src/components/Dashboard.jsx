@@ -95,14 +95,15 @@ const Dashboard = ({
       infoColor: 'text-emerald-600 font-extrabold',
       action: () => { setActiveTab('inventory'); setCurrentView('inventory'); } 
     },
+    // ★★★ 修改處：名稱改為「知識庫」，顏色改為紫色以區隔 ★★★
     { 
       id: 'error_library', 
-      title: '維修知識庫', 
+      title: '知識庫', 
       icon: BookOpen, 
-      color: 'text-red-700', 
-      iconBg: 'bg-red-50',
+      color: 'text-violet-600', // 改為紫色
+      iconBg: 'bg-violet-50',   // 改為紫色背景
       info: '故障/SP/筆記', 
-      infoColor: 'text-red-700 font-extrabold',
+      infoColor: 'text-violet-600 font-extrabold',
       action: () => setCurrentView('error_library') 
     },
     { 
@@ -167,14 +168,13 @@ const Dashboard = ({
          </div>
       </div>
 
-      {/* 六大功能區 - 高度微調至 h-38 */}
+      {/* 六大功能區 */}
       <div className="px-4 flex-1 overflow-y-auto custom-scrollbar min-h-0 pb-20 pt-4">
          <div className="grid grid-cols-2 gap-3 h-full content-start"> 
             {modules.map((item, index) => (
                <button 
                   key={item.id} 
                   onClick={item.action}
-                  // 修改重點：h-[9.5rem] 等同於 h-38 (152px)
                   className="bg-white p-3 rounded-2xl border border-slate-100 shadow-[0_2px_8px_rgb(0,0,0,0.04)] flex flex-col items-center justify-center gap-1 h-[9.5rem] active:scale-[0.96] active:shadow-none transition-all duration-200 relative group overflow-hidden hover:shadow-[0_8px_20px_rgb(0,0,0,0.08)] hover:border-blue-50"
                   style={{ animationDelay: `${index * 50}ms` }}
                >
