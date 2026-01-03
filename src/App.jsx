@@ -30,7 +30,6 @@ import WorkLog from './components/WorkLog';
 import RecordList from './components/RecordList';
 
 // [新增] 引入快速操作視窗
-import QuickActionModal from './components/QuickActionModal';
 import QuickActionView from './components/QuickActionView';
 
 export default function App() {
@@ -51,9 +50,6 @@ export default function App() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [showPhoneSheet, setShowPhoneSheet] = useState(false);
   const [showAddressAlert, setShowAddressAlert] = useState(false);
-  
-  // [新增] 快速操作選單狀態 - 改為一頁式介面
-  const [showQuickAction, setShowQuickAction] = useState(false);
   
   // 雲端備份列表
   const [cloudBackups, setCloudBackups] = useState([]);
@@ -793,7 +789,7 @@ export default function App() {
           today={today} dbStatus={dbStatus} pendingTasks={pendingTasks} 
           todayCompletedCount={todayCompletedCount} totalCustomers={customers.length} 
           setCurrentView={setCurrentView} setActiveTab={setActiveTab}
-          onQuickAction={() => setShowQuickAction(true)}
+          onQuickAction={() => setCurrentView('quick_action')}
         />
       )}
       
