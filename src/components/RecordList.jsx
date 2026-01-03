@@ -1,9 +1,9 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { FileText, Copy, X } from 'lucide-react';
+import { FileText, Copy } from 'lucide-react';
 import { 
   ArrowLeft, Calendar, Trash2, Search, X, 
   User, AlertCircle, Wrench, Package, Briefcase, Phone, Clock
-} from 'lucide-react';
+} from 'lucide-react'; // 注意X只剩下這一個來源
 
 const RecordList = ({ 
   records, customers, setCurrentView, setActiveTab, 
