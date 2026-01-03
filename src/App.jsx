@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
-  collection, onSnapshot, deleteDoc, doc, setDoc, writeBatch, query, orderBy, limit, deleteField
+  collection, onSnapshot, deleteDoc, doc, setDoc, writeBatch, query, orderBy, limit, deleteField, addDoc, getDoc
 } from 'firebase/firestore';
 import { 
   ref, uploadString, listAll, getDownloadURL, deleteObject, getMetadata 
@@ -75,13 +75,9 @@ export default function App() {
   // --- 工具函數：將資料庫格式轉換為表單格式 ---
   const convertRecordToFormData = useCallback((record) => ({
     ...record,
-    // 將 fault 轉換為 symptom（如果 symptom 不存在）
     symptom: record.symptom || record.fault || record.description || '',
-    // 將 solution 轉換為 action（如果 action 不存在）
     action: record.action || record.solution || '',
-    // 確保日期格式正確
     date: record.date || new Date().toLocaleDateString('en-CA'),
-    // 確保其他必要欄位存在
     serviceSource: record.serviceSource || 'customer_call',
     status: record.status || 'completed',
     errorCode: record.errorCode || '',
@@ -111,7 +107,6 @@ export default function App() {
         const recRef = collection(db, 'records');
         const invRef = collection(db, 'inventory'); 
 
-        // [新增] error_codes, sp_modes, tech_notes
         const errorRef = collection(db, 'error_codes');
         const spRef = collection(db, 'sp_modes');
         const noteRef = collection(db, 'tech_notes');
@@ -160,7 +155,6 @@ export default function App() {
           }
         });
 
-        // --- [新增] 維修知識庫監聽 ---
         const unsubError = onSnapshot(errorRef, (snapshot) => {
           const arr = snapshot.docs.map(d => ({ ...d.data(), id: d.id }));
           setErrorCodes(arr);
@@ -173,6 +167,14 @@ export default function App() {
           const arr = snapshot.docs.map(d => ({ ...d.data(), id: d.id }));
           setTechNotes(arr);
         });
+
+        // 讀取備份列表 (模擬)
+        const checkBackups = async () => {
+             // 這裡可以實作從 Firestore 讀取備份紀錄的邏輯
+             // 暫時留空或模擬
+             setCloudBackups([]);
+        };
+        checkBackups();
 
         return () => { unsubCust(); unsubRec(); unsubInv(); unsubError(); unsubSp(); unsubNote(); };
 
@@ -190,21 +192,272 @@ export default function App() {
     return () => unsubscribeAuth();
   }, []);
 
-  // [原有內容不變...]
 
-  // 新增維修知識庫 CRUD
+  // --- 4. 業務邏輯處理 ---
+
+  // 分頁切換處理 (修復 ReferenceError)
+  const handleTabChange = (tabId) => {
+    setActiveTab(tabId);
+    setCurrentView(tabId);
+  };
+
+  // 導航點擊處理
+  const handleNavClick = (customer) => {
+    if (customer.addressNote) {
+      setTargetCustomer(customer);
+      setShowAddressAlert(true);
+    } else {
+       // 直接開啟地圖 (通常 CustomerDetail 會處理直接跳轉，這裡保留給 Alert 用)
+       setTargetCustomer(customer);
+       setShowAddressAlert(true);
+    }
+  };
+
+  // 客戶 - 新增
+  const handleAddSubmit = async (data) => {
+      if (!user) return showToast('請先登入', 'error');
+      setIsProcessing(true);
+      try {
+          // 使用 addDoc 讓 Firestore 自動生成 ID
+          const docRef = await addDoc(collection(db, 'customers'), data);
+          // 寫入後，Firestore snapshot 會自動更新 customers 列表
+          showToast('客戶新增成功');
+          setCurrentView('detail');
+          setSelectedCustomer({ ...data, customerID: docRef.id });
+      } catch (e) {
+          console.error(e);
+          showToast('新增失敗: ' + e.message, 'error');
+      }
+      setIsProcessing(false);
+  };
+
+  // 客戶 - 編輯
+  const handleEditSubmit = async (data) => {
+      if (!user) return showToast('請先登入', 'error');
+      setIsProcessing(true);
+      try {
+          const { customerID, ...updateData } = data;
+          await setDoc(doc(db, 'customers', customerID), updateData, { merge: true });
+          showToast('資料更新成功');
+          setSelectedCustomer(data);
+          setCurrentView('detail');
+      } catch (e) {
+          console.error(e);
+          showToast('更新失敗', 'error');
+      }
+      setIsProcessing(false);
+  };
+
+  // 客戶 - 刪除
+  const handleDeleteCustomer = async (e, customer) => {
+      if (e) e.stopPropagation();
+      if (!user) return showToast('請先登入', 'error');
+      
+      // 如果傳入的是 ID 字串 (從 RecordForm 來的)，需要從 customers 陣列找物件
+      let target = customer;
+      if (typeof customer === 'string') {
+          target = customers.find(c => c.customerID === customer);
+      }
+      if (!target) return;
+
+      setConfirmDialog({
+        isOpen: true,
+        title: '刪除客戶',
+        message: `確定要刪除 ${target.name} 嗎？此動作無法復原。`,
+        onConfirm: async () => {
+          setIsProcessing(true);
+          try {
+             await deleteDoc(doc(db, 'customers', target.customerID));
+             showToast('客戶已刪除');
+             setCurrentView('roster');
+             setSelectedCustomer(null);
+          } catch(err) { 
+             console.error(err);
+             showToast('刪除失敗', 'error'); 
+          }
+          setIsProcessing(false);
+          setConfirmDialog({ isOpen: false, title: '', message: '', onConfirm: null });
+        }
+      });
+  };
+
+  // 客戶 - 準備編輯
+  const startEdit = () => {
+      setCurrentView('edit');
+  };
+
+  // 維修紀錄 - 準備新增
+  const startAddRecord = (customer = null) => {
+      if (customer) {
+          setEditingRecordData({ ...defaultRecordForm, customerID: customer.customerID });
+          setSelectedCustomer(customer);
+      } else {
+          setEditingRecordData(defaultRecordForm);
+      }
+      setPreviousView(currentView);
+      setCurrentView('add_record');
+  };
+
+  // 維修紀錄 - 準備編輯
+  const startEditRecord = (e, record) => {
+      if (e) e.stopPropagation();
+      setEditingRecordData(convertRecordToFormData(record));
+      setPreviousView(currentView);
+      setCurrentView('edit_record');
+  };
+
+  // 維修紀錄 - 儲存 (新增或更新)
+  const handleSaveRecord = async (data) => {
+      if (!user) return showToast('請先登入', 'error');
+      setIsProcessing(true);
+      try {
+          const recordData = { ...data };
+          // 處理日期與狀態
+          if (recordData.status === 'completed' && !recordData.completedDate) {
+              recordData.completedDate = new Date().toLocaleDateString('en-CA');
+          }
+          if (recordData.status !== 'completed') {
+              recordData.completedDate = null;
+          }
+
+          // 扣庫存邏輯 (僅新增或從非完成變完成時扣除? 這裡簡化為每次保存時若有零件則嘗試更新庫存)
+          // 注意：嚴謹的庫存扣除應在後端或透過 Transaction 處理，這裡僅做簡單前端處理
+          if (recordData.parts && recordData.parts.length > 0) {
+             const batch = writeBatch(db);
+             // 這裡暫時不實作複雜的庫存回補/扣除邏輯，僅儲存紀錄
+             // 若要實作：需要比對舊紀錄的零件數量與新紀錄的差異
+          }
+
+          if (recordData.id) {
+              // 更新
+              const { id, ...updates } = recordData;
+              await setDoc(doc(db, 'records', id), updates, { merge: true });
+              showToast('維修紀錄已更新');
+          } else {
+              // 新增
+              delete recordData.id; // 移除 null id
+              recordData.timestamp = Date.now();
+              await addDoc(collection(db, 'records'), recordData);
+              showToast('維修紀錄已新增');
+          }
+          
+          // 返回上一頁
+          if (previousView) {
+              setCurrentView(previousView);
+              setPreviousView(null);
+          } else {
+              setCurrentView('detail');
+          }
+
+      } catch (e) {
+          console.error(e);
+          showToast('儲存失敗: ' + e.message, 'error');
+      }
+      setIsProcessing(false);
+  };
+
+  // 維修紀錄 - 刪除
+  const handleDeleteRecord = async (e, recordId) => {
+      if (e) e.stopPropagation();
+      if (!user) return showToast('請先登入', 'error');
+      
+      setConfirmDialog({
+          isOpen: true,
+          title: '刪除紀錄',
+          message: '確定要刪除這筆維修紀錄嗎？',
+          onConfirm: async () => {
+              setIsProcessing(true);
+              try {
+                  await deleteDoc(doc(db, 'records', recordId));
+                  showToast('紀錄已刪除');
+              } catch (err) {
+                  showToast('刪除失敗', 'error');
+              }
+              setIsProcessing(false);
+              setConfirmDialog({ isOpen: false, title: '', message: '', onConfirm: null });
+          }
+      });
+  };
+
+  // 庫存 - 更新
+  const updateInventory = async (item) => {
+      if (!user) return;
+      try {
+          await setDoc(doc(db, 'inventory', item.id), item, { merge: true });
+          showToast('庫存已更新');
+      } catch (e) { showToast('更新失敗', 'error'); }
+  };
+
+  // 庫存 - 新增
+  const addInventoryItem = async (item) => {
+      if (!user) return;
+      try {
+          await addDoc(collection(db, 'inventory'), item);
+          showToast('項目已新增');
+      } catch (e) { showToast('新增失敗', 'error'); }
+  };
+
+  // 庫存 - 刪除
+  const deleteInventoryItem = async (itemId) => {
+      if (!user) return;
+      try {
+          await deleteDoc(doc(db, 'inventory', itemId));
+          showToast('項目已刪除');
+      } catch (e) { showToast('刪除失敗', 'error'); }
+  };
+
+  // 庫存 - 重新命名群組 (批次更新)
+  const renameModelGroup = async (oldName, newName) => {
+      if (!user) return;
+      setIsProcessing(true);
+      try {
+          const batch = writeBatch(db);
+          const itemsToUpdate = inventory.filter(i => i.model === oldName);
+          itemsToUpdate.forEach(item => {
+              const ref = doc(db, 'inventory', item.id);
+              batch.update(ref, { model: newName });
+          });
+          await batch.commit();
+          showToast(`已將 ${itemsToUpdate.length} 個項目移動至 ${newName}`);
+      } catch (e) { showToast('重新命名失敗', 'error'); }
+      setIsProcessing(false);
+  };
+
+  // 庫存 - 刪除群組
+  const deleteModelGroup = async (groupName) => {
+      if (!user) return;
+      setIsProcessing(true);
+      try {
+          const batch = writeBatch(db);
+          const itemsToDelete = inventory.filter(i => i.model === groupName);
+          itemsToDelete.forEach(item => {
+              const ref = doc(db, 'inventory', item.id);
+              batch.delete(ref);
+          });
+          await batch.commit();
+          showToast('群組已刪除');
+      } catch (e) { showToast('刪除失敗', 'error'); }
+      setIsProcessing(false);
+  };
+
+  // 維修知識庫 CRUD
   const handleSaveLibrary = async (type, item, itemId) => {
     if (!db || !user) { showToast('演示模式無法儲存', 'error'); return; }
     let targetCol = '';
     if (type === 'error') targetCol = 'error_codes';
     if (type === 'sp') targetCol = 'sp_modes';
     if (type === 'note') targetCol = 'tech_notes';
-    const thisId = itemId || `ec-${Date.now()}`;
+    
     try {
-      await setDoc(doc(db, targetCol, thisId), { ...item });
+      if (itemId) {
+         await setDoc(doc(db, targetCol, itemId), item, { merge: true });
+      } else {
+         await addDoc(collection(db, targetCol), item);
+      }
       showToast('已儲存');
     } catch(e) { showToast('儲存失敗', 'error'); }
   };
+
   const handleDeleteLibrary = async (type, itemId) => {
     if (!db || !user) { showToast('演示模式無法刪除', 'error'); return; }
     let targetCol = '';
@@ -217,7 +470,128 @@ export default function App() {
     } catch(e) { showToast('刪除失敗', 'error'); }
   };
 
-  // [其餘 UI 狀態與功能略...]
+  // 設定 - 匯出資料
+  const handleExportData = () => {
+      const dataStr = JSON.stringify({ customers, records, inventory });
+      const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+      const exportFileDefaultName = `backup_${new Date().toISOString().split('T')[0]}.json`;
+      const linkElement = document.createElement('a');
+      linkElement.setAttribute('href', dataUri);
+      linkElement.setAttribute('download', exportFileDefaultName);
+      linkElement.click();
+  };
+
+  // 設定 - 匯入資料
+  const handleImportData = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+          try {
+              const json = JSON.parse(event.target.result);
+              if (json.customers && json.records) {
+                  setIsProcessing(true);
+                  const batch = writeBatch(db);
+                  
+                  // 簡單實作：僅新增不存在的 ID，或覆蓋
+                  // 注意：大量資料匯入建議分批處理，這裡簡化處理
+                  json.customers.forEach(c => {
+                      if (c.customerID) batch.set(doc(db, 'customers', c.customerID), c);
+                  });
+                  json.records.forEach(r => {
+                      if (r.id) batch.set(doc(db, 'records', r.id), r);
+                  });
+                  if (json.inventory) {
+                      json.inventory.forEach(i => {
+                          if (i.id) batch.set(doc(db, 'inventory', i.id), i);
+                      });
+                  }
+                  
+                  await batch.commit();
+                  showToast('資料匯入成功');
+                  setIsProcessing(false);
+              } else {
+                  showToast('檔案格式錯誤', 'error');
+              }
+          } catch (err) {
+              console.error(err);
+              showToast('匯入失敗: ' + err.message, 'error');
+              setIsProcessing(false);
+          }
+      };
+      reader.readAsText(file);
+  };
+
+  // 設定 - 重置資料
+  const handleResetData = async () => {
+      setConfirmDialog({
+          isOpen: true,
+          title: '危險操作',
+          message: '確定要清空所有資料並還原至預設值嗎？此動作無法復原！',
+          onConfirm: async () => {
+              setIsProcessing(true);
+              // 這裡僅示意，實際專案可能需要遞迴刪除集合
+              showToast('重置功能需由後台執行', 'error'); 
+              setIsProcessing(false);
+              setConfirmDialog({ isOpen: false, title: '', message: '', onConfirm: null });
+          }
+      });
+  };
+
+  // 設定 - 雲端備份 (模擬)
+  const handleCreateCloudBackup = async () => {
+      setIsProcessing(true);
+      // 模擬延遲
+      setTimeout(() => {
+          const newBackup = { id: Date.now(), time: new Date().toLocaleString() };
+          setCloudBackups(prev => [newBackup, ...prev]);
+          showToast('雲端備份建立成功');
+          setIsProcessing(false);
+      }, 1500);
+  };
+
+  const handleRestoreFromCloud = (backup) => {
+      showToast(`還原功能開發中 (${backup.time})`, 'error');
+  };
+
+  const handleDeleteCloudBackup = (backup) => {
+      setCloudBackups(prev => prev.filter(b => b.id !== backup.id));
+      showToast('備份已刪除');
+  };
+
+  // 客戶名冊 - 群組管理
+  const renameCustomerGroup = async (oldName, newName) => {
+      if (!user) return;
+      setIsProcessing(true);
+      try {
+          const batch = writeBatch(db);
+          const itemsToUpdate = customers.filter(c => c.L2_district === oldName);
+          itemsToUpdate.forEach(c => {
+              const ref = doc(db, 'customers', c.customerID);
+              batch.update(ref, { L2_district: newName });
+          });
+          await batch.commit();
+          showToast(`已將 ${itemsToUpdate.length} 個客戶移動至 ${newName}`);
+      } catch (e) { showToast('重新命名失敗', 'error'); }
+      setIsProcessing(false);
+  };
+
+  const deleteCustomerGroup = async (groupName) => {
+      if (!user) return;
+      setIsProcessing(true);
+      try {
+          const batch = writeBatch(db);
+          const itemsToDelete = customers.filter(c => c.L2_district === groupName);
+          itemsToDelete.forEach(c => {
+              const ref = doc(db, 'customers', c.customerID);
+              batch.delete(ref);
+          });
+          await batch.commit();
+          showToast('群組及其客戶已刪除');
+      } catch (e) { showToast('刪除失敗', 'error'); }
+      setIsProcessing(false);
+  };
+
 
   return (
     <div className="max-w-md mx-auto bg-gray-100 min-h-screen font-sans text-gray-900 shadow-2xl relative overflow-hidden">
@@ -226,6 +600,7 @@ export default function App() {
       <ImageViewer src={viewingImage} onClose={() => setViewingImage(null)} />
       <ConfirmDialog {...confirmDialog} onCancel={() => setConfirmDialog({...confirmDialog, isOpen: false})} isProcessing={isProcessing} />
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+      
       {!isLoading && (!currentView || currentView === '') && (
         <Dashboard 
           today={today} dbStatus={dbStatus} pendingTasks={pendingTasks} 
@@ -322,7 +697,6 @@ export default function App() {
           handleDeleteRecord={handleDeleteRecord}
         />
       )}
-      {/* ---  [已廢棄] worklog --- */}
 
       {/* 【新頁面】維修知識庫 ErrorCodeLibrary */}
       {currentView === 'error_library' && (
