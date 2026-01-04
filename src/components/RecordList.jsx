@@ -35,7 +35,8 @@ const WorkLogReportModal = ({ isOpen, onClose, records = [], customers = [], dat
             });
         }
 
-        const solutionContent = r.solution || r.action || '無填寫';
+        // [修改] 這裡也同步調整優先順序，確保報表內容與列表一致
+        const solutionContent = r.action || r.solution || '無填寫';
         text += `\n🔹 處理：`;
         String(solutionContent).split('\n').forEach(line => {
              const cleanLine = stripNumbering(line.trim());
@@ -140,7 +141,10 @@ const RecordList = ({
       const cust = customers.find(c => c.customerID === r.customerID);
       const custName = cust ? cust.name.toLowerCase() : '';
       const fault = (r.fault || '').toLowerCase();
-      const solution = (r.solution || '').toLowerCase();
+      
+      // [修改] 優先讀取 action，確保搜尋到最新內容
+      const solution = (r.action || r.solution || '').toLowerCase();
+      
       const partsText = r.parts ? r.parts.map(p => p.name).join(' ').toLowerCase() : '';
       const searchLower = debouncedSearch.toLowerCase();
 
@@ -255,7 +259,10 @@ const RecordList = ({
                             <button onClick={(e) => { e.stopPropagation(); handleDeleteRecord(e, r.id); }} className="text-slate-300 hover:text-red-500 p-1"><Trash2 size={16}/></button>
                         </div>
                         {(r.fault || r.symptom) && <div className="flex items-start mb-2 text-base text-slate-700"><AlertCircle size={16} className="text-slate-400 mr-2 mt-1 shrink-0"/><span>{r.fault || r.symptom}</span></div>}
-                        <div className="flex items-start mb-2 text-base text-slate-700 whitespace-pre-wrap"><Wrench size={16} className="text-slate-400 mr-2 mt-1 shrink-0"/><span>{r.solution || r.action || '無處理紀錄'}</span></div>
+                        
+                        {/* [修改] 顯示時優先讀取 action */}
+                        <div className="flex items-start mb-2 text-base text-slate-700 whitespace-pre-wrap"><Wrench size={16} className="text-slate-400 mr-2 mt-1 shrink-0"/><span>{r.action || r.solution || '無處理紀錄'}</span></div>
+                        
                         {r.parts && r.parts.length > 0 && <div className="flex items-start mb-2 text-base text-slate-700"><Package size={16} className="text-slate-400 mr-2 mt-1 shrink-0"/><span>{r.parts.map(p => `${p.name} x${p.qty}`).join('、')}</span></div>}
                         {(r.photoBefore || r.photoAfter) && (
                             <div className="flex items-center mt-2 pl-6">

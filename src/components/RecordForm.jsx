@@ -4,7 +4,7 @@ import {
   CheckCircle, Clock, Eye, ClipboardList, PhoneIncoming, Briefcase, 
   Package, Search, Wrench, AlertTriangle, Image as ImageIcon, X, Plus, 
   Minus, Settings, Edit3, ChevronRight, ChevronDown, RefreshCw, Pencil, Calendar,
-  Droplet, Archive, Layers, Zap // 新增圖示
+  Droplet, Archive, Layers, Zap
 } from 'lucide-react';
 import { ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { storage } from '../firebaseConfig';
@@ -465,7 +465,8 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
 
     // --- 6. UI Render (Style: Slate Theme) ---
     return (
-      <div className="bg-slate-50 min-h-screen pb-24 font-sans selection:bg-blue-100 flex flex-col">
+      // [修改] 在 className 最後加上 "relative z-50"
+      <div className="bg-slate-50 min-h-screen pb-24 font-sans selection:bg-blue-100 flex flex-col relative z-50">
         {/* Top Navigation */}
         <div className="bg-white/95 backdrop-blur px-4 py-3 flex items-center shadow-sm sticky top-0 z-40 shrink-0 border-b border-slate-100">
             <button onClick={onCancel} className="p-2 -ml-2 text-slate-500 hover:bg-slate-100 rounded-full transition-colors"><ArrowLeft strokeWidth={2.5}/></button>
