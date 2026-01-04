@@ -1,15 +1,12 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
-  collection, onSnapshot, deleteDoc, doc, setDoc, writeBatch, query, orderBy, limit, deleteField, addDoc, getDoc
+  collection, onSnapshot, deleteDoc, doc, setDoc, writeBatch, query, orderBy, limit, addDoc
 } from 'firebase/firestore';
-import { 
-  ref, uploadString, listAll, getDownloadURL, deleteObject, getMetadata 
-} from 'firebase/storage'; 
 import { signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { Loader2 } from 'lucide-react';
 
 // --- 引入設定與資料 ---
-import { auth, db, storage } from './firebaseConfig'; 
+import { auth, db } from './firebaseConfig'; 
 import { FULL_IMPORT_DATA, MOCK_RECORDS, INITIAL_INVENTORY } from './initialData';
 
 // --- 引入元件 ---
@@ -170,7 +167,6 @@ export default function App() {
 
         // 讀取備份列表 (模擬)
         const checkBackups = async () => {
-             // 這裡可以實作從 Firestore 讀取備份紀錄的邏輯
              setCloudBackups([]);
         };
         checkBackups();
@@ -202,13 +198,8 @@ export default function App() {
 
   // 導航點擊處理
   const handleNavClick = (customer) => {
-    if (customer.addressNote) {
-      setTargetCustomer(customer);
-      setShowAddressAlert(true);
-    } else {
-       setTargetCustomer(customer);
-       setShowAddressAlert(true);
-    }
+    setTargetCustomer(customer);
+    setShowAddressAlert(true);
   };
 
   // 客戶 - 新增
@@ -314,10 +305,6 @@ export default function App() {
               recordData.completedDate = null;
           }
 
-          if (recordData.parts && recordData.parts.length > 0) {
-             const batch = writeBatch(db);
-          }
-
           if (recordData.id) {
               const { id, ...updates } = recordData;
               await setDoc(doc(db, 'records', id), updates, { merge: true });
@@ -366,7 +353,7 @@ export default function App() {
       });
   };
 
-  // 庫存 - 更新/新增/刪除 (省略詳細代碼以節省篇幅，邏輯不變)
+  // 庫存 - 更新/新增/刪除
   const updateInventory = async (item) => {
       if (!user) return;
       try {
@@ -449,7 +436,7 @@ export default function App() {
     } catch(e) { showToast('刪除失敗', 'error'); }
   };
 
-  // 設定功能 (匯出/匯入/重置/雲端備份) - 省略詳細代碼，邏輯不變
+  // 設定功能
   const handleExportData = () => {
       const dataStr = JSON.stringify({ customers, records, inventory });
       const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);

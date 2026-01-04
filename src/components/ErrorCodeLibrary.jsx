@@ -96,7 +96,6 @@ const ErrorCodeLibrary = ({
               <ArrowLeft size={22} />
             </button>
             <h1 className="text-xl font-extrabold text-slate-800 flex items-center gap-2">
-              <BookOpen className="text-violet-600" size={24} />
               知識庫
             </h1>
           </div>
