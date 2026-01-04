@@ -73,9 +73,9 @@ const TrackingView = ({ records, customers, setCurrentView, startEditRecord, han
           trackingRecords.map(r => {
              const cust = customers.find(c => c.customerID === r.customerID);
              const visitDateInfo = getFriendlyDateInfo(r.nextVisitDate || r.return_date);
-
-             // [除錯] 嘗試抓取所有可能的欄位，避免漏抓
-             const faultContent = r.fault || r.description || r.symptom || r.problem || '';
+             
+             // 抓取所有可能的故障內容欄位
+             const faultContent = r.fault || r.description || r.symptom || '';
 
              let borderClass = 'border-l-4 border-l-amber-500'; 
              if(r.status === 'monitor') borderClass = 'border-l-4 border-l-blue-500';
@@ -111,16 +111,16 @@ const TrackingView = ({ records, customers, setCurrentView, startEditRecord, han
                       )}
                   </div>
 
-                  {/* 第 3 行：故障問題 (強制分行版) */}
+                  {/* 第 3 行：故障問題 (強制多行顯示邏輯) */}
                   {faultContent && (
                       <div className="flex items-start mb-1 text-base text-slate-700">
+                          {/* 圖示固定在左上角，對齊第一行文字 */}
                           <AlertCircle size={16} className="text-slate-400 mr-2 mt-1 shrink-0"/>
                           
-                          {/* [暴力修正] 不依賴 CSS 自動換行，直接拆解字串，一行一行渲染 */}
-                          <div className="flex-1 min-w-0 break-words">
+                          {/* [核心修正] 使用 split('\n') 將文字拆成陣列，強制每一行都用 div 渲染 */}
+                          <div className="flex-1 min-w-0">
                              {String(faultContent).split('\n').map((line, index) => (
-                               // 如果是空行，給它一點高度避免消失
-                               <div key={index} className="min-h-[1.5em] leading-relaxed">
+                               <div key={index} className="leading-normal break-words min-h-[1.5em]">
                                  {line}
                                </div>
                              ))}
