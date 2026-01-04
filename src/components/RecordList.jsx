@@ -35,7 +35,7 @@ const WorkLogReportModal = ({ isOpen, onClose, records = [], customers = [], dat
             });
         }
 
-        // [修改] 這裡也同步調整優先順序，確保報表內容與列表一致
+        // 優先順序，確保報表內容與列表一致
         const solutionContent = r.action || r.solution || '無填寫';
         text += `\n🔹 處理：`;
         String(solutionContent).split('\n').forEach(line => {
@@ -142,7 +142,7 @@ const RecordList = ({
       const custName = cust ? cust.name.toLowerCase() : '';
       const fault = (r.fault || '').toLowerCase();
       
-      // [修改] 優先讀取 action，確保搜尋到最新內容
+      // 優先讀取 action，確保搜尋到最新內容
       const solution = (r.action || r.solution || '').toLowerCase();
       
       const partsText = r.parts ? r.parts.map(p => p.name).join(' ').toLowerCase() : '';
@@ -151,12 +151,13 @@ const RecordList = ({
       const matchesSearch = custName.includes(searchLower) || fault.includes(searchLower) || solution.includes(searchLower) || partsText.includes(searchLower);
 
       let matchesStatus = true;
-      if (statusFilter === 'pending') matchesStatus = (r.status === 'pending' || r.status === 'tracking');
+      if (statusFilter === 'pending') matchesStatus = (r.status === 'pending' || r.status === 'tracking'); // 待處理篩選包含追蹤
       if (statusFilter === 'completed') matchesStatus = (r.status === 'completed');
       if (statusFilter === 'monitor') matchesStatus = (r.status === 'monitor');
 
       let matchesDate = true;
       if (dateRange.start || dateRange.end) {
+        // 篩選時：完修看結案日，未完修看維修日
         const recordDate = r.status === 'completed' && r.completedDate ? r.completedDate : r.date;
         if (dateRange.start) matchesDate = matchesDate && (recordDate >= dateRange.start);
         if (dateRange.end) matchesDate = matchesDate && (recordDate <= dateRange.end);
@@ -260,7 +261,6 @@ const RecordList = ({
                         </div>
                         {(r.fault || r.symptom) && <div className="flex items-start mb-2 text-base text-slate-700"><AlertCircle size={16} className="text-slate-400 mr-2 mt-1 shrink-0"/><span>{r.fault || r.symptom}</span></div>}
                         
-                        {/* [修改] 顯示時優先讀取 action */}
                         <div className="flex items-start mb-2 text-base text-slate-700 whitespace-pre-wrap"><Wrench size={16} className="text-slate-400 mr-2 mt-1 shrink-0"/><span>{r.action || r.solution || '無處理紀錄'}</span></div>
                         
                         {r.parts && r.parts.length > 0 && <div className="flex items-start mb-2 text-base text-slate-700"><Package size={16} className="text-slate-400 mr-2 mt-1 shrink-0"/><span>{r.parts.map(p => `${p.name} x${p.qty}`).join('、')}</span></div>}
@@ -270,7 +270,11 @@ const RecordList = ({
                                 {r.photoAfter && <img src={r.photoAfter} alt="After" className="w-16 h-16 object-cover rounded-md border border-slate-200" onClick={(e) => { e.stopPropagation(); setViewingImage(r.photoAfter); }}/>}
                             </div>
                         )}
-                        <div className="text-xs text-slate-400 mt-2 text-right border-t border-slate-50 pt-2 flex items-center justify-end gap-1"><Clock size={12}/>{r.date} · {r.status === 'completed' ? '已完修' : r.status === 'pending' ? '待處理' : '觀察中'}</div>
+                        <div className="text-xs text-slate-400 mt-2 text-right border-t border-slate-50 pt-2 flex items-center justify-end gap-1">
+                            <Clock size={12}/>
+                            {/* [修正] 顯示完整的狀態名稱 */}
+                            {r.date} · {r.status === 'completed' ? '已完修' : r.status === 'tracking' ? '待追蹤' : r.status === 'monitor' ? '觀察中' : '待處理'}
+                        </div>
                     </div>
                 )
             })
