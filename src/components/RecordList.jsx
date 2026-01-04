@@ -5,25 +5,24 @@ import {
   FileText, Copy, Check, CheckCircle, Eye
 } from 'lucide-react';
 
-// --- 內建報表模組 (已修正格式：日期短寫 + 空值隱藏) ---
+// --- 內建報表模組 (已修正：純數字機型、無冒號標題、全條列式、短日期) ---
 const WorkLogReportModal = ({ isOpen, onClose, records = [], customers = [], dateLabel }) => {
   const [isCopied, setIsCopied] = useState(false);
 
   const reportText = useMemo(() => {
     if (!Array.isArray(records) || records.length === 0) return '無資料';
 
-    // 1. 去除編號的工具函數
+    // 1. 去除編號的工具函數 (避免使用者自己打了 1. 造成重複)
     const stripNumbering = (str) => {
         if (!str) return '';
         return str.replace(/^([\d０-９]+[.、\s)）\uff0e]+|[(（][\d０-９]+[)）]|[\u2460-\u2473])\s*/, '');
     };
 
-    // 2. 簡化機型名稱
-    const simplifyModelName = (model) => {
+    // 2. 機型只留數字 (例如 MP C3503 -> 3503)
+    const extractModelNumber = (model) => {
         if (!model) return '';
-        let s = model.replace(/[()（）]/g, '');
-        s = s.replace(/^(MP|IM|SP|Aficio)\s*C?/i, '');
-        return s.trim();
+        // 把所有非數字的字元都代換成空字串
+        return model.replace(/\D/g, '');
     };
 
     // 3. 來源轉換
@@ -36,11 +35,11 @@ const WorkLogReportModal = ({ isOpen, onClose, records = [], customers = [], dat
         }
     };
 
-    // 4. [新功能] 日期轉短格式 1/2(五)
+    // 4. 日期轉短格式 1/2(五)
     const formatDateShort = (dateStr) => {
         if (!dateStr) return '';
         const date = new Date(dateStr);
-        if (isNaN(date.getTime())) return dateStr; // 若格式錯誤回傳原字串
+        if (isNaN(date.getTime())) return dateStr; 
 
         const month = date.getMonth() + 1;
         const day = date.getDate();
@@ -50,84 +49,74 @@ const WorkLogReportModal = ({ isOpen, onClose, records = [], customers = [], dat
         return `${month}/${day}(${weekday})`;
     };
 
-    // === A. 維修行程列表生成 ===
+    // === 維修行程列表生成 ===
     const listText = records.map((r) => {
         const cust = Array.isArray(customers) ? customers.find(c => c.customerID === r.customerID) : null;
         const rawModel = cust?.assets?.[0]?.model || '';
-        const simpleModel = rawModel ? simplifyModelName(rawModel) : '';
+        const modelNumber = extractModelNumber(rawModel); // 只留數字
         
-        // 用陣列來收集每一行，最後再用 join('\n') 接起來，這樣可以過濾掉空行
         const lines = [];
 
-        // 第一行：🔸 業者名稱 + 機器型號
-        lines.push(`🔸 ${cust?.name || '未知'} ${simpleModel}`);
+        // 第一行：🔸 業者名稱 + 機器型號(純數字)
+        lines.push(`🔸 ${cust?.name || '未知'} ${modelNumber}`);
 
-        // 第二行：🔹 創建任務日期 + 來源 (日期改用短格式)
+        // 第二行：🔹 任務日期(短格式) + 來源
         const createDateShort = formatDateShort(r.date);
         lines.push(`🔹 ${createDateShort} ${getSourceText(r.serviceSource)}`);
         
-        // 第三行：🔹 故障問題 (若無資料則整行不顯示)
+        // 第三行：🔹 問題 (無冒號，下方條列)
         const faultContent = r.symptom || r.fault; 
         if (faultContent) {
-            let faultStr = `🔹 故障問題：`;
-            // 處理多行內容
+            lines.push(`🔹 問題`); // 標題
             const contentLines = String(faultContent).split('\n');
-            if (contentLines.length === 1) {
-                faultStr += stripNumbering(contentLines[0].trim());
-            } else {
-                contentLines.forEach(line => {
-                    const cleanLine = stripNumbering(line.trim());
-                    if(cleanLine) faultStr += `\n▪️ ${cleanLine}`;
-                });
-            }
-            lines.push(faultStr);
+            contentLines.forEach(line => {
+                const cleanLine = stripNumbering(line.trim());
+                if(cleanLine) lines.push(`▪️ ${cleanLine}`);
+            });
         }
 
-        // 第四行：🔹 處置過程 (若無資料則整行不顯示)
+        // 第四行：🔹 處置 (無冒號，下方條列)
         const solutionContent = r.action || r.solution;
         if (solutionContent) {
-            let solStr = `🔹 處置過程：`;
+            lines.push(`🔹 處置`); // 標題
             const contentLines = String(solutionContent).split('\n');
-            if (contentLines.length === 1) {
-                solStr += stripNumbering(contentLines[0].trim());
-            } else {
-                contentLines.forEach(line => {
-                    const cleanLine = stripNumbering(line.trim());
-                    if(cleanLine) solStr += `\n▪️ ${cleanLine}`;
-                });
-            }
-            lines.push(solStr);
+            contentLines.forEach(line => {
+                const cleanLine = stripNumbering(line.trim());
+                if(cleanLine) lines.push(`▪️ ${cleanLine}`);
+            });
         }
 
-        // 第五行：🔹 更換零件 (若無資料則整行不顯示)
+        // 第五行：🔹 零件 (無冒號，下方條列)
         if (Array.isArray(r.parts) && r.parts.length > 0) {
-            const partsStr = r.parts.map(p => `${p.name} x${p.qty}`).join('、');
-            lines.push(`🔹 更換零件：${partsStr}`);
+            lines.push(`🔹 零件`); // 標題
+            r.parts.forEach(p => {
+                lines.push(`▪️ ${p.name} x${p.qty}`);
+            });
         }
 
-        // 第六行：🔹 完修日期 或 ⚠️ 需回訪時間
+        // 第六行：完修或回訪 (使用短日期格式)
         if (r.status === 'completed') {
             const finishDate = r.completedDate || r.date; 
-            lines.push(`🔹 完修日期：${formatDateShort(finishDate)}`);
+            lines.push(`🔹 完修：${formatDateShort(finishDate)}`);
         } else {
             const visitDate = r.nextVisitDate || r.return_date;
             if (visitDate) {
-                lines.push(`⚠️ 需回訪時間：${formatDateShort(visitDate)}`);
+                lines.push(`⚠️ 回訪日期：${formatDateShort(visitDate)}`);
             } else {
-                lines.push(`⚠️ 需回訪時間：未定`);
+                lines.push(`⚠️ 回訪日期：未定`);
             }
         }
 
         return lines.join('\n');
     }).join('\n\n');
 
-    // === B. 耗材統計 (保持原樣) ===
+    // === 耗材統計 (保持原樣，但標題稍微統一風格) ===
     const summaryByModel = {};
     records.forEach(r => {
         if (Array.isArray(r.parts) && r.parts.length > 0) {
             const cust = Array.isArray(customers) ? customers.find(c => c.customerID === r.customerID) : null;
             const rawModel = cust?.assets?.[0]?.model || '通用/其他';
-            const modelName = simplifyModelName(rawModel) || rawModel;
+            const modelName = extractModelNumber(rawModel) || rawModel; // 統計也用簡碼
             
             if (!summaryByModel[modelName]) summaryByModel[modelName] = {};
             r.parts.forEach(p => {
@@ -209,7 +198,7 @@ const RecordList = ({
     }
   };
   
-  // [新增] 簡化機型名稱
+  // [列表顯示用] 簡化機型名稱 (維持原本顯示邏輯，不用純數字，比較好看)
   const simplifyModelName = (model) => {
       if (!model) return '';
       let s = model.replace(/[()（）]/g, '');
