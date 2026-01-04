@@ -74,6 +74,9 @@ const TrackingView = ({ records, customers, setCurrentView, startEditRecord, han
              const cust = customers.find(c => c.customerID === r.customerID);
              const visitDateInfo = getFriendlyDateInfo(r.nextVisitDate || r.return_date);
 
+             // [除錯] 嘗試抓取所有可能的欄位，避免漏抓
+             const faultContent = r.fault || r.description || r.symptom || r.problem || '';
+
              let borderClass = 'border-l-4 border-l-amber-500'; 
              if(r.status === 'monitor') borderClass = 'border-l-4 border-l-blue-500';
 
@@ -108,17 +111,24 @@ const TrackingView = ({ records, customers, setCurrentView, startEditRecord, han
                       )}
                   </div>
 
-                  {/* 第 3 行：故障問題 */}
-                  {/* [修正] 使用 whitespace-pre-wrap 確保多行顯示，結構完全比照 RecordList */}
-                  {(r.fault || r.description || r.symptom) && (
-                      <div className="flex items-start mb-1 text-base text-slate-700 whitespace-pre-wrap">
+                  {/* 第 3 行：故障問題 (強制分行版) */}
+                  {faultContent && (
+                      <div className="flex items-start mb-1 text-base text-slate-700">
                           <AlertCircle size={16} className="text-slate-400 mr-2 mt-1 shrink-0"/>
-                          <span className="flex-1">{r.fault || r.description || r.symptom}</span>
+                          
+                          {/* [暴力修正] 不依賴 CSS 自動換行，直接拆解字串，一行一行渲染 */}
+                          <div className="flex-1 min-w-0 break-words">
+                             {String(faultContent).split('\n').map((line, index) => (
+                               // 如果是空行，給它一點高度避免消失
+                               <div key={index} className="min-h-[1.5em] leading-relaxed">
+                                 {line}
+                               </div>
+                             ))}
+                          </div>
                       </div>
                   )}
 
                   {/* 第 4 行 (底部)：回訪時間 | 狀態 */}
-                  {/* [修正] pt-2 讓分隔線與文字有點距離，但 mt-0 確保區塊不遠離上方故障描述 */}
                   <div className="flex items-center justify-between border-t border-slate-100 pt-2 mt-0">
                       
                       {/* 左側：回訪日期 */}
