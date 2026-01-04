@@ -5,7 +5,7 @@ import {
   FileText, Copy, Check, CheckCircle, Eye
 } from 'lucide-react';
 
-// --- 內建報表模組 (維持不變) ---
+// --- 內建報表模組 ---
 const WorkLogReportModal = ({ isOpen, onClose, records = [], customers = [], dateLabel }) => {
   const [isCopied, setIsCopied] = useState(false);
 
@@ -17,32 +17,65 @@ const WorkLogReportModal = ({ isOpen, onClose, records = [], customers = [], dat
         return str.replace(/^([\d０-９]+[.、\s)）\uff0e]+|[(（][\d０-９]+[)）]|[\u2460-\u2473])\s*/, '');
     };
 
+    const simplifyModelName = (model) => {
+        if (!model) return '';
+        let s = model.replace(/[()（）]/g, '');
+        s = s.replace(/^(MP|IM|SP|Aficio)\s*C?/i, '');
+        return s.trim();
+    };
+
+    const getSourceText = (source) => {
+        switch(source) {
+            case 'customer_call': return '客戶叫修';
+            case 'company_dispatch': return '公司派工';
+            case 'invoice_check': return '例行巡檢';
+            default: return '一般';
+        }
+    };
+
+    const getDateInfoText = (record) => {
+        if (record.status === 'completed') {
+            return `完修:${record.completedDate || record.date}`;
+        } else if (record.status === 'tracking' || record.status === 'monitor') {
+            const nextDate = record.nextVisitDate || record.return_date || '未定';
+            return `回訪:${nextDate}`;
+        }
+        return `待處理`;
+    };
+
     // === A. 維修行程列表 ===
     const listText = records.map((r) => {
         const cust = Array.isArray(customers) ? customers.find(c => c.customerID === r.customerID) : null;
-        const model = cust?.assets?.[0]?.model ? `(${cust.assets[0].model})` : '';
+        const rawModel = cust?.assets?.[0]?.model || '';
+        const simpleModel = rawModel ? simplifyModelName(rawModel) : '';
         
-        let text = `🔸${cust?.name || '未知'} ${model}`;
+        // 標題行：🔸客戶 3504 [來源] [日期]
+        let text = `🔸${cust?.name || '未知'} ${simpleModel} [${getSourceText(r.serviceSource)}] [${getDateInfoText(r)}]`;
         
-        const faultContent = r.symptom || r.fault || ''; // 優先讀取 symptom
+        // 故障 (去除頓點後空白)
+        const faultContent = r.symptom || r.fault || ''; 
         if (faultContent) {
-            text += `\n🔹 故障：`;
+            text += `\n🔹故障：`;
             String(faultContent).split('\n').forEach(line => {
                 const cleanLine = stripNumbering(line.trim());
                 if(cleanLine) text += `\n▪️${cleanLine}`;
             });
         }
 
-        const solutionContent = r.action || r.solution || '無填寫'; // 優先讀取 action
-        text += `\n🔹 處理：`;
-        String(solutionContent).split('\n').forEach(line => {
-             const cleanLine = stripNumbering(line.trim());
-             if(cleanLine) text += `\n▪️${cleanLine}`;
-        });
+        // 處理 (去除頓點後空白)
+        const solutionContent = r.action || r.solution || '';
+        if (solutionContent) {
+            text += `\n🔹處理：`;
+            String(solutionContent).split('\n').forEach(line => {
+                 const cleanLine = stripNumbering(line.trim());
+                 if(cleanLine) text += `\n▪️${cleanLine}`;
+            });
+        }
 
+        // 更換 (去除頓點後空白)
         if (Array.isArray(r.parts) && r.parts.length > 0) {
             const partsStr = r.parts.map(p => `${p.name} x${p.qty}`).join('、');
-            text += `\n🔹 更換: ${partsStr}`;
+            text += `\n🔹更換：${partsStr}`;
         }
         return text;
     }).join('\n\n');
@@ -52,7 +85,9 @@ const WorkLogReportModal = ({ isOpen, onClose, records = [], customers = [], dat
     records.forEach(r => {
         if (Array.isArray(r.parts) && r.parts.length > 0) {
             const cust = Array.isArray(customers) ? customers.find(c => c.customerID === r.customerID) : null;
-            const modelName = cust?.assets?.[0]?.model || '通用/其他';
+            const rawModel = cust?.assets?.[0]?.model || '通用/其他';
+            const modelName = simplifyModelName(rawModel) || rawModel;
+            
             if (!summaryByModel[modelName]) summaryByModel[modelName] = {};
             r.parts.forEach(p => {
                 summaryByModel[modelName][p.name] = (summaryByModel[modelName][p.name] || 0) + (p.qty || 1);
@@ -64,10 +99,9 @@ const WorkLogReportModal = ({ isOpen, onClose, records = [], customers = [], dat
     const models = Object.keys(summaryByModel).sort();
     if (models.length > 0) {
         summaryList = models.map(model => {
-            const cleanModel = stripNumbering(model);
             const partsObj = summaryByModel[model];
             const partsLines = Object.entries(partsObj).map(([name, qty]) => `▪️${name} x${qty}`).join('\n');
-            return `🔸${cleanModel}\n${partsLines}`;
+            return `🔸${model}\n${partsLines}`;
         }).join('\n\n');
     } else {
         summaryList = '🔸無更換零件';
@@ -98,7 +132,7 @@ const WorkLogReportModal = ({ isOpen, onClose, records = [], customers = [], dat
             </div>
             <button onClick={handleCopy} className={`w-full py-3.5 rounded-xl font-bold text-white flex items-center justify-center transition-all ${isCopied ? 'bg-green-600' : 'bg-blue-600 hover:bg-blue-700'}`}>
                 {isCopied ? <Check className="mr-2" size={20}/> : <Copy className="mr-2" size={20}/>}
-                {isCopied ? '已複製' : '複製內容 (傳送給 LINE)'}
+                {isCopied ? '已複製 (照片需手動傳送)'}
             </button>
         </div>
     </div>
@@ -123,7 +157,7 @@ const RecordList = ({
     return () => clearTimeout(timer);
   }, [inputValue]);
 
-  // [修正] 來源標籤：樣式與 TrackingView 完全一致 (使用 text-xs, px-2, 相同的顏色邏輯)
+  // [樣式統一] 來源標籤：與 TrackingView 完全一致
   const getSourceBadge = (source) => {
     const baseClass = "text-xs px-2 py-0.5 rounded-md flex items-center gap-1 font-medium ml-2";
     switch(source) {
@@ -132,6 +166,14 @@ const RecordList = ({
       case 'invoice_check': return <span className={`${baseClass} bg-emerald-50 text-emerald-600`}><Calendar size={12}/> 例行巡檢</span>;
       default: return null;
     }
+  };
+  
+  // [新增] 簡化機型名稱 (移除括號與 MP/IM)
+  const simplifyModelName = (model) => {
+      if (!model) return '';
+      let s = model.replace(/[()（）]/g, '');
+      s = s.replace(/^(MP|IM|SP|Aficio)\s*C?/i, '');
+      return s.trim();
   };
 
   const filteredRecords = useMemo(() => {
@@ -238,9 +280,10 @@ const RecordList = ({
         {records.length === 0 ? <div className="text-center text-slate-400 mt-10">尚無紀錄</div> : filteredRecords.length === 0 ? <div className="text-center text-slate-400 mt-10 flex flex-col items-center"><Search size={32} className="opacity-20 mb-2"/><span>查無符合資料</span><button onClick={() => {setInputValue(''); setStatusFilter('all'); handleDateTabClick('all');}} className="mt-2 text-xs text-blue-500 underline">清除所有篩選</button></div> : (
             filteredRecords.map(r => {
                 const cust = customers.find(c => c.customerID === r.customerID);
-                // [關鍵修復] 1. 讀取優先順序調整：優先讀取 symptom/action (編輯後資料)，避免只讀到舊的 description
                 const faultContent = r.symptom || r.fault || r.description || '';
                 const actionContent = r.action || r.solution || '';
+                const rawModel = cust?.assets?.[0]?.model || '';
+                const simpleModel = rawModel ? simplifyModelName(rawModel) : '';
 
                 let borderClass = 'border-l-4 border-l-slate-300';
                 if(r.status === 'completed') borderClass = 'border-l-4 border-l-emerald-500';
@@ -250,25 +293,24 @@ const RecordList = ({
                 return (
                     <div key={r.id} className={`bg-white p-4 shadow-sm border border-slate-100 rounded-r-xl ${borderClass} cursor-pointer hover:shadow-md transition-shadow`} onClick={(e) => startEditRecord(e, r)}>
                         
-                        {/* [樣式統一] Header: 日期(小字體) + 來源 + 刪除 */}
-                        <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center">
-                                <Calendar size={16} className="text-slate-400 mr-2 shrink-0"/>
-                                {/* [修正] 任務時間字體大小改為 text-sm，與待辦事項一致 */}
-                                <span className="text-sm font-bold text-slate-500">{r.date}</span>
-                                {getSourceBadge(r.serviceSource)}
+                        {/* 1. 【標題】 業者名稱(大字體) + 機器型號(簡化) + 刪除鈕 */}
+                        <div className="flex justify-between items-start mb-2">
+                            <div className="flex items-center flex-wrap">
+                                <User size={16} className="text-slate-400 mr-2 shrink-0"/>
+                                <span className="text-base font-bold text-slate-800 mr-2">{cust?.name || '未知客戶'}</span>
+                                {simpleModel && <span className="text-sm text-slate-500 font-medium">({simpleModel})</span>}
                             </div>
                             <button onClick={(e) => { e.stopPropagation(); handleDeleteRecord(e, r.id); }} className="text-slate-300 hover:text-red-500 p-1 -mr-1"><Trash2 size={16}/></button>
                         </div>
 
-                        {/* 客戶名稱 */}
+                        {/* 2. 【資訊】 叫修日期(小字體) + 來源標籤 */}
                         <div className="flex items-center mb-2">
-                            <User size={16} className="text-slate-400 mr-2 shrink-0"/>
-                            <span className="text-base font-bold text-slate-800 mr-2">{cust?.name || '未知客戶'}</span>
-                            {cust?.assets?.[0]?.model && <span className="text-sm text-slate-500 font-normal">({cust.assets[0].model})</span>}
+                             <Calendar size={16} className="text-slate-400 mr-2 shrink-0"/>
+                             <span className="text-sm font-bold text-slate-500">{r.date}</span>
+                             {getSourceBadge(r.serviceSource)}
                         </div>
-                        
-                        {/* [修正] 故障問題：支援多行顯示 (whitespace-pre-wrap) */}
+
+                        {/* 3. 【故障】 (若無則隱藏) */}
                         {faultContent && (
                              <div className="flex items-start mb-1 text-base text-slate-700 whitespace-pre-wrap">
                                  <AlertCircle size={16} className="text-slate-400 mr-2 mt-1 shrink-0"/>
@@ -276,23 +318,23 @@ const RecordList = ({
                              </div>
                         )}
                         
-                        {/* [修正] 處置過程：支援多行顯示，並將 mb-1 改為 mb-0.5 以縮減與零件的間距 */}
+                        {/* 4. 【處置】 (若無則隱藏) */}
                         {actionContent && (
-                             <div className="flex items-start mb-0.5 text-base text-slate-700 whitespace-pre-wrap">
+                             <div className="flex items-start mb-1 text-base text-slate-700 whitespace-pre-wrap">
                                  <Wrench size={16} className="text-slate-400 mr-2 mt-1 shrink-0"/>
                                  <span>{actionContent}</span>
                              </div>
                         )}
                         
-                        {/* 更換零件 */}
+                        {/* 5. 【料件】 (若無則隱藏) */}
                         {r.parts && r.parts.length > 0 && (
-                            <div className="flex items-start mb-2 text-base text-slate-700">
+                            <div className="flex items-start mb-1 text-base text-slate-700">
                                 <Package size={16} className="text-slate-400 mr-2 mt-1 shrink-0"/>
                                 <span>{r.parts.map(p => `${p.name} x${p.qty}`).join('、')}</span>
                             </div>
                         )}
 
-                        {/* 照片 */}
+                        {/* 6. 【照片】 (若無則隱藏) */}
                         {(r.photoBefore || r.photoAfter) && (
                             <div className="flex items-center mt-2 pl-6 mb-2">
                                 {r.photoBefore && <img src={r.photoBefore} alt="Before" className="w-16 h-16 object-cover rounded-md border border-slate-200 mr-2" onClick={(e) => { e.stopPropagation(); setViewingImage(r.photoBefore); }}/>}
@@ -300,7 +342,7 @@ const RecordList = ({
                             </div>
                         )}
 
-                        {/* 底部狀態列 */}
+                        {/* 7. 【底部】 完修日/回訪日 + 狀態標籤 (靠右) */}
                         <div className="flex items-center justify-end border-t border-slate-50 pt-2 mt-1">
                              <div className={`flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-full ${
                                  r.status === 'completed' ? 'bg-emerald-50 text-emerald-600' :
@@ -310,9 +352,9 @@ const RecordList = ({
                              }`}>
                                  {r.status === 'completed' ? <CheckCircle size={12}/> : r.status === 'tracking' ? <CheckCircle size={12}/> : r.status === 'monitor' ? <Eye size={12}/> : <Wrench size={12}/>}
                                  <span>
-                                    {r.status === 'completed' ? (r.completedDate ? `已完修 · ${r.completedDate}` : '已完修') : 
-                                     r.status === 'tracking' ? '待追蹤' : 
-                                     r.status === 'monitor' ? '觀察中' : '待處理'}
+                                    {r.status === 'completed' ? (r.completedDate ? `完修: ${r.completedDate}` : '已完修') : 
+                                     r.status === 'tracking' ? (r.nextVisitDate ? `回訪: ${r.nextVisitDate}` : '待追蹤') :
+                                     r.status === 'monitor' ? (r.nextVisitDate ? `觀察: ${r.nextVisitDate}` : '觀察中') : '待處理'}
                                  </span>
                              </div>
                         </div>
