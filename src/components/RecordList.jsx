@@ -132,7 +132,8 @@ const WorkLogReportModal = ({ isOpen, onClose, records = [], customers = [], dat
             </div>
             <button onClick={handleCopy} className={`w-full py-3.5 rounded-xl font-bold text-white flex items-center justify-center transition-all ${isCopied ? 'bg-green-600' : 'bg-blue-600 hover:bg-blue-700'}`}>
                 {isCopied ? <Check className="mr-2" size={20}/> : <Copy className="mr-2" size={20}/>}
-                {isCopied ? '已複製 (照片需手動傳送)'}
+                {/* 修正後的判斷式 */}
+                {isCopied ? '已複製 (照片需手動傳送)' : '複製內容 (傳送給 LINE)'}
             </button>
         </div>
     </div>
