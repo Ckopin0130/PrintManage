@@ -3,16 +3,17 @@ import { ArrowLeft, AlertCircle, Trash2 } from 'lucide-react';
 
 const TrackingView = ({ records, customers, setCurrentView, startEditRecord, handleDeleteRecord }) => {
   // ▼▼▼ [修正重點] ▼▼▼
-  // 修正排序邏輯：將字串轉為 Date 物件再相減，確保 1/6 會排在 1/29 前面
+  // 改用 localeCompare 直接比對字串，這比 new Date() 更穩定，
+  // 絕對不會因為裝置不同而產生日期解析錯誤。
   const trackingRecords = records.filter(r => 
     r.status === 'tracking' || r.status === 'monitor' || r.status === 'pending'
   ).sort((a, b) => {
-    // 取得日期，若無則設為極大值確保排在最後
-    const dateA = a.nextVisitDate || a.return_date || '9999-12-31';
-    const dateB = b.nextVisitDate || b.return_date || '9999-12-31';
+    // 取得日期，若無則設為極大值 '9999-99-99' 確保排在最後
+    const dateA = a.nextVisitDate || a.return_date || '9999-99-99';
+    const dateB = b.nextVisitDate || b.return_date || '9999-99-99';
     
-    // 使用 new Date() 轉換成時間戳記來比較數字大小
-    return new Date(dateA) - new Date(dateB);
+    // 直接比較字串 (例如 "2025-01-06" 會小於 "2025-01-29")
+    return dateA.localeCompare(dateB);
   });
   // ▲▲▲ [修正結束] ▲▲▲
   
