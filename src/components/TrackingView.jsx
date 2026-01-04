@@ -14,12 +14,13 @@ const TrackingView = ({ records, customers, setCurrentView, startEditRecord, han
     return dateA.localeCompare(dateB);
   });
 
+  // [修正] 來源標籤：完全比照 RecordList (使用 text-xs, px-2, 無 border)
   const getSourceBadge = (source) => {
-    const baseClass = "text-[10px] px-1.5 py-0.5 rounded flex items-center gap-1 font-medium border ml-2";
+    const baseClass = "text-xs px-2 py-0.5 rounded-md flex items-center gap-1 font-medium ml-2";
     switch(source) {
-      case 'customer_call': return <span className={`${baseClass} bg-rose-50 text-rose-600 border-rose-100`}><Phone size={10}/> 客戶叫修</span>;
-      case 'company_dispatch': return <span className={`${baseClass} bg-blue-50 text-blue-600 border-blue-100`}><Briefcase size={10}/> 公司派工</span>;
-      case 'invoice_check': return <span className={`${baseClass} bg-emerald-50 text-emerald-600 border-emerald-100`}><Calendar size={10}/> 例行巡檢</span>;
+      case 'customer_call': return <span className={`${baseClass} bg-rose-50 text-rose-600`}><Phone size={12}/> 客戶叫修</span>;
+      case 'company_dispatch': return <span className={`${baseClass} bg-blue-50 text-blue-600`}><Briefcase size={12}/> 公司派工</span>;
+      case 'invoice_check': return <span className={`${baseClass} bg-emerald-50 text-emerald-600`}><Calendar size={12}/> 例行巡檢</span>;
       default: return null;
     }
   };
@@ -31,6 +32,7 @@ const TrackingView = ({ records, customers, setCurrentView, startEditRecord, han
     today.setHours(0, 0, 0, 0);
     const diffTime = targetDate - today;
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
     const dateObj = new Date(dateStr.replace(/-/g, '/'));
     const weekDays = ['日', '一', '二', '三', '四', '五', '六'];
     const weekDayStr = weekDays[dateObj.getDay()];
@@ -41,7 +43,6 @@ const TrackingView = ({ records, customers, setCurrentView, startEditRecord, han
     else if (diffDays === 2) prefix = '後天';
     else if (diffDays === -1) prefix = '昨日';
 
-    // 格式：明日 (二) 2026-01-06
     const text = `${prefix ? prefix + ' ' : ''}(${weekDayStr}) ${dateStr}`;
 
     let color = 'text-slate-600';
@@ -83,16 +84,16 @@ const TrackingView = ({ records, customers, setCurrentView, startEditRecord, han
                   className={`bg-white p-4 shadow-sm border border-slate-100 rounded-r-xl ${borderClass} cursor-pointer hover:shadow-md transition-shadow`}
                   onClick={(e) => startEditRecord(e, r)}
                >
-                  {/* 第 1 行：任務日期 (與下面 User 圖示完全對齊) + 來源 + 刪除鈕 */}
+                  {/* 第 1 行：任務日期 + 來源 + 刪除鈕 */}
                   <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center">
-                          {/* 關鍵：統一 size={16} 與 mr-2，確保與下方 User/AlertCircle 對齊 */}
+                          {/* [對齊關鍵] Calendar size={16} mr-2，與下方 User/AlertCircle 一致 */}
                           <Calendar size={16} className="text-slate-400 mr-2 shrink-0"/>
-                          <span className="text-base font-bold text-slate-500">{r.date}</span>
+                          {/* [字體關鍵] 改為 text-sm，不要太小也不要太大 */}
+                          <span className="text-sm font-bold text-slate-500">{r.date}</span>
                           {getSourceBadge(r.serviceSource)}
                       </div>
                       
-                      {/* 刪除按鈕：放在第一行最右邊 */}
                       <button 
                         onClick={(e) => { e.stopPropagation(); handleDeleteRecord(e, r.id); }} 
                         className="text-slate-300 hover:text-red-500 p-1 -mr-1"
@@ -103,26 +104,31 @@ const TrackingView = ({ records, customers, setCurrentView, startEditRecord, han
 
                   {/* 第 2 行：業者名稱 + 機型 */}
                   <div className="flex items-center mb-2">
+                      {/* [對齊關鍵] User size={16} mr-2 */}
                       <User size={16} className="text-slate-400 mr-2 shrink-0"/>
+                      {/* [字體關鍵] 業者名稱使用 text-base */}
                       <span className="text-base font-bold text-slate-800 mr-2">{cust?.name || '未知客戶'}</span>
                       {cust?.assets?.[0]?.model && (
                           <span className="text-sm text-slate-500 font-medium">({cust.assets[0].model})</span>
                       )}
                   </div>
 
-                  {/* 第 3 行：故障問題 (刪除多餘 mb，改為 mb-2) */}
+                  {/* 第 3 行：故障問題 */}
                   {(r.fault || r.description || r.symptom) && (
                       <div className="flex items-start mb-2 text-base text-slate-700 whitespace-pre-wrap">
+                          {/* [對齊關鍵] AlertCircle size={16} mr-2 mt-1 (因為文字有行高，icon往下微調) */}
                           <AlertCircle size={16} className="text-slate-400 mr-2 mt-1 shrink-0"/>
-                          <span className="leading-relaxed">{r.fault || r.description || r.symptom}</span>
+                          <span>{r.fault || r.description || r.symptom}</span>
                       </div>
                   )}
 
-                  {/* 第 4 行 (底部)：回訪時間 (圖示對齊) | 狀態 */}
+                  {/* 第 4 行 (底部)：回訪時間 | 狀態 */}
                   <div className="flex items-center justify-between border-t border-slate-100 pt-2 mt-1">
                       
-                      {/* 左側：回訪日期 (圖示與上方統一) */}
+                      {/* 左側：回訪日期 */}
+                      {/* [字體關鍵] 使用 text-base 跟內文一樣大，不要忽大忽小 */}
                       <div className={`flex items-center text-base ${visitDateInfo.color}`}>
+                          {/* [對齊關鍵] Clock size={16} mr-2 */}
                           <Clock size={16} className="mr-2 shrink-0"/>
                           <span className="font-bold">{visitDateInfo.text}</span>
                       </div>
