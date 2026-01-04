@@ -15,7 +15,7 @@ const TrackingView = ({ records, customers, setCurrentView, startEditRecord, han
     return dateA.localeCompare(dateB);
   });
 
-  // 2. 來源標籤 (維持與 RecordList 一致的樣式)
+  // 2. 來源標籤 (與 RecordList 一致)
   const getSourceBadge = (source) => {
     const baseClass = "text-xs px-2 py-0.5 rounded-md flex items-center gap-1 font-medium ml-2";
     switch(source) {
@@ -28,7 +28,7 @@ const TrackingView = ({ records, customers, setCurrentView, startEditRecord, han
 
   return (
      <div className="bg-slate-50 min-h-screen pb-24 font-sans flex flex-col">
-      {/* 標題列 (與 RecordList 一致) */}
+      {/* 標題列 */}
       <div className="bg-white shadow-sm sticky top-0 z-30 border-b border-slate-200">
          <div className="px-4 py-3 flex items-center justify-between">
              <div className="flex items-center">
@@ -47,20 +47,19 @@ const TrackingView = ({ records, customers, setCurrentView, startEditRecord, han
           trackingRecords.map(r => {
              const cust = customers.find(c => c.customerID === r.customerID);
              
-             // 狀態邊框顏色 (與 RecordList 一致)
-             // tracking/pending -> 橘黃色 (待處理/追蹤)
-             // monitor -> 藍色 (觀察)
+             // 狀態邊框顏色
              let borderClass = 'border-l-4 border-l-amber-500'; 
              if(r.status === 'monitor') borderClass = 'border-l-4 border-l-blue-500';
 
              const visitDate = r.nextVisitDate || r.return_date;
              
-             // 判斷是否過期 (僅改變文字顏色，不改變背景)
+             // 判斷是否過期/緊急 (控制左側日期顏色)
              const todayStr = new Date().toLocaleDateString('en-CA');
              const isOverdue = visitDate && visitDate < todayStr;
              const isUrgent = visitDate && visitDate === todayStr;
              
-             const dateColorClass = isOverdue ? 'text-red-500 font-bold' : isUrgent ? 'text-orange-500 font-bold' : 'text-slate-400';
+             // 顏色設定：過期(紅) > 當日(橘) > 未來(灰/藍)
+             const dateColorClass = isOverdue ? 'text-rose-600 font-bold' : isUrgent ? 'text-orange-500 font-bold' : 'text-slate-500 font-bold';
 
              return (
                <div 
@@ -90,16 +89,24 @@ const TrackingView = ({ records, customers, setCurrentView, startEditRecord, han
                       <span>{r.fault || r.description || r.symptom || '未填寫故障情形'}</span>
                   </div>
 
-                  {/* Footer: 日期與狀態 (仿照 RecordList 的右下角風格) */}
-                  <div className="text-xs mt-2 text-right border-t border-slate-50 pt-2 flex items-center justify-end gap-1">
-                      <Clock size={12} className={dateColorClass}/>
-                      <span className={dateColorClass}>
-                        {visitDate ? `預計回訪: ${visitDate}` : '無日期'}
-                      </span>
-                      <span className="text-slate-300 mx-1">·</span>
-                      <span className="text-slate-400">
-                        {r.status === 'tracking' ? '待追蹤' : r.status === 'monitor' ? '觀察中' : '待料'}
-                      </span>
+                  {/* Footer: 重點日期靠左(有顏色) | 建立日期靠右(灰色) */}
+                  <div className="flex items-center justify-between mt-3 border-t border-slate-50 pt-2 text-xs">
+                      
+                      {/* 左側：預計回訪 (重點) */}
+                      <div className={`flex items-center gap-1 ${dateColorClass}`}>
+                          <Clock size={12}/>
+                          {visitDate ? `預計: ${visitDate}` : '未設定回訪'}
+                      </div>
+
+                      {/* 右側：建立日期 + 狀態 (輔助) */}
+                      <div className="flex items-center gap-1 text-slate-400">
+                          <span>建立: {r.date}</span>
+                          <span className="text-slate-300">·</span>
+                          <span>
+                            {r.status === 'tracking' ? '待追蹤' : r.status === 'monitor' ? '觀察中' : '待料'}
+                          </span>
+                      </div>
+
                   </div>
                </div>
              )
