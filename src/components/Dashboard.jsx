@@ -101,7 +101,7 @@ const Dashboard = ({
       icon: BookOpen, 
       color: 'text-violet-600', // 紫色系
       iconBg: 'bg-violet-50',
-      info: '故障/SP/筆記', 
+      info: '搜尋工具', 
       infoColor: 'text-violet-600 font-extrabold',
       action: () => setCurrentView('error_library') 
     },
