@@ -5,7 +5,7 @@ import {
   FileText, Copy, Check, CheckCircle, Eye
 } from 'lucide-react';
 
-// --- 內建報表模組 ---
+// --- 內建報表模組 (維持不變) ---
 const WorkLogReportModal = ({ isOpen, onClose, records = [], customers = [], dateLabel }) => {
   const [isCopied, setIsCopied] = useState(false);
 
@@ -24,7 +24,7 @@ const WorkLogReportModal = ({ isOpen, onClose, records = [], customers = [], dat
         
         let text = `🔸${cust?.name || '未知'} ${model}`;
         
-        const faultContent = r.fault || r.symptom || '';
+        const faultContent = r.symptom || r.fault || ''; // 優先讀取 symptom
         if (faultContent) {
             text += `\n🔹 故障：`;
             String(faultContent).split('\n').forEach(line => {
@@ -33,7 +33,7 @@ const WorkLogReportModal = ({ isOpen, onClose, records = [], customers = [], dat
             });
         }
 
-        const solutionContent = r.action || r.solution || '無填寫';
+        const solutionContent = r.action || r.solution || '無填寫'; // 優先讀取 action
         text += `\n🔹 處理：`;
         String(solutionContent).split('\n').forEach(line => {
              const cleanLine = stripNumbering(line.trim());
@@ -123,7 +123,7 @@ const RecordList = ({
     return () => clearTimeout(timer);
   }, [inputValue]);
 
-  // [修正] 來源標籤：樣式與 TrackingView 完全統一 (text-xs, px-2, 無 border)
+  // [修正] 來源標籤：樣式與 TrackingView 完全一致 (使用 text-xs, px-2, 相同的顏色邏輯)
   const getSourceBadge = (source) => {
     const baseClass = "text-xs px-2 py-0.5 rounded-md flex items-center gap-1 font-medium ml-2";
     switch(source) {
@@ -238,7 +238,8 @@ const RecordList = ({
         {records.length === 0 ? <div className="text-center text-slate-400 mt-10">尚無紀錄</div> : filteredRecords.length === 0 ? <div className="text-center text-slate-400 mt-10 flex flex-col items-center"><Search size={32} className="opacity-20 mb-2"/><span>查無符合資料</span><button onClick={() => {setInputValue(''); setStatusFilter('all'); handleDateTabClick('all');}} className="mt-2 text-xs text-blue-500 underline">清除所有篩選</button></div> : (
             filteredRecords.map(r => {
                 const cust = customers.find(c => c.customerID === r.customerID);
-                const faultContent = r.fault || r.symptom || r.description || '';
+                // [關鍵修復] 1. 讀取優先順序調整：優先讀取 symptom/action (編輯後資料)，避免只讀到舊的 description
+                const faultContent = r.symptom || r.fault || r.description || '';
                 const actionContent = r.action || r.solution || '';
 
                 let borderClass = 'border-l-4 border-l-slate-300';
@@ -249,25 +250,25 @@ const RecordList = ({
                 return (
                     <div key={r.id} className={`bg-white p-4 shadow-sm border border-slate-100 rounded-r-xl ${borderClass} cursor-pointer hover:shadow-md transition-shadow`} onClick={(e) => startEditRecord(e, r)}>
                         
-                        {/* 第 1 行：建立日期 + 來源 + 刪除鈕 (比照 TrackingView) */}
+                        {/* [樣式統一] Header: 日期(小字體) + 來源 + 刪除 */}
                         <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center">
-                                {/* Calendar size=16, mr-2, text-sm */}
                                 <Calendar size={16} className="text-slate-400 mr-2 shrink-0"/>
+                                {/* [修正] 任務時間字體大小改為 text-sm，與待辦事項一致 */}
                                 <span className="text-sm font-bold text-slate-500">{r.date}</span>
                                 {getSourceBadge(r.serviceSource)}
                             </div>
                             <button onClick={(e) => { e.stopPropagation(); handleDeleteRecord(e, r.id); }} className="text-slate-300 hover:text-red-500 p-1 -mr-1"><Trash2 size={16}/></button>
                         </div>
 
-                        {/* 第 2 行：客戶名稱 + 機型 (比照 TrackingView) */}
+                        {/* 客戶名稱 */}
                         <div className="flex items-center mb-2">
                             <User size={16} className="text-slate-400 mr-2 shrink-0"/>
                             <span className="text-base font-bold text-slate-800 mr-2">{cust?.name || '未知客戶'}</span>
                             {cust?.assets?.[0]?.model && <span className="text-sm text-slate-500 font-normal">({cust.assets[0].model})</span>}
                         </div>
                         
-                        {/* 第 3 行：故障 (支援多行) */}
+                        {/* [修正] 故障問題：支援多行顯示 (whitespace-pre-wrap) */}
                         {faultContent && (
                              <div className="flex items-start mb-1 text-base text-slate-700 whitespace-pre-wrap">
                                  <AlertCircle size={16} className="text-slate-400 mr-2 mt-1 shrink-0"/>
@@ -275,15 +276,15 @@ const RecordList = ({
                              </div>
                         )}
                         
-                        {/* 第 4 行：處置 (支援多行)，mb-1 縮小與零件的間距 */}
+                        {/* [修正] 處置過程：支援多行顯示，並將 mb-1 改為 mb-0.5 以縮減與零件的間距 */}
                         {actionContent && (
-                             <div className="flex items-start mb-1 text-base text-slate-700 whitespace-pre-wrap">
+                             <div className="flex items-start mb-0.5 text-base text-slate-700 whitespace-pre-wrap">
                                  <Wrench size={16} className="text-slate-400 mr-2 mt-1 shrink-0"/>
                                  <span>{actionContent}</span>
                              </div>
                         )}
                         
-                        {/* 第 5 行：更換零件 */}
+                        {/* 更換零件 */}
                         {r.parts && r.parts.length > 0 && (
                             <div className="flex items-start mb-2 text-base text-slate-700">
                                 <Package size={16} className="text-slate-400 mr-2 mt-1 shrink-0"/>
@@ -291,7 +292,7 @@ const RecordList = ({
                             </div>
                         )}
 
-                        {/* 照片區域 */}
+                        {/* 照片 */}
                         {(r.photoBefore || r.photoAfter) && (
                             <div className="flex items-center mt-2 pl-6 mb-2">
                                 {r.photoBefore && <img src={r.photoBefore} alt="Before" className="w-16 h-16 object-cover rounded-md border border-slate-200 mr-2" onClick={(e) => { e.stopPropagation(); setViewingImage(r.photoBefore); }}/>}
@@ -299,7 +300,7 @@ const RecordList = ({
                             </div>
                         )}
 
-                        {/* 底部狀態列：只顯示狀態與完修日期(若有) */}
+                        {/* 底部狀態列 */}
                         <div className="flex items-center justify-end border-t border-slate-50 pt-2 mt-1">
                              <div className={`flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-full ${
                                  r.status === 'completed' ? 'bg-emerald-50 text-emerald-600' :
