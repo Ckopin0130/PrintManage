@@ -32,7 +32,6 @@ const TrackingView = ({ records, customers, setCurrentView, startEditRecord, han
     const diffTime = targetDate - today;
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     
-    // 解決時區問題，直接解析字串
     const dateObj = new Date(dateStr.replace(/-/g, '/'));
     const weekDays = ['日', '一', '二', '三', '四', '五', '六'];
     const weekDayStr = weekDays[dateObj.getDay()];
@@ -75,8 +74,7 @@ const TrackingView = ({ records, customers, setCurrentView, startEditRecord, han
              const cust = customers.find(c => c.customerID === r.customerID);
              const visitDateInfo = getFriendlyDateInfo(r.nextVisitDate || r.return_date);
              
-             // [關鍵修正] 調整讀取順序：優先讀取 symptom (編輯後的資料)，其次才是 description (快速任務的舊資料)
-             // 這樣就能確保顯示出您後來補充的第二行內容
+             // [關鍵修復]：依然保留這個順序，確保讀取到最新的 symptom 資料
              const faultContent = r.symptom || r.fault || r.description || '';
 
              let borderClass = 'border-l-4 border-l-amber-500'; 
@@ -114,19 +112,11 @@ const TrackingView = ({ records, customers, setCurrentView, startEditRecord, han
                   </div>
 
                   {/* 第 3 行：故障問題 */}
+                  {/* [恢復正常] 回歸標準 CSS 寫法，乾淨且穩定，與 RecordList 完全一致 */}
                   {faultContent && (
-                      <div className="flex items-start mb-1 text-base text-slate-700">
-                          {/* 圖示固定在左上角，對齊第一行文字 */}
+                      <div className="flex items-start mb-1 text-base text-slate-700 whitespace-pre-wrap">
                           <AlertCircle size={16} className="text-slate-400 mr-2 mt-1 shrink-0"/>
-                          
-                          {/* 強制分行顯示：確保無論有幾行都能完整呈現 */}
-                          <div className="flex-1 min-w-0">
-                             {String(faultContent).split('\n').map((line, index) => (
-                               <div key={index} className="leading-normal break-words min-h-[1.5em]">
-                                 {line}
-                               </div>
-                             ))}
-                          </div>
+                          <span>{faultContent}</span>
                       </div>
                   )}
 
