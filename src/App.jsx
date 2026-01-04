@@ -292,43 +292,53 @@ export default function App() {
       setCurrentView('edit_record');
   };
 
-  // 維修紀錄 - 儲存 (新增或更新)
-  const handleSaveRecord = async (data) => {
-      if (!user) return showToast('請先登入', 'error');
-      setIsProcessing(true);
-      try {
-          const recordData = { ...data };
-          if (recordData.status === 'completed' && !recordData.completedDate) {
-              recordData.completedDate = new Date().toLocaleDateString('en-CA');
-          }
-          if (recordData.status !== 'completed') {
-              recordData.completedDate = null;
-          }
+// 維修紀錄 - 儲存 (新增或更新)
+const handleSaveRecord = async (data) => {
+  if (!user) return showToast('請先登入', 'error');
+  setIsProcessing(true);
+  try {
+      const recordData = { ...data };
 
-          if (recordData.id) {
-              const { id, ...updates } = recordData;
-              await setDoc(doc(db, 'records', id), updates, { merge: true });
-              showToast('維修紀錄已更新');
-          } else {
-              delete recordData.id; 
-              recordData.timestamp = Date.now();
-              await addDoc(collection(db, 'records'), recordData);
-              showToast('維修紀錄已新增');
-          }
-          
-          if (previousView) {
-              setCurrentView(previousView);
-              setPreviousView(null);
-          } else {
-              setCurrentView('detail');
-          }
+      // ▼▼▼ [新增 1] 取出 isQuickAction 標記 ▼▼▼
+      const isQuickAction = recordData.isQuickAction;
+      // 存檔前把這個標記刪掉，不需要存進資料庫
+      if (isQuickAction) delete recordData.isQuickAction; 
 
-      } catch (e) {
-          console.error(e);
-          showToast('儲存失敗: ' + e.message, 'error');
+      if (recordData.status === 'completed' && !recordData.completedDate) {
+          recordData.completedDate = new Date().toLocaleDateString('en-CA');
       }
-      setIsProcessing(false);
-  };
+      
+      if (recordData.status !== 'completed') {
+          recordData.completedDate = null;
+      }
+
+      if (recordData.id) {
+          const { id, ...updates } = recordData;
+          await setDoc(doc(db, 'records', id), updates, { merge: true });
+          showToast('維修紀錄已更新');
+      } else {
+          delete recordData.id; 
+          recordData.timestamp = Date.now();
+          await addDoc(collection(db, 'records'), recordData);
+          showToast('維修紀錄已新增');
+      }
+      
+      // ▼▼▼ [修改 2] 這裡加上判斷：如果是快速任務，就回首頁 ▼▼▼
+      if (isQuickAction) {
+          setCurrentView('dashboard'); // 強制跳回首頁
+      } else if (previousView) {
+          setCurrentView(previousView);
+          setPreviousView(null);
+      } else {
+          setCurrentView('detail');
+      }
+
+  } catch (e) {
+      console.error(e);
+      showToast('儲存失敗: ' + e.message, 'error');
+  }
+  setIsProcessing(false);
+};
 
   // 維修紀錄 - 刪除
   const handleDeleteRecord = async (e, recordId) => {
