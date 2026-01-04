@@ -68,10 +68,20 @@ const CustomerForm = ({ mode, initialData, onSubmit, onCancel, onDelete }) => {
       e.preventDefault();
       // 過濾掉空的機型
       const filteredAssets = formData.assets.filter(asset => asset.model && asset.model.trim() !== '');
-      onSubmit({
+      
+      // 準備要送出的資料
+      const submitData = {
         ...formData,
         assets: filteredAssets.length > 0 ? filteredAssets : []
-      });
+      };
+
+      // [修正重點] 如果是編輯模式，必須把 customerID 補回去
+      // 否則 App.jsx 的 handleEditSubmit 會因為找不到 ID 而更新失敗
+      if (isEdit && initialData && initialData.customerID) {
+          submitData.customerID = initialData.customerID;
+      }
+
+      onSubmit(submitData);
   };
 
   const handleAddAsset = () => {
