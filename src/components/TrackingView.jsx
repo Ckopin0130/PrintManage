@@ -2,13 +2,19 @@ import React from 'react';
 import { ArrowLeft, AlertCircle, Trash2 } from 'lucide-react';
 
 const TrackingView = ({ records, customers, setCurrentView, startEditRecord, handleDeleteRecord }) => {
+  // ▼▼▼ [修正重點] ▼▼▼
+  // 修正排序邏輯：將字串轉為 Date 物件再相減，確保 1/6 會排在 1/29 前面
   const trackingRecords = records.filter(r => 
     r.status === 'tracking' || r.status === 'monitor' || r.status === 'pending'
   ).sort((a, b) => {
-    const dateA = a.nextVisitDate || a.return_date || '9999-99-99';
-    const dateB = b.nextVisitDate || b.return_date || '9999-99-99';
-    return dateA.localeCompare(dateB);
+    // 取得日期，若無則設為極大值確保排在最後
+    const dateA = a.nextVisitDate || a.return_date || '9999-12-31';
+    const dateB = b.nextVisitDate || b.return_date || '9999-12-31';
+    
+    // 使用 new Date() 轉換成時間戳記來比較數字大小
+    return new Date(dateA) - new Date(dateB);
   });
+  // ▲▲▲ [修正結束] ▲▲▲
   
   return (
      <div className="bg-gray-50 min-h-screen pb-24 animate-in">
@@ -35,7 +41,7 @@ const TrackingView = ({ records, customers, setCurrentView, startEditRecord, han
                      }`}>
                        {isTracking ? '待追蹤' : isMonitor ? '觀察中' : '待料'}
                      </span>
-                     {/* 新增：刪除按鈕 */}
+                     {/* 刪除按鈕 */}
                      <button 
                        onClick={(e) => {
                          e.stopPropagation();
