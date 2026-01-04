@@ -268,13 +268,29 @@ const CustomerDetail = ({
                {custRecords.length === 0 ? <div className="text-center py-6 text-gray-400 flex flex-col items-center"><FileText size={32} className="mb-2 opacity-20"/>{searchTerm ? '查無符合紀錄' : '尚無紀錄'}</div> : (
                  <div className="relative border-l-2 border-slate-100 pl-6 space-y-6">
                     {custRecords.map(record => {
+                       // [修正] 狀態顏色與文字顯示邏輯
+                       let statusLabel = '結案';
                        let statusColor = "text-emerald-600 bg-emerald-50";
-                       if(record.status === 'pending') statusColor = "text-amber-600 bg-amber-50";
+
+                       if (record.status === 'pending') {
+                           statusLabel = '待料';
+                           statusColor = "text-amber-600 bg-amber-50";
+                       } else if (record.status === 'tracking') {
+                           statusLabel = '追蹤';
+                           statusColor = "text-orange-600 bg-orange-50";
+                       } else if (record.status === 'monitor') {
+                           statusLabel = '觀察';
+                           statusColor = "text-blue-600 bg-blue-50";
+                       }
+
                        return (
                        <div key={record.id} className="relative group animate-in fade-in slide-in-from-bottom">
                           <div className={`absolute -left-[31px] top-0 w-4 h-4 rounded-full border-4 border-white shadow-sm ring-1 ring-gray-100 bg-gray-200`}></div>
                           <div className="text-xs font-bold text-slate-400 mb-1 flex justify-between items-center">
-                              <div className="flex items-center"><span>{record.date}</span><span className={`ml-2 px-1.5 py-0.5 rounded text-[10px] ${statusColor}`}>{record.status === 'pending' ? '待料' : '結案'}</span></div>
+                              <div className="flex items-center">
+                                <span>{record.date}</span>
+                                <span className={`ml-2 px-1.5 py-0.5 rounded text-[10px] ${statusColor}`}>{statusLabel}</span>
+                              </div>
                               <div className="flex space-x-2"><button onClick={(e) => startEditRecord(e, record)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors"><Edit size={14}/></button><button onClick={(e) => handleDeleteRecord(e, record.id)} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"><Trash2 size={14}/></button></div>
                           </div>
                           <div className="flex items-start mb-1"><span className="font-bold text-gray-800 text-sm">{record.fault || record.symptom}</span></div>
