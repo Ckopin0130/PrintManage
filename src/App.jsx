@@ -299,7 +299,7 @@ export default function App() {
     try {
         const recordData = { ...data };
 
-        // ▼▼▼ [新增] 取出 isQuickAction 標記 ▼▼▼
+        // 取出 isQuickAction 標記
         const isQuickAction = recordData.isQuickAction;
         if (isQuickAction) delete recordData.isQuickAction; 
 
@@ -308,9 +308,7 @@ export default function App() {
             recordData.date = new Date().toLocaleDateString('en-CA');
         }
 
-        // ▼▼▼ [修正重點] 日期邏輯 ▼▼▼
         // 強制讓 結案日 (completedDate) = 維修日 (date)
-        // 這樣補登舊資料或修改舊單時，才不會變成「今日完修」
         if (recordData.status === 'completed') {
             recordData.completedDate = recordData.date; 
         } else {
@@ -318,7 +316,7 @@ export default function App() {
             recordData.completedDate = null;
         }
 
-        // ▼▼▼ 存檔動作 ▼▼▼
+        // 存檔動作
         if (recordData.id) {
             const { id, ...updates } = recordData;
             await setDoc(doc(db, 'records', id), updates, { merge: true });
@@ -330,9 +328,8 @@ export default function App() {
             showToast('維修紀錄已新增');
         }
         
-        // ▼▼▼ 連動更新客戶最後維修日 ▼▼▼
+        // 連動更新客戶最後維修日
         if (recordData.customerID && recordData.date) {
-          // 簡單比較，如果這筆維修日期比客戶資料裡的還新，就更新客戶資料
           const targetCustomer = customers.find(c => c.customerID === recordData.customerID);
           if (targetCustomer) {
               const currentLastService = targetCustomer.lastServiceDate || '0000-00-00';
@@ -344,7 +341,7 @@ export default function App() {
           }
         }
 
-        // ▼▼▼ 畫面導航 (存檔後跳轉) ▼▼▼
+        // 畫面導航 (存檔後跳轉)
         if (isQuickAction) {
             setCurrentView('dashboard'); // 快速任務存檔後回首頁
         } else if (previousView) {
@@ -643,10 +640,6 @@ export default function App() {
         />
       )}
       
-      {/* ▼▼▼ [修正重點：首頁維修紀錄重疊問題] ▼▼▼
-         原來的寫法會導致在 dashboard 時如果 activeTab 是 records 也顯示。
-         改為嚴格判斷：只有 currentView 是 'records' 時才顯示。
-      */}
       {currentView === 'records' && (
         <RecordList 
           records={records} customers={customers} setCurrentView={setCurrentView} setActiveTab={setActiveTab}
@@ -661,7 +654,6 @@ export default function App() {
         />
       )}
 
-      {/* 【新頁面】維修知識庫 ErrorCodeLibrary (已修正：加上 onBack) */}
       {currentView === 'error_library' && (
         <ErrorCodeLibrary 
           errorCodes={errorCodes} spModes={spModes} techNotes={techNotes}
@@ -669,6 +661,8 @@ export default function App() {
           onBack={() => setCurrentView('dashboard')} 
         />
       )}
+      
+      {/* 修正：加入 onBack 參數，傳回首頁 */}
       {currentView === 'settings' && (
         <Settings 
           dbStatus={dbStatus} customerCount={customers.length} recordCount={records.length}
@@ -676,9 +670,10 @@ export default function App() {
           isProcessing={isProcessing} cloudBackups={cloudBackups}
           onCreateCloudBackup={handleCreateCloudBackup} onRestoreFromCloud={handleRestoreFromCloud}
           onDeleteCloudBackup={handleDeleteCloudBackup}
+          onBack={() => setCurrentView('dashboard')}
         />
       )}
-      {/* --- 新增任務一頁式介面 --- */}
+      
       {currentView === 'quick_action' && (
         <QuickActionView 
           customers={customers}
@@ -686,7 +681,7 @@ export default function App() {
           onCancel={() => setCurrentView('dashboard')}
         />
       )}
-      {/* --- 修改：BottomNavigation 傳入開啟彈窗的函數 --- */}
+
       <BottomNavigation 
          activeTab={activeTab} 
          onTabChange={handleTabChange} 
