@@ -32,6 +32,7 @@ const TrackingView = ({ records, customers, setCurrentView, startEditRecord, han
     const diffTime = targetDate - today;
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     
+    // 解決時區問題，直接解析字串
     const dateObj = new Date(dateStr.replace(/-/g, '/'));
     const weekDays = ['日', '一', '二', '三', '四', '五', '六'];
     const weekDayStr = weekDays[dateObj.getDay()];
@@ -74,8 +75,9 @@ const TrackingView = ({ records, customers, setCurrentView, startEditRecord, han
              const cust = customers.find(c => c.customerID === r.customerID);
              const visitDateInfo = getFriendlyDateInfo(r.nextVisitDate || r.return_date);
              
-             // 抓取所有可能的故障內容欄位
-             const faultContent = r.fault || r.description || r.symptom || '';
+             // [關鍵修正] 調整讀取順序：優先讀取 symptom (編輯後的資料)，其次才是 description (快速任務的舊資料)
+             // 這樣就能確保顯示出您後來補充的第二行內容
+             const faultContent = r.symptom || r.fault || r.description || '';
 
              let borderClass = 'border-l-4 border-l-amber-500'; 
              if(r.status === 'monitor') borderClass = 'border-l-4 border-l-blue-500';
@@ -111,13 +113,13 @@ const TrackingView = ({ records, customers, setCurrentView, startEditRecord, han
                       )}
                   </div>
 
-                  {/* 第 3 行：故障問題 (強制多行顯示邏輯) */}
+                  {/* 第 3 行：故障問題 */}
                   {faultContent && (
                       <div className="flex items-start mb-1 text-base text-slate-700">
                           {/* 圖示固定在左上角，對齊第一行文字 */}
                           <AlertCircle size={16} className="text-slate-400 mr-2 mt-1 shrink-0"/>
                           
-                          {/* [核心修正] 使用 split('\n') 將文字拆成陣列，強制每一行都用 div 渲染 */}
+                          {/* 強制分行顯示：確保無論有幾行都能完整呈現 */}
                           <div className="flex-1 min-w-0">
                              {String(faultContent).split('\n').map((line, index) => (
                                <div key={index} className="leading-normal break-words min-h-[1.5em]">
