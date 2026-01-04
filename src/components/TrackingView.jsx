@@ -6,7 +6,6 @@ import {
 
 const TrackingView = ({ records, customers, setCurrentView, startEditRecord, handleDeleteRecord }) => {
   
-  // 1. 排序邏輯 (維持不變)
   const trackingRecords = records.filter(r => 
     r.status === 'tracking' || r.status === 'monitor' || r.status === 'pending'
   ).sort((a, b) => {
@@ -15,9 +14,8 @@ const TrackingView = ({ records, customers, setCurrentView, startEditRecord, han
     return dateA.localeCompare(dateB);
   });
 
-  // 2. 來源標籤
   const getSourceBadge = (source) => {
-    const baseClass = "text-[10px] px-1.5 py-0.5 rounded flex items-center gap-1 font-medium border";
+    const baseClass = "text-[10px] px-1.5 py-0.5 rounded flex items-center gap-1 font-medium border ml-2";
     switch(source) {
       case 'customer_call': return <span className={`${baseClass} bg-rose-50 text-rose-600 border-rose-100`}><Phone size={10}/> 客戶叫修</span>;
       case 'company_dispatch': return <span className={`${baseClass} bg-blue-50 text-blue-600 border-blue-100`}><Briefcase size={10}/> 公司派工</span>;
@@ -26,43 +24,37 @@ const TrackingView = ({ records, customers, setCurrentView, startEditRecord, han
     }
   };
 
-  // 3. 人性化日期格式
   const getFriendlyDateInfo = (dateStr) => {
     if (!dateStr) return { text: '未設定回訪', color: 'text-slate-400' };
-
     const targetDate = new Date(dateStr);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
     const diffTime = targetDate - today;
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
-    // 解決時區問題，直接解析字串
     const dateObj = new Date(dateStr.replace(/-/g, '/'));
     const weekDays = ['日', '一', '二', '三', '四', '五', '六'];
     const weekDayStr = weekDays[dateObj.getDay()];
-
+    
     let prefix = '';
     if (diffDays === 0) prefix = '今日';
     else if (diffDays === 1) prefix = '明日';
     else if (diffDays === 2) prefix = '後天';
     else if (diffDays === -1) prefix = '昨日';
-    
+
+    // 格式：明日 (二) 2026-01-06
     const text = `${prefix ? prefix + ' ' : ''}(${weekDayStr}) ${dateStr}`;
 
-    // 顏色邏輯
     let color = 'text-slate-600';
-    if (diffDays < 0) color = 'text-red-600 font-extrabold'; // 過期
-    else if (diffDays === 0) color = 'text-red-500 font-extrabold'; // 今日
-    else if (diffDays <= 2) color = 'text-orange-600 font-bold'; // 明後天
-    else if (diffDays <= 7) color = 'text-orange-500 font-bold'; // 一週內
-    
+    if (diffDays < 0) color = 'text-red-600 font-extrabold';
+    else if (diffDays === 0) color = 'text-red-500 font-extrabold';
+    else if (diffDays <= 2) color = 'text-orange-600 font-bold';
+    else if (diffDays <= 7) color = 'text-orange-500 font-bold';
+
     return { text, color };
   };
 
   return (
      <div className="bg-slate-50 min-h-screen pb-24 font-sans flex flex-col">
-      {/* 標題列 */}
       <div className="bg-white shadow-sm sticky top-0 z-30 border-b border-slate-200">
          <div className="px-4 py-3 flex items-center justify-between">
              <div className="flex items-center">
@@ -82,7 +74,6 @@ const TrackingView = ({ records, customers, setCurrentView, startEditRecord, han
              const cust = customers.find(c => c.customerID === r.customerID);
              const visitDateInfo = getFriendlyDateInfo(r.nextVisitDate || r.return_date);
 
-             // 狀態邊框顏色
              let borderClass = 'border-l-4 border-l-amber-500'; 
              if(r.status === 'monitor') borderClass = 'border-l-4 border-l-blue-500';
 
@@ -92,53 +83,51 @@ const TrackingView = ({ records, customers, setCurrentView, startEditRecord, han
                   className={`bg-white p-4 shadow-sm border border-slate-100 rounded-r-xl ${borderClass} cursor-pointer hover:shadow-md transition-shadow`}
                   onClick={(e) => startEditRecord(e, r)}
                >
-                  {/* 第 1 行：左邊(日期+來源) | 右邊(刪除按鈕) */}
-                  <div className="flex justify-between items-center mb-2">
-                      <div className="flex items-center gap-2">
-                          {/* 日期改回 text-base 或 text-sm，不要太大 */}
-                          <div className="flex items-center text-sm font-bold text-slate-500">
-                              <Calendar size={14} className="mr-1.5"/>
-                              {r.date}
-                          </div>
+                  {/* 第 1 行：任務日期 (與下面 User 圖示完全對齊) + 來源 + 刪除鈕 */}
+                  <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center">
+                          {/* 關鍵：統一 size={16} 與 mr-2，確保與下方 User/AlertCircle 對齊 */}
+                          <Calendar size={16} className="text-slate-400 mr-2 shrink-0"/>
+                          <span className="text-base font-bold text-slate-500">{r.date}</span>
                           {getSourceBadge(r.serviceSource)}
                       </div>
                       
-                      {/* 刪除按鈕移到這裡 (右上角) */}
+                      {/* 刪除按鈕：放在第一行最右邊 */}
                       <button 
                         onClick={(e) => { e.stopPropagation(); handleDeleteRecord(e, r.id); }} 
-                        className="text-slate-300 hover:text-red-500 p-1.5 -mr-2 rounded-full transition-colors"
+                        className="text-slate-300 hover:text-red-500 p-1 -mr-1"
                       >
                         <Trash2 size={16}/>
                       </button>
                   </div>
 
-                  {/* 第 2 行：客戶名稱 + 機型 */}
-                  <div className="flex items-center gap-2 mb-2">
-                      <User size={16} className="text-slate-400 shrink-0"/>
-                      <span className="text-base font-bold text-slate-800">{cust?.name || '未知客戶'}</span>
+                  {/* 第 2 行：業者名稱 + 機型 */}
+                  <div className="flex items-center mb-2">
+                      <User size={16} className="text-slate-400 mr-2 shrink-0"/>
+                      <span className="text-base font-bold text-slate-800 mr-2">{cust?.name || '未知客戶'}</span>
                       {cust?.assets?.[0]?.model && (
                           <span className="text-sm text-slate-500 font-medium">({cust.assets[0].model})</span>
                       )}
                   </div>
 
-                  {/* 第 3 行：故障問題 (字體大小統一 text-base) */}
+                  {/* 第 3 行：故障問題 (刪除多餘 mb，改為 mb-2) */}
                   {(r.fault || r.description || r.symptom) && (
-                      <div className="flex items-start mb-3 text-base text-slate-700 whitespace-pre-wrap pl-0.5">
-                          <AlertCircle size={16} className="text-slate-400 mr-2.5 mt-1 shrink-0"/>
+                      <div className="flex items-start mb-2 text-base text-slate-700 whitespace-pre-wrap">
+                          <AlertCircle size={16} className="text-slate-400 mr-2 mt-1 shrink-0"/>
                           <span className="leading-relaxed">{r.fault || r.description || r.symptom}</span>
                       </div>
                   )}
 
-                  {/* 第 4 行 (底部)：左邊回訪日(字體統一 text-base) | 右邊狀態 */}
-                  <div className="flex items-center justify-between border-t border-slate-50 pt-3 mt-1">
+                  {/* 第 4 行 (底部)：回訪時間 (圖示對齊) | 狀態 */}
+                  <div className="flex items-center justify-between border-t border-slate-100 pt-2 mt-1">
                       
-                      {/* 左側：預計回訪日期 (顏色區分，但字體改為 text-base) */}
+                      {/* 左側：回訪日期 (圖示與上方統一) */}
                       <div className={`flex items-center text-base ${visitDateInfo.color}`}>
-                          <Clock size={16} className="mr-1.5"/>
-                          <span>{visitDateInfo.text}</span>
+                          <Clock size={16} className="mr-2 shrink-0"/>
+                          <span className="font-bold">{visitDateInfo.text}</span>
                       </div>
 
-                      {/* 右側：狀態 */}
+                      {/* 右側：狀態標籤 */}
                       <div className={`flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-full ${
                           r.status === 'tracking' ? 'bg-orange-50 text-orange-600' : 
                           r.status === 'monitor' ? 'bg-blue-50 text-blue-600' : 
