@@ -299,7 +299,7 @@ export default function App() {
     try {
         const recordData = { ...data };
 
-        // ▼▼▼ [新增 1] 取出 isQuickAction 標記 ▼▼▼
+        // ▼▼▼ [新增] 取出 isQuickAction 標記 ▼▼▼
         const isQuickAction = recordData.isQuickAction;
         if (isQuickAction) delete recordData.isQuickAction; 
 
@@ -308,7 +308,9 @@ export default function App() {
             recordData.date = new Date().toLocaleDateString('en-CA');
         }
 
-        // ▼▼▼ [修正] 強制讓 結案日 = 維修日 (date)，避免舊單變今日業績 ▼▼▼
+        // ▼▼▼ [修正重點] 日期邏輯 ▼▼▼
+        // 強制讓 結案日 (completedDate) = 維修日 (date)
+        // 這樣補登舊資料或修改舊單時，才不會變成「今日完修」
         if (recordData.status === 'completed') {
             recordData.completedDate = recordData.date; 
         } else {
@@ -342,7 +344,7 @@ export default function App() {
           }
         }
 
-        // ▼▼▼ 畫面導航 ▼▼▼
+        // ▼▼▼ 畫面導航 (存檔後跳轉) ▼▼▼
         if (isQuickAction) {
             setCurrentView('dashboard'); // 快速任務存檔後回首頁
         } else if (previousView) {
@@ -640,12 +642,18 @@ export default function App() {
           onBack={() => setCurrentView('dashboard')} 
         />
       )}
-      {(currentView === 'records' || (activeTab === 'records' && currentView !== 'detail' && currentView !== 'add_record' && currentView !== 'edit_record')) && (
+      
+      {/* ▼▼▼ [修正重點：首頁維修紀錄重疊問題] ▼▼▼
+         原來的寫法會導致在 dashboard 時如果 activeTab 是 records 也顯示。
+         改為嚴格判斷：只有 currentView 是 'records' 時才顯示。
+      */}
+      {currentView === 'records' && (
         <RecordList 
           records={records} customers={customers} setCurrentView={setCurrentView} setActiveTab={setActiveTab}
           startEditRecord={startEditRecord} handleDeleteRecord={handleDeleteRecord} setViewingImage={setViewingImage}
         />
       )}
+      
       {currentView === 'tracking' && (
         <TrackingView 
           records={records} customers={customers} setCurrentView={setCurrentView} startEditRecord={startEditRecord}
