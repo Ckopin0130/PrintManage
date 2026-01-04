@@ -109,18 +109,17 @@ const TrackingView = ({ records, customers, setCurrentView, startEditRecord, han
                   </div>
 
                   {/* 第 3 行：故障問題 */}
-                  {/* [修正] mb-0：完全移除下方留白，緊貼分隔線 */}
+                  {/* [修正] 使用 whitespace-pre-wrap 確保多行顯示，結構完全比照 RecordList */}
                   {(r.fault || r.description || r.symptom) && (
-                      <div className="flex items-start mb-0 text-base text-slate-700 whitespace-pre-wrap break-words">
+                      <div className="flex items-start mb-1 text-base text-slate-700 whitespace-pre-wrap">
                           <AlertCircle size={16} className="text-slate-400 mr-2 mt-1 shrink-0"/>
-                          {/* [修正] flex-1：確保文字區塊自動填滿剩餘寬度，不會被截斷 */}
                           <span className="flex-1">{r.fault || r.description || r.symptom}</span>
                       </div>
                   )}
 
                   {/* 第 4 行 (底部)：回訪時間 | 狀態 */}
-                  {/* [修正] mt-1：稍微拉開一點點距離避免太擠，pt-1：極小的內距，border-t：保留分隔線 */}
-                  <div className="flex items-center justify-between border-t border-slate-100 pt-1 mt-1">
+                  {/* [修正] pt-2 讓分隔線與文字有點距離，但 mt-0 確保區塊不遠離上方故障描述 */}
+                  <div className="flex items-center justify-between border-t border-slate-100 pt-2 mt-0">
                       
                       {/* 左側：回訪日期 */}
                       <div className={`flex items-center text-base ${visitDateInfo.color}`}>
