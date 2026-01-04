@@ -1,7 +1,7 @@
 import React from 'react';
 import { 
   ArrowLeft, Trash2, Search, User, AlertCircle, 
-  Briefcase, Phone, Calendar, Clock, CheckCircle 
+  Briefcase, Phone, Calendar, Clock, CheckCircle, Eye, Wrench 
 } from 'lucide-react';
 
 const TrackingView = ({ records, customers, setCurrentView, startEditRecord, handleDeleteRecord }) => {
@@ -15,13 +15,13 @@ const TrackingView = ({ records, customers, setCurrentView, startEditRecord, han
     return dateA.localeCompare(dateB);
   });
 
-  // 2. 來源標籤 (與 RecordList 一致)
+  // 2. 來源標籤 (樣式微調，適合放在日期旁邊)
   const getSourceBadge = (source) => {
-    const baseClass = "text-xs px-2 py-0.5 rounded-md flex items-center gap-1 font-medium ml-2";
+    const baseClass = "text-[10px] px-1.5 py-0.5 rounded flex items-center gap-1 font-medium ml-2";
     switch(source) {
-      case 'customer_call': return <span className={`${baseClass} bg-rose-50 text-rose-600`}><Phone size={12}/> 客戶叫修</span>;
-      case 'company_dispatch': return <span className={`${baseClass} bg-blue-50 text-blue-600`}><Briefcase size={12}/> 公司派工</span>;
-      case 'invoice_check': return <span className={`${baseClass} bg-emerald-50 text-emerald-600`}><Calendar size={12}/> 例行巡檢</span>;
+      case 'customer_call': return <span className={`${baseClass} bg-rose-50 text-rose-600 border border-rose-100`}><Phone size={10}/> 客戶叫修</span>;
+      case 'company_dispatch': return <span className={`${baseClass} bg-blue-50 text-blue-600 border border-blue-100`}><Briefcase size={10}/> 公司派工</span>;
+      case 'invoice_check': return <span className={`${baseClass} bg-emerald-50 text-emerald-600 border border-emerald-100`}><Calendar size={10}/> 例行巡檢</span>;
       default: return null;
     }
   };
@@ -53,12 +53,11 @@ const TrackingView = ({ records, customers, setCurrentView, startEditRecord, han
 
              const visitDate = r.nextVisitDate || r.return_date;
              
-             // 判斷是否過期/緊急 (控制左側日期顏色)
+             // 判斷日期緊急程度
              const todayStr = new Date().toLocaleDateString('en-CA');
              const isOverdue = visitDate && visitDate < todayStr;
              const isUrgent = visitDate && visitDate === todayStr;
              
-             // 顏色設定：過期(紅) > 當日(橘) > 未來(灰/藍)
              const dateColorClass = isOverdue ? 'text-rose-600 font-bold' : isUrgent ? 'text-orange-500 font-bold' : 'text-slate-500 font-bold';
 
              return (
@@ -67,43 +66,53 @@ const TrackingView = ({ records, customers, setCurrentView, startEditRecord, han
                   className={`bg-white p-4 shadow-sm border border-slate-100 rounded-r-xl ${borderClass} cursor-pointer hover:shadow-md transition-shadow`}
                   onClick={(e) => startEditRecord(e, r)}
                >
-                  {/* Header: 客戶名稱、機型、來源、刪除鈕 */}
+                  {/* 第一行：任務時間(含圖示) + 來源 */}
+                  <div className="flex items-center mb-1.5">
+                      <div className="flex items-center text-xs text-slate-400 font-medium bg-slate-50 px-2 py-1 rounded-md">
+                          <Calendar size={12} className="mr-1.5"/>
+                          <span>{r.date}</span>
+                      </div>
+                      {getSourceBadge(r.serviceSource)}
+                  </div>
+
+                  {/* 第二行：客戶名稱 (大標題) + 刪除鈕 */}
                   <div className="flex justify-between items-start mb-2">
-                      <div className="text-base text-slate-800 font-bold flex items-center flex-wrap">
-                          <User size={16} className="text-slate-400 mr-2 shrink-0"/>
-                          <span className="mr-1">{cust?.name || '未知客戶'}</span>
-                          {cust?.assets?.[0]?.model && <span className="text-slate-500 font-normal">({cust.assets[0].model})</span>}
-                          {getSourceBadge(r.serviceSource)}
+                      <div className="text-lg font-bold text-slate-800 flex items-center flex-wrap">
+                          <span className="mr-2">{cust?.name || '未知客戶'}</span>
+                          {cust?.assets?.[0]?.model && <span className="text-slate-400 font-normal text-sm">({cust.assets[0].model})</span>}
                       </div>
                       <button 
                         onClick={(e) => { e.stopPropagation(); handleDeleteRecord(e, r.id); }} 
-                        className="text-slate-300 hover:text-red-500 p-1"
+                        className="text-slate-300 hover:text-red-500 p-1 -mt-1 -mr-1"
                       >
-                        <Trash2 size={16}/>
+                        <Trash2 size={18}/>
                       </button>
                   </div>
 
-                  {/* Body: 故障內容 (多行顯示) */}
-                  <div className="flex items-start mb-2 text-base text-slate-700 whitespace-pre-wrap">
+                  {/* 第三行：故障問題 (多行) */}
+                  <div className="flex items-start mb-3 text-base text-slate-600 whitespace-pre-wrap leading-relaxed pl-1">
                       <AlertCircle size={16} className="text-slate-400 mr-2 mt-1 shrink-0"/>
                       <span>{r.fault || r.description || r.symptom || '未填寫故障情形'}</span>
                   </div>
 
-                  {/* Footer: 重點日期靠左(有顏色) | 建立日期靠右(灰色) */}
-                  <div className="flex items-center justify-between mt-3 border-t border-slate-50 pt-2 text-xs">
+                  {/* 第四行(底部)：左邊回訪日期 | 右邊狀態 */}
+                  <div className="flex items-center justify-between border-t border-slate-50 pt-2.5 mt-1">
                       
-                      {/* 左側：預計回訪 (重點) */}
-                      <div className={`flex items-center gap-1 ${dateColorClass}`}>
-                          <Clock size={12}/>
-                          {visitDate ? `預計: ${visitDate}` : '未設定回訪'}
+                      {/* 左側：預計回訪 (重點顏色) */}
+                      <div className={`flex items-center gap-1.5 text-xs ${dateColorClass}`}>
+                          <Clock size={14}/>
+                          {visitDate ? `預計回訪: ${visitDate}` : '未設定回訪'}
                       </div>
 
-                      {/* 右側：建立日期 + 狀態 (輔助) */}
-                      <div className="flex items-center gap-1 text-slate-400">
-                          <span>建立: {r.date}</span>
-                          <span className="text-slate-300">·</span>
+                      {/* 右側：狀態標籤 */}
+                      <div className={`flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-full ${
+                          r.status === 'tracking' ? 'bg-orange-100 text-orange-700' : 
+                          r.status === 'monitor' ? 'bg-blue-100 text-blue-700' : 
+                          'bg-amber-100 text-amber-700'
+                      }`}>
+                          {r.status === 'tracking' ? <CheckCircle size={12}/> : r.status === 'monitor' ? <Eye size={12}/> : <Wrench size={12}/>}
                           <span>
-                            {r.status === 'tracking' ? '待追蹤' : r.status === 'monitor' ? '觀察中' : '待料'}
+                             {r.status === 'tracking' ? '待追蹤' : r.status === 'monitor' ? '觀察中' : '待料'}
                           </span>
                       </div>
 
