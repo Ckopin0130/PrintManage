@@ -301,17 +301,26 @@ const handleSaveRecord = async (data) => {
 
       // ▼▼▼ [新增 1] 取出 isQuickAction 標記 ▼▼▼
       const isQuickAction = recordData.isQuickAction;
-      // 存檔前把這個標記刪掉，不需要存進資料庫
       if (isQuickAction) delete recordData.isQuickAction; 
 
-      if (recordData.status === 'completed' && !recordData.completedDate) {
-          recordData.completedDate = new Date().toLocaleDateString('en-CA');
+      // ▼▼▼ [修改重點] 日期邏輯 ▼▼▼
+      // 1. 維修日期 (Date)：如果表單有傳來日期(使用者選的)，就用表單的；沒有才用今天
+      if (!recordData.date) {
+          recordData.date = new Date().toLocaleDateString('en-CA');
       }
-      
-      if (recordData.status !== 'completed') {
+
+      // 2. 結案日期 (CompletedDate)：如果是完修狀態，且還沒紀錄過結案日，才寫入今天
+      // 注意：這樣做是為了保留歷史結案日，且不影響上面的維修日期
+      if (recordData.status === 'completed') {
+          if (!recordData.completedDate) {
+              recordData.completedDate = new Date().toLocaleDateString('en-CA');
+          }
+      } else {
+          // 如果狀態不是完修，清空結案日
           recordData.completedDate = null;
       }
 
+      // ▼▼▼ 存檔動作 ▼▼▼
       if (recordData.id) {
           const { id, ...updates } = recordData;
           await setDoc(doc(db, 'records', id), updates, { merge: true });
@@ -323,9 +332,23 @@ const handleSaveRecord = async (data) => {
           showToast('維修紀錄已新增');
       }
       
-      // ▼▼▼ [修改 2] 這裡加上判斷：如果是快速任務，就回首頁 ▼▼▼
+      // ▼▼▼ 連動更新客戶最後維修日 ▼▼▼
+      if (recordData.customerID && recordData.date) {
+        // 簡單比較，如果這筆維修日期比客戶資料裡的還新，就更新客戶資料
+        const targetCustomer = customers.find(c => c.customerID === recordData.customerID);
+        if (targetCustomer) {
+            const currentLastService = targetCustomer.lastServiceDate || '0000-00-00';
+            if (recordData.date >= currentLastService) {
+                await setDoc(doc(db, 'customers', recordData.customerID), {
+                    lastServiceDate: recordData.date
+                }, { merge: true });
+            }
+        }
+      }
+
+      // ▼▼▼ 畫面導航 ▼▼▼
       if (isQuickAction) {
-          setCurrentView('dashboard'); // 強制跳回首頁
+          setCurrentView('dashboard'); // 快速任務存檔後回首頁
       } else if (previousView) {
           setCurrentView(previousView);
           setPreviousView(null);

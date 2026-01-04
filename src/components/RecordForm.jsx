@@ -477,7 +477,13 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
                         {customerMachineModel}
                     </div>
                 )}
-                <div className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-lg border border-slate-200">{form.date}</div>
+                <input 
+                    type="date"
+                    required
+                    className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-lg border border-slate-200 outline-none focus:border-blue-500 transition-colors cursor-pointer"
+                    value={form.date}
+                    onChange={(e) => setForm(prev => ({ ...prev, date: e.target.value }))}
+                />
             </div>
         </div>
 
