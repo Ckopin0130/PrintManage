@@ -5,18 +5,20 @@ import {
   FileText, Copy, Check, CheckCircle, Eye
 } from 'lucide-react';
 
-// --- 內建報表模組 (已修正格式) ---
+// --- 內建報表模組 (已修正格式：日期短寫 + 空值隱藏) ---
 const WorkLogReportModal = ({ isOpen, onClose, records = [], customers = [], dateLabel }) => {
   const [isCopied, setIsCopied] = useState(false);
 
   const reportText = useMemo(() => {
     if (!Array.isArray(records) || records.length === 0) return '無資料';
 
+    // 1. 去除編號的工具函數
     const stripNumbering = (str) => {
         if (!str) return '';
         return str.replace(/^([\d０-９]+[.、\s)）\uff0e]+|[(（][\d０-９]+[)）]|[\u2460-\u2473])\s*/, '');
     };
 
+    // 2. 簡化機型名稱
     const simplifyModelName = (model) => {
         if (!model) return '';
         let s = model.replace(/[()（）]/g, '');
@@ -24,6 +26,7 @@ const WorkLogReportModal = ({ isOpen, onClose, records = [], customers = [], dat
         return s.trim();
     };
 
+    // 3. 來源轉換
     const getSourceText = (source) => {
         switch(source) {
             case 'customer_call': return '客戶叫修';
@@ -33,56 +36,92 @@ const WorkLogReportModal = ({ isOpen, onClose, records = [], customers = [], dat
         }
     };
 
-    // === A. 維修行程列表 ===
+    // 4. [新功能] 日期轉短格式 1/2(五)
+    const formatDateShort = (dateStr) => {
+        if (!dateStr) return '';
+        const date = new Date(dateStr);
+        if (isNaN(date.getTime())) return dateStr; // 若格式錯誤回傳原字串
+
+        const month = date.getMonth() + 1;
+        const day = date.getDate();
+        const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+        const weekday = weekdays[date.getDay()];
+
+        return `${month}/${day}(${weekday})`;
+    };
+
+    // === A. 維修行程列表生成 ===
     const listText = records.map((r) => {
         const cust = Array.isArray(customers) ? customers.find(c => c.customerID === r.customerID) : null;
         const rawModel = cust?.assets?.[0]?.model || '';
         const simpleModel = rawModel ? simplifyModelName(rawModel) : '';
         
+        // 用陣列來收集每一行，最後再用 join('\n') 接起來，這樣可以過濾掉空行
+        const lines = [];
+
         // 第一行：🔸 業者名稱 + 機器型號
-        let text = `🔸 ${cust?.name || '未知'} ${simpleModel}`;
+        lines.push(`🔸 ${cust?.name || '未知'} ${simpleModel}`);
 
-        // 第二行：🔹 創建任務日期 + 來源 (直接顯示文字，不加括號)
-        // 使用 r.date 作為創建任務日期
-        text += `\n🔹 ${r.date} ${getSourceText(r.serviceSource)}`;
+        // 第二行：🔹 創建任務日期 + 來源 (日期改用短格式)
+        const createDateShort = formatDateShort(r.date);
+        lines.push(`🔹 ${createDateShort} ${getSourceText(r.serviceSource)}`);
         
-        // 第三行：🔹 故障問題
-        const faultContent = r.symptom || r.fault || '無'; 
-        text += `\n🔹 故障問題：`;
-        String(faultContent).split('\n').forEach(line => {
-            const cleanLine = stripNumbering(line.trim());
-            if(cleanLine) text += `\n▪️ ${cleanLine}`;
-        });
+        // 第三行：🔹 故障問題 (若無資料則整行不顯示)
+        const faultContent = r.symptom || r.fault; 
+        if (faultContent) {
+            let faultStr = `🔹 故障問題：`;
+            // 處理多行內容
+            const contentLines = String(faultContent).split('\n');
+            if (contentLines.length === 1) {
+                faultStr += stripNumbering(contentLines[0].trim());
+            } else {
+                contentLines.forEach(line => {
+                    const cleanLine = stripNumbering(line.trim());
+                    if(cleanLine) faultStr += `\n▪️ ${cleanLine}`;
+                });
+            }
+            lines.push(faultStr);
+        }
 
-        // 第四行：🔹 處置過程
-        const solutionContent = r.action || r.solution || '無';
-        text += `\n🔹 處置過程：`;
-        String(solutionContent).split('\n').forEach(line => {
-             const cleanLine = stripNumbering(line.trim());
-             if(cleanLine) text += `\n▪️ ${cleanLine}`;
-        });
+        // 第四行：🔹 處置過程 (若無資料則整行不顯示)
+        const solutionContent = r.action || r.solution;
+        if (solutionContent) {
+            let solStr = `🔹 處置過程：`;
+            const contentLines = String(solutionContent).split('\n');
+            if (contentLines.length === 1) {
+                solStr += stripNumbering(contentLines[0].trim());
+            } else {
+                contentLines.forEach(line => {
+                    const cleanLine = stripNumbering(line.trim());
+                    if(cleanLine) solStr += `\n▪️ ${cleanLine}`;
+                });
+            }
+            lines.push(solStr);
+        }
 
-        // 第五行：🔹 更換零件
+        // 第五行：🔹 更換零件 (若無資料則整行不顯示)
         if (Array.isArray(r.parts) && r.parts.length > 0) {
             const partsStr = r.parts.map(p => `${p.name} x${p.qty}`).join('、');
-            text += `\n🔹 更換零件：${partsStr}`;
-        } else {
-             text += `\n🔹 更換零件：無`;
+            lines.push(`🔹 更換零件：${partsStr}`);
         }
 
         // 第六行：🔹 完修日期 或 ⚠️ 需回訪時間
         if (r.status === 'completed') {
-            const finishDate = r.completedDate || r.date; // 若無完修日則用報修日
-            text += `\n🔹 完修日期：${finishDate}`;
+            const finishDate = r.completedDate || r.date; 
+            lines.push(`🔹 完修日期：${formatDateShort(finishDate)}`);
         } else {
-            const visitDate = r.nextVisitDate || r.return_date || '未定';
-            text += `\n⚠️ 需回訪時間：${visitDate}`;
+            const visitDate = r.nextVisitDate || r.return_date;
+            if (visitDate) {
+                lines.push(`⚠️ 需回訪時間：${formatDateShort(visitDate)}`);
+            } else {
+                lines.push(`⚠️ 需回訪時間：未定`);
+            }
         }
 
-        return text;
+        return lines.join('\n');
     }).join('\n\n');
 
-    // === B. 耗材統計 ===
+    // === B. 耗材統計 (保持原樣) ===
     const summaryByModel = {};
     records.forEach(r => {
         if (Array.isArray(r.parts) && r.parts.length > 0) {
@@ -159,7 +198,7 @@ const RecordList = ({
     return () => clearTimeout(timer);
   }, [inputValue]);
 
-  // [樣式統一] 來源標籤：與 TrackingView 完全一致
+  // [樣式統一] 來源標籤
   const getSourceBadge = (source) => {
     const baseClass = "text-xs px-2 py-0.5 rounded-md flex items-center gap-1 font-medium ml-2";
     switch(source) {
@@ -170,7 +209,7 @@ const RecordList = ({
     }
   };
   
-  // [新增] 簡化機型名稱 (移除括號與 MP/IM)
+  // [新增] 簡化機型名稱
   const simplifyModelName = (model) => {
       if (!model) return '';
       let s = model.replace(/[()（）]/g, '');
