@@ -5,7 +5,7 @@ import {
   FileText, Copy, Check, CheckCircle, Eye
 } from 'lucide-react';
 
-// --- 內建報表模組 ---
+// --- 內建報表模組 (已修正格式) ---
 const WorkLogReportModal = ({ isOpen, onClose, records = [], customers = [], dateLabel }) => {
   const [isCopied, setIsCopied] = useState(false);
 
@@ -33,50 +33,52 @@ const WorkLogReportModal = ({ isOpen, onClose, records = [], customers = [], dat
         }
     };
 
-    const getDateInfoText = (record) => {
-        if (record.status === 'completed') {
-            return `完修:${record.completedDate || record.date}`;
-        } else if (record.status === 'tracking' || record.status === 'monitor') {
-            const nextDate = record.nextVisitDate || record.return_date || '未定';
-            return `回訪:${nextDate}`;
-        }
-        return `待處理`;
-    };
-
     // === A. 維修行程列表 ===
     const listText = records.map((r) => {
         const cust = Array.isArray(customers) ? customers.find(c => c.customerID === r.customerID) : null;
         const rawModel = cust?.assets?.[0]?.model || '';
         const simpleModel = rawModel ? simplifyModelName(rawModel) : '';
         
-        // 標題行：🔸客戶 3504 [來源] [日期]
-        let text = `🔸${cust?.name || '未知'} ${simpleModel} [${getSourceText(r.serviceSource)}] [${getDateInfoText(r)}]`;
+        // 第一行：🔸 業者名稱 + 機器型號
+        let text = `🔸 ${cust?.name || '未知'} ${simpleModel}`;
+
+        // 第二行：🔹 創建任務日期 + 來源 (直接顯示文字，不加括號)
+        // 使用 r.date 作為創建任務日期
+        text += `\n🔹 ${r.date} ${getSourceText(r.serviceSource)}`;
         
-        // 故障 (去除頓點後空白)
-        const faultContent = r.symptom || r.fault || ''; 
-        if (faultContent) {
-            text += `\n🔹故障：`;
-            String(faultContent).split('\n').forEach(line => {
-                const cleanLine = stripNumbering(line.trim());
-                if(cleanLine) text += `\n▪️${cleanLine}`;
-            });
-        }
+        // 第三行：🔹 故障問題
+        const faultContent = r.symptom || r.fault || '無'; 
+        text += `\n🔹 故障問題：`;
+        String(faultContent).split('\n').forEach(line => {
+            const cleanLine = stripNumbering(line.trim());
+            if(cleanLine) text += `\n▪️ ${cleanLine}`;
+        });
 
-        // 處理 (去除頓點後空白)
-        const solutionContent = r.action || r.solution || '';
-        if (solutionContent) {
-            text += `\n🔹處理：`;
-            String(solutionContent).split('\n').forEach(line => {
-                 const cleanLine = stripNumbering(line.trim());
-                 if(cleanLine) text += `\n▪️${cleanLine}`;
-            });
-        }
+        // 第四行：🔹 處置過程
+        const solutionContent = r.action || r.solution || '無';
+        text += `\n🔹 處置過程：`;
+        String(solutionContent).split('\n').forEach(line => {
+             const cleanLine = stripNumbering(line.trim());
+             if(cleanLine) text += `\n▪️ ${cleanLine}`;
+        });
 
-        // 更換 (去除頓點後空白)
+        // 第五行：🔹 更換零件
         if (Array.isArray(r.parts) && r.parts.length > 0) {
             const partsStr = r.parts.map(p => `${p.name} x${p.qty}`).join('、');
-            text += `\n🔹更換：${partsStr}`;
+            text += `\n🔹 更換零件：${partsStr}`;
+        } else {
+             text += `\n🔹 更換零件：無`;
         }
+
+        // 第六行：🔹 完修日期 或 ⚠️ 需回訪時間
+        if (r.status === 'completed') {
+            const finishDate = r.completedDate || r.date; // 若無完修日則用報修日
+            text += `\n🔹 完修日期：${finishDate}`;
+        } else {
+            const visitDate = r.nextVisitDate || r.return_date || '未定';
+            text += `\n⚠️ 需回訪時間：${visitDate}`;
+        }
+
         return text;
     }).join('\n\n');
 
@@ -100,14 +102,14 @@ const WorkLogReportModal = ({ isOpen, onClose, records = [], customers = [], dat
     if (models.length > 0) {
         summaryList = models.map(model => {
             const partsObj = summaryByModel[model];
-            const partsLines = Object.entries(partsObj).map(([name, qty]) => `▪️${name} x${qty}`).join('\n');
-            return `🔸${model}\n${partsLines}`;
+            const partsLines = Object.entries(partsObj).map(([name, qty]) => `▪️ ${name} x${qty}`).join('\n');
+            return `🔸 ${model}\n${partsLines}`;
         }).join('\n\n');
     } else {
-        summaryList = '🔸無更換零件';
+        summaryList = '🔸 無更換零件';
     }
 
-    return `【維修工作日報】 ${dateLabel}\n----------------\n\n🔺維修行程\n${listText}\n\n🔺今日耗材統計\n${summaryList}\n\n----------------\n系統自動生成`;
+    return `【維修工作日報】 ${dateLabel}\n----------------\n\n🔺 維修行程\n${listText}\n\n🔺 今日耗材統計\n${summaryList}\n\n----------------\n系統自動生成`;
   }, [records, customers, dateLabel]);
 
   const handleCopy = () => {
@@ -132,8 +134,7 @@ const WorkLogReportModal = ({ isOpen, onClose, records = [], customers = [], dat
             </div>
             <button onClick={handleCopy} className={`w-full py-3.5 rounded-xl font-bold text-white flex items-center justify-center transition-all ${isCopied ? 'bg-green-600' : 'bg-blue-600 hover:bg-blue-700'}`}>
                 {isCopied ? <Check className="mr-2" size={20}/> : <Copy className="mr-2" size={20}/>}
-                {/* 修正後的判斷式 */}
-                {isCopied ? '已複製 (照片需手動傳送)' : '複製內容 (傳送給 LINE)'}
+                {isCopied ? '已複製' : '複製內容 (傳送給 LINE)'}
             </button>
         </div>
     </div>
