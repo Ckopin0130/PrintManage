@@ -2,18 +2,16 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { 
   ArrowLeft, Calendar, Trash2, Search, X, 
   User, AlertCircle, Wrench, Package, Briefcase, Phone, Clock,
-  FileText, Copy, Check
+  FileText, Copy, Check, CheckCircle, Eye
 } from 'lucide-react';
 
-// --- 內建報表模組 (還原原本 WorkLog 的精美格式) ---
+// --- 內建報表模組 ---
 const WorkLogReportModal = ({ isOpen, onClose, records = [], customers = [], dateLabel }) => {
   const [isCopied, setIsCopied] = useState(false);
 
-  // 生成報表文字
   const reportText = useMemo(() => {
     if (!Array.isArray(records) || records.length === 0) return '無資料';
 
-    // 智慧去編號函式 (移除 1. (1) ① 等編號)
     const stripNumbering = (str) => {
         if (!str) return '';
         return str.replace(/^([\d０-９]+[.、\s)）\uff0e]+|[(（][\d０-９]+[)）]|[\u2460-\u2473])\s*/, '');
@@ -35,7 +33,6 @@ const WorkLogReportModal = ({ isOpen, onClose, records = [], customers = [], dat
             });
         }
 
-        // 優先順序，確保報表內容與列表一致
         const solutionContent = r.action || r.solution || '無填寫';
         text += `\n🔹 處理：`;
         String(solutionContent).split('\n').forEach(line => {
@@ -126,6 +123,7 @@ const RecordList = ({
     return () => clearTimeout(timer);
   }, [inputValue]);
 
+  // [修正] 來源標籤：樣式與 TrackingView 完全統一 (text-xs, px-2, 無 border)
   const getSourceBadge = (source) => {
     const baseClass = "text-xs px-2 py-0.5 rounded-md flex items-center gap-1 font-medium ml-2";
     switch(source) {
@@ -141,23 +139,19 @@ const RecordList = ({
       const cust = customers.find(c => c.customerID === r.customerID);
       const custName = cust ? cust.name.toLowerCase() : '';
       const fault = (r.fault || '').toLowerCase();
-      
-      // 優先讀取 action，確保搜尋到最新內容
       const solution = (r.action || r.solution || '').toLowerCase();
-      
       const partsText = r.parts ? r.parts.map(p => p.name).join(' ').toLowerCase() : '';
       const searchLower = debouncedSearch.toLowerCase();
 
       const matchesSearch = custName.includes(searchLower) || fault.includes(searchLower) || solution.includes(searchLower) || partsText.includes(searchLower);
 
       let matchesStatus = true;
-      if (statusFilter === 'pending') matchesStatus = (r.status === 'pending' || r.status === 'tracking'); // 待處理篩選包含追蹤
+      if (statusFilter === 'pending') matchesStatus = (r.status === 'pending' || r.status === 'tracking'); 
       if (statusFilter === 'completed') matchesStatus = (r.status === 'completed');
       if (statusFilter === 'monitor') matchesStatus = (r.status === 'monitor');
 
       let matchesDate = true;
       if (dateRange.start || dateRange.end) {
-        // 篩選時：完修看結案日，未完修看維修日
         const recordDate = r.status === 'completed' && r.completedDate ? r.completedDate : r.date;
         if (dateRange.start) matchesDate = matchesDate && (recordDate >= dateRange.start);
         if (dateRange.end) matchesDate = matchesDate && (recordDate <= dateRange.end);
@@ -244,6 +238,9 @@ const RecordList = ({
         {records.length === 0 ? <div className="text-center text-slate-400 mt-10">尚無紀錄</div> : filteredRecords.length === 0 ? <div className="text-center text-slate-400 mt-10 flex flex-col items-center"><Search size={32} className="opacity-20 mb-2"/><span>查無符合資料</span><button onClick={() => {setInputValue(''); setStatusFilter('all'); handleDateTabClick('all');}} className="mt-2 text-xs text-blue-500 underline">清除所有篩選</button></div> : (
             filteredRecords.map(r => {
                 const cust = customers.find(c => c.customerID === r.customerID);
+                const faultContent = r.fault || r.symptom || r.description || '';
+                const actionContent = r.action || r.solution || '';
+
                 let borderClass = 'border-l-4 border-l-slate-300';
                 if(r.status === 'completed') borderClass = 'border-l-4 border-l-emerald-500';
                 if(r.status === 'pending' || r.status === 'tracking') borderClass = 'border-l-4 border-l-amber-500';
@@ -251,29 +248,72 @@ const RecordList = ({
 
                 return (
                     <div key={r.id} className={`bg-white p-4 shadow-sm border border-slate-100 rounded-r-xl ${borderClass} cursor-pointer hover:shadow-md transition-shadow`} onClick={(e) => startEditRecord(e, r)}>
-                        <div className="flex justify-between items-start mb-2">
-                            <div className="text-base text-slate-800 font-bold flex items-center flex-wrap">
-                                <User size={16} className="text-slate-400 mr-2 shrink-0"/><span className="mr-1">{cust?.name || '未知客戶'}</span>
-                                {cust?.assets?.[0]?.model && <span className="text-slate-500 font-normal">({cust.assets[0].model})</span>}
+                        
+                        {/* 第 1 行：建立日期 + 來源 + 刪除鈕 (比照 TrackingView) */}
+                        <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center">
+                                {/* Calendar size=16, mr-2, text-sm */}
+                                <Calendar size={16} className="text-slate-400 mr-2 shrink-0"/>
+                                <span className="text-sm font-bold text-slate-500">{r.date}</span>
                                 {getSourceBadge(r.serviceSource)}
                             </div>
-                            <button onClick={(e) => { e.stopPropagation(); handleDeleteRecord(e, r.id); }} className="text-slate-300 hover:text-red-500 p-1"><Trash2 size={16}/></button>
+                            <button onClick={(e) => { e.stopPropagation(); handleDeleteRecord(e, r.id); }} className="text-slate-300 hover:text-red-500 p-1 -mr-1"><Trash2 size={16}/></button>
                         </div>
-                        {(r.fault || r.symptom) && <div className="flex items-start mb-2 text-base text-slate-700"><AlertCircle size={16} className="text-slate-400 mr-2 mt-1 shrink-0"/><span>{r.fault || r.symptom}</span></div>}
+
+                        {/* 第 2 行：客戶名稱 + 機型 (比照 TrackingView) */}
+                        <div className="flex items-center mb-2">
+                            <User size={16} className="text-slate-400 mr-2 shrink-0"/>
+                            <span className="text-base font-bold text-slate-800 mr-2">{cust?.name || '未知客戶'}</span>
+                            {cust?.assets?.[0]?.model && <span className="text-sm text-slate-500 font-normal">({cust.assets[0].model})</span>}
+                        </div>
                         
-                        <div className="flex items-start mb-2 text-base text-slate-700 whitespace-pre-wrap"><Wrench size={16} className="text-slate-400 mr-2 mt-1 shrink-0"/><span>{r.action || r.solution || '無處理紀錄'}</span></div>
+                        {/* 第 3 行：故障 (支援多行) */}
+                        {faultContent && (
+                             <div className="flex items-start mb-1 text-base text-slate-700 whitespace-pre-wrap">
+                                 <AlertCircle size={16} className="text-slate-400 mr-2 mt-1 shrink-0"/>
+                                 <span>{faultContent}</span>
+                             </div>
+                        )}
                         
-                        {r.parts && r.parts.length > 0 && <div className="flex items-start mb-2 text-base text-slate-700"><Package size={16} className="text-slate-400 mr-2 mt-1 shrink-0"/><span>{r.parts.map(p => `${p.name} x${p.qty}`).join('、')}</span></div>}
+                        {/* 第 4 行：處置 (支援多行)，mb-1 縮小與零件的間距 */}
+                        {actionContent && (
+                             <div className="flex items-start mb-1 text-base text-slate-700 whitespace-pre-wrap">
+                                 <Wrench size={16} className="text-slate-400 mr-2 mt-1 shrink-0"/>
+                                 <span>{actionContent}</span>
+                             </div>
+                        )}
+                        
+                        {/* 第 5 行：更換零件 */}
+                        {r.parts && r.parts.length > 0 && (
+                            <div className="flex items-start mb-2 text-base text-slate-700">
+                                <Package size={16} className="text-slate-400 mr-2 mt-1 shrink-0"/>
+                                <span>{r.parts.map(p => `${p.name} x${p.qty}`).join('、')}</span>
+                            </div>
+                        )}
+
+                        {/* 照片區域 */}
                         {(r.photoBefore || r.photoAfter) && (
-                            <div className="flex items-center mt-2 pl-6">
+                            <div className="flex items-center mt-2 pl-6 mb-2">
                                 {r.photoBefore && <img src={r.photoBefore} alt="Before" className="w-16 h-16 object-cover rounded-md border border-slate-200 mr-2" onClick={(e) => { e.stopPropagation(); setViewingImage(r.photoBefore); }}/>}
                                 {r.photoAfter && <img src={r.photoAfter} alt="After" className="w-16 h-16 object-cover rounded-md border border-slate-200" onClick={(e) => { e.stopPropagation(); setViewingImage(r.photoAfter); }}/>}
                             </div>
                         )}
-                        <div className="text-xs text-slate-400 mt-2 text-right border-t border-slate-50 pt-2 flex items-center justify-end gap-1">
-                            <Clock size={12}/>
-                            {/* [修正] 顯示完整的狀態名稱 */}
-                            {r.date} · {r.status === 'completed' ? '已完修' : r.status === 'tracking' ? '待追蹤' : r.status === 'monitor' ? '觀察中' : '待處理'}
+
+                        {/* 底部狀態列：只顯示狀態與完修日期(若有) */}
+                        <div className="flex items-center justify-end border-t border-slate-50 pt-2 mt-1">
+                             <div className={`flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-full ${
+                                 r.status === 'completed' ? 'bg-emerald-50 text-emerald-600' :
+                                 r.status === 'tracking' ? 'bg-orange-50 text-orange-600' : 
+                                 r.status === 'monitor' ? 'bg-blue-50 text-blue-600' : 
+                                 'bg-amber-50 text-amber-600'
+                             }`}>
+                                 {r.status === 'completed' ? <CheckCircle size={12}/> : r.status === 'tracking' ? <CheckCircle size={12}/> : r.status === 'monitor' ? <Eye size={12}/> : <Wrench size={12}/>}
+                                 <span>
+                                    {r.status === 'completed' ? (r.completedDate ? `已完修 · ${r.completedDate}` : '已完修') : 
+                                     r.status === 'tracking' ? '待追蹤' : 
+                                     r.status === 'monitor' ? '觀察中' : '待處理'}
+                                 </span>
+                             </div>
                         </div>
                     </div>
                 )
