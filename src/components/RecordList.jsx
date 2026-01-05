@@ -179,7 +179,7 @@ const RecordList = ({
   const [statusFilter, setStatusFilter] = useState('all'); 
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
-  const [activeDateTab, setActiveDateTab] = useState('all'); 
+  const [activeDateTab, setActiveDateTab] = useState('today'); // 預設改為 "今日" 比較符合新順序邏輯
   const [showReportModal, setShowReportModal] = useState(false);
 
   useEffect(() => {
@@ -224,7 +224,8 @@ const RecordList = ({
 
       let matchesDate = true;
       if (dateRange.start || dateRange.end) {
-        const recordDate = r.status === 'completed' && r.completedDate ? r.completedDate : r.date;
+        // [修正] 篩選邏輯：完修看結案日，未完修看填單日 (保持與首頁統計邏輯一致)
+        const recordDate = (r.status === 'completed' && r.completedDate) ? r.completedDate : r.date;
         if (dateRange.start) matchesDate = matchesDate && (recordDate >= dateRange.start);
         if (dateRange.end) matchesDate = matchesDate && (recordDate <= dateRange.end);
       }
@@ -249,6 +250,7 @@ const RecordList = ({
         const monday = new Date(today.setDate(diff)); const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
         setDateRange({ start: formatDate(monday), end: formatDate(sunday) }); setShowDatePicker(false); 
     }
+    // "month" 邏輯雖然 UI 拿掉了但保留以防萬一
     else if (type === 'month') { 
         const first = new Date(today.getFullYear(), today.getMonth(), 1); const last = new Date(today.getFullYear(), today.getMonth() + 1, 0);
         setDateRange({ start: formatDate(first), end: formatDate(last) }); setShowDatePicker(false); 
@@ -265,6 +267,14 @@ const RecordList = ({
       if(dateRange.start) return `${dateRange.start} 之後`;
       return '維修紀錄總表';
   };
+
+  // 第一次 render 時，如果預設是 today，自動觸發一次篩選 (或是改 useEffect 處理，這裡直接在 initial state 處理較佳)
+  // 為了確保一致性，建議在元件掛載時設定一次 "今日" 的範圍
+  useEffect(() => {
+      // 這裡簡單模擬點擊 "today" 的效果，讓一進來就是顯示今日資料
+      handleDateTabClick('today');
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="bg-slate-50 min-h-screen pb-24 font-sans flex flex-col">
@@ -288,17 +298,40 @@ const RecordList = ({
             {inputValue && <button onClick={() => setInputValue('')} className="absolute right-6 top-2 text-slate-400"><X size={16}/></button>}
          </div>
 
-         <div className="px-4 pb-2 flex gap-2 overflow-x-auto no-scrollbar items-center">
-            {[{ id: 'all', label: '全部' }, { id: 'today', label: '今日' }, { id: 'yesterday', label: '昨日' }, { id: 'week', label: '本週' }, { id: 'month', label: '本月' }].map(btn => (
-                <button key={btn.id} onClick={() => handleDateTabClick(btn.id)} className={`whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${activeDateTab === btn.id ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-200' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}>{btn.label}</button>
+         {/* [修改重點]：日期篩選按鈕列 - 滿版 + 新順序 */}
+         <div className="px-4 pb-2 flex gap-2 items-center">
+            {/* 順序：今日 -> 昨日 -> 本週 -> 全部 */}
+            {[{ id: 'today', label: '今日' }, { id: 'yesterday', label: '昨日' }, { id: 'week', label: '本週' }, { id: 'all', label: '全部' }].map(btn => (
+                <button 
+                    key={btn.id} 
+                    onClick={() => handleDateTabClick(btn.id)} 
+                    className={`flex-1 justify-center px-1 py-1.5 rounded-lg text-xs font-bold transition-all border flex items-center ${
+                        activeDateTab === btn.id 
+                        ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-200' 
+                        : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
+                    }`}
+                >
+                    {btn.label}
+                </button>
             ))}
-            <button onClick={() => handleDateTabClick('custom')} className={`whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-bold transition-all border flex items-center gap-1 ${activeDateTab === 'custom' ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-200' : 'bg-white text-blue-600 border-blue-100 hover:bg-blue-50'}`}><Calendar size={12}/> 自訂</button>
+            {/* 自訂按鈕 (也加入 flex-1 讓它均分寬度) */}
+            <button 
+                onClick={() => handleDateTabClick('custom')} 
+                className={`flex-1 justify-center px-1 py-1.5 rounded-lg text-xs font-bold transition-all border flex items-center gap-1 ${
+                    activeDateTab === 'custom' 
+                    ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-200' 
+                    : 'bg-white text-blue-600 border-blue-100 hover:bg-blue-50'
+                }`}
+            >
+                <Calendar size={12}/> 自訂
+            </button>
          </div>
 
          {showDatePicker && activeDateTab === 'custom' && (
             <div className="px-4 pb-2 animate-in slide-in-from-top-2"><div className="bg-white border border-blue-200 rounded-xl p-3 shadow-lg bg-blue-50/50"><div className="flex gap-2 items-center"><input type="date" className="flex-1 border border-blue-200 p-2 rounded-lg text-sm font-bold text-slate-700 outline-none focus:border-blue-400" value={dateRange.start} onChange={e => setDateRange({...dateRange, start: e.target.value})} /><span className="text-blue-300 font-bold">~</span><input type="date" className="flex-1 border border-blue-200 p-2 rounded-lg text-sm font-bold text-slate-700 outline-none focus:border-blue-400" value={dateRange.end} onChange={e => setDateRange({...dateRange, end: e.target.value})} /></div></div></div>
          )}
          
+         {/* 狀態篩選按鈕列 (維持滿版樣式) */}
          <div className="px-4 pb-3 flex gap-2">
              {['all', 'pending', 'monitor', 'completed'].map(id => (
                  <button key={id} onClick={() => setStatusFilter(id)} className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all border text-center ${statusFilter === id ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-200' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}>{id === 'all' ? '全部' : id === 'pending' ? '待處理' : id === 'monitor' ? '觀察' : '完修'}</button>
