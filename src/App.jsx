@@ -88,10 +88,18 @@ export default function App() {
 
   const showToast = useCallback((message, type = 'success') => setToast({ message, type }), []);
   const today = useMemo(() => new Date().toLocaleDateString('zh-TW', { month: 'long', day: 'numeric', weekday: 'long' }), []);
+  
+  // 待辦事項統計 (保持不變)
   const pendingTasks = useMemo(() => records.filter(r => r.status === 'tracking' || r.status === 'monitor' || r.status === 'pending').length, [records]);
+  
+  // [修正重點] 今日維修統計：改為計算「所有」日期為今天的單據，不論狀態
   const todayCompletedCount = useMemo(() => {
     const currentLocalTime = new Date().toLocaleDateString('en-CA');
-    return records.filter(r => r.status === 'completed' && (r.completedDate === currentLocalTime || (!r.completedDate && r.date === currentLocalTime))).length;
+    return records.filter(r => {
+      // 判斷基準：如果是完修單看結案日，如果是未完修單看填單日
+      const recordDate = (r.status === 'completed' && r.completedDate) ? r.completedDate : r.date;
+      return recordDate === currentLocalTime;
+    }).length;
   }, [records]);
 
   // --- 3. Firebase 連線邏輯 ---
