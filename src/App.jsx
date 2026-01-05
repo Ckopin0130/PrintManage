@@ -5,9 +5,16 @@ import {
 import { signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { Loader2 } from 'lucide-react';
 
-// --- 引入設定與資料 ---
+// --- 引入設定與資料 (已加入知識庫預設資料) ---
 import { auth, db } from './firebaseConfig'; 
-import { FULL_IMPORT_DATA, MOCK_RECORDS, INITIAL_INVENTORY } from './initialData';
+import { 
+  FULL_IMPORT_DATA, 
+  MOCK_RECORDS, 
+  INITIAL_INVENTORY,
+  INITIAL_ERROR_CODES, 
+  INITIAL_SP_MODES, 
+  INITIAL_TECH_NOTES 
+} from './initialData';
 
 // --- 引入元件 ---
 import { 
@@ -89,10 +96,10 @@ export default function App() {
   const showToast = useCallback((message, type = 'success') => setToast({ message, type }), []);
   const today = useMemo(() => new Date().toLocaleDateString('zh-TW', { month: 'long', day: 'numeric', weekday: 'long' }), []);
   
-  // 待辦事項統計 (保持不變)
+  // 待辦事項統計
   const pendingTasks = useMemo(() => records.filter(r => r.status === 'tracking' || r.status === 'monitor' || r.status === 'pending').length, [records]);
   
-  // [修正重點] 今日維修統計：改為計算「所有」日期為今天的單據，不論狀態
+  // 今日維修統計：計算「所有」日期為今天的單據，不論狀態
   const todayCompletedCount = useMemo(() => {
     const currentLocalTime = new Date().toLocaleDateString('en-CA');
     return records.filter(r => {
@@ -102,20 +109,21 @@ export default function App() {
     }).length;
   }, [records]);
 
-  // --- 3. Firebase 連線邏輯 ---
+  // --- 3. Firebase 連線與初始化邏輯 (含知識庫) ---
   useEffect(() => {
     setDbStatus('connecting');
     const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
+        // 定義集合引用
         const custRef = collection(db, 'customers');
         const recRef = collection(db, 'records');
         const invRef = collection(db, 'inventory'); 
-
         const errorRef = collection(db, 'error_codes');
         const spRef = collection(db, 'sp_modes');
         const noteRef = collection(db, 'tech_notes');
 
+        // 1. 監聽客戶
         const unsubCust = onSnapshot(custRef, (snapshot) => {
             if (!snapshot.empty) {
               const data = snapshot.docs.map(d => ({ ...d.data(), customerID: d.id }));
@@ -127,13 +135,19 @@ export default function App() {
           (err) => {
             console.error("連線錯誤", err); 
             setDbStatus('error');
+            // 離線備案
             setCustomers(FULL_IMPORT_DATA);
             setRecords(MOCK_RECORDS);
             setInventory(INITIAL_INVENTORY);
+            // 載入離線知識庫
+            setErrorCodes(INITIAL_ERROR_CODES || []);
+            setSpModes(INITIAL_SP_MODES || []);
+            setTechNotes(INITIAL_TECH_NOTES || []);
             setIsLoading(false);
           }
         );
 
+        // 2. 監聽維修紀錄
         const recentRecordsQuery = query(recRef, orderBy('date', 'desc'), limit(300));
         const unsubRec = onSnapshot(recentRecordsQuery, (snapshot) => {
             if (!snapshot.empty) {
@@ -142,6 +156,7 @@ export default function App() {
             } else { setRecords(MOCK_RECORDS); }
         });
 
+        // 3. 監聽庫存 (若空則初始化)
         const unsubInv = onSnapshot(invRef, (snapshot) => {
           if (!snapshot.empty) {
               const data = snapshot.docs.map(d => ({ ...d.data(), id: d.id }));
@@ -154,40 +169,87 @@ export default function App() {
                       const itemRef = doc(db, 'inventory', itemId);
                       batch.set(itemRef, { ...item, id: itemId });
                   });
-                  batch.commit().catch(err => console.error("Init failed", err));
+                  batch.commit().catch(err => console.error("Init Inventory failed", err));
               }
               setInventory(INITIAL_INVENTORY); 
           }
         });
 
+        // 4. 監聽與初始化：故障代碼 (若空則寫入 Ricoh 預設值)
         const unsubError = onSnapshot(errorRef, (snapshot) => {
-          const arr = snapshot.docs.map(d => ({ ...d.data(), id: d.id }));
-          setErrorCodes(arr);
+          if (!snapshot.empty) {
+             const arr = snapshot.docs.map(d => ({ ...d.data(), id: d.id }));
+             setErrorCodes(arr);
+          } else {
+             if (currentUser && INITIAL_ERROR_CODES) {
+                 const batch = writeBatch(db);
+                 INITIAL_ERROR_CODES.forEach(item => {
+                     const docRef = doc(collection(db, 'error_codes')); 
+                     batch.set(docRef, item);
+                 });
+                 batch.commit().catch(e => console.error("Init ErrorCodes failed", e));
+             }
+             setErrorCodes(INITIAL_ERROR_CODES || []);
+          }
         });
+
+        // 5. 監聽與初始化：SP模式
         const unsubSp = onSnapshot(spRef, (snapshot) => {
-          const arr = snapshot.docs.map(d => ({ ...d.data(), id: d.id }));
-          setSpModes(arr);
+          if (!snapshot.empty) {
+             const arr = snapshot.docs.map(d => ({ ...d.data(), id: d.id }));
+             setSpModes(arr);
+          } else {
+             if (currentUser && INITIAL_SP_MODES) {
+                 const batch = writeBatch(db);
+                 INITIAL_SP_MODES.forEach(item => {
+                     const docRef = doc(collection(db, 'sp_modes'));
+                     batch.set(docRef, item);
+                 });
+                 batch.commit().catch(e => console.error("Init SP failed", e));
+             }
+             setSpModes(INITIAL_SP_MODES || []);
+          }
         });
+
+        // 6. 監聽與初始化：技術筆記
         const unsubNote = onSnapshot(noteRef, (snapshot) => {
-          const arr = snapshot.docs.map(d => ({ ...d.data(), id: d.id }));
-          setTechNotes(arr);
+          if (!snapshot.empty) {
+             const arr = snapshot.docs.map(d => ({ ...d.data(), id: d.id }));
+             setTechNotes(arr);
+          } else {
+             if (currentUser && INITIAL_TECH_NOTES) {
+                 const batch = writeBatch(db);
+                 INITIAL_TECH_NOTES.forEach(item => {
+                     const docRef = doc(collection(db, 'tech_notes'));
+                     batch.set(docRef, item);
+                 });
+                 batch.commit().catch(e => console.error("Init Notes failed", e));
+             }
+             setTechNotes(INITIAL_TECH_NOTES || []);
+          }
         });
 
         // 讀取備份列表 (模擬)
-        const checkBackups = async () => {
-             setCloudBackups([]);
-        };
+        const checkBackups = async () => { setCloudBackups([]); };
         checkBackups();
 
-        return () => { unsubCust(); unsubRec(); unsubInv(); unsubError(); unsubSp(); unsubNote(); };
+        return () => { 
+            unsubCust(); unsubRec(); unsubInv(); 
+            unsubError(); unsubSp(); unsubNote(); 
+        };
 
       } else { 
+        // 未登入/匿名登入時的 fallback
         signInAnonymously(auth).catch((error) => {
              console.error("登入失敗", error);
              setDbStatus('offline');
              setCustomers(FULL_IMPORT_DATA);
              setRecords(MOCK_RECORDS);
              setInventory(INITIAL_INVENTORY);
+             // 載入靜態資料
+             setErrorCodes(INITIAL_ERROR_CODES || []);
+             setSpModes(INITIAL_SP_MODES || []);
+             setTechNotes(INITIAL_TECH_NOTES || []);
              setIsLoading(false);
         });
       }

@@ -167,3 +167,38 @@ export const INITIAL_INVENTORY = [
   { id: 'p5', name: '黑色碳粉 (K)', model: 'IM C4500/6000', qty: 2, max: 4, unit: '支' },
   { id: 'p6', name: '感光鼓單元 (PCDU)', model: 'IM C4500/6000', qty: 1, max: 2, unit: '組' },
 ];
+
+// --- 4. [新增] 預設故障代碼 (針對 Ricoh MP/MPC 系列) ---
+export const INITIAL_ERROR_CODES = [
+  { id: 'e1', code: 'SC541', model: 'MP 5000/3352', desc: '定影熱敏電阻斷路 (中心)', solution: '1. 檢查定影熱敏電阻是否髒污或斷線\n2. 檢查恆溫器(Thermostat)\n3. 進SP 5-810 重置 SC' },
+  { id: 'e2', code: 'SC542', model: '全系列通用', desc: '定影溫度預熱錯誤 (未達工作溫度)', solution: '1. 檢查定影燈是否導通\n2. 檢查熱敏電阻位置\n3. 檢查電源電壓是否過低\n4. 執行 SP 5-810 解除' },
+  { id: 'e3', code: 'SC552', model: 'MPC 3503/3504', desc: '定影 IH 加熱異常 / 溫度過低', solution: '1. 檢查 IH 線圈模組是否過熱熔毀\n2. 更換定影單元\n3. 執行 SP 5-810-001 重置' },
+  { id: 'e4', code: 'SC672', model: '全系列通用', desc: '控制器啟動錯誤 (開機無畫面/無反應)', solution: '1. 檢查控制板(Controller)與操作面板連接線\n2. 重新插拔記憶體(RAM)\n3. 檢查硬碟是否故障 (拔除HDD測試開機)' },
+  { id: 'e5', code: 'SC202', model: 'MP 5000/C5000', desc: '雷射多角稜鏡馬達異常', solution: '1. 清潔雷射單元內部\n2. 更換多角稜鏡馬達 (Polygon Motor)\n3. 檢查線束連接' },
+  { id: 'e6', code: 'SC302', model: 'MP 3352/3010', desc: '充電滾輪漏電 / 高壓板異常', solution: '1. 清潔或更換充電滾輪 (Charge Roller)\n2. 檢查 PCU 單元是否受潮\n3. 檢查高壓板' },
+  { id: 'e7', code: 'SC440', model: 'MPC C3502/03', desc: '轉寫皮帶加壓馬達異常', solution: '1. 檢查轉寫皮帶單元負載是否過重 (廢碳粉堆積)\n2. 檢查轉寫馬達齒輪是否崩齒' },
+  { id: 'e8', code: 'SC819', model: '全系列通用', desc: '核心錯誤 (Kernel Error)', solution: '1. 軟體/韌體衝突，嘗試更新韌體\n2. 格式化硬碟 (SP 5-832)\n3. 更換記憶體或控制板' },
+  { id: 'e9', code: 'SC101', model: '全系列通用', desc: '曝光燈/掃描白電平錯誤', solution: '1. 清潔曝光玻璃與白板\n2. 檢查掃描架鋼索是否脫落\n3. 檢查曝光燈是否亮起' },
+  { id: 'e10', code: 'SC860', model: 'MPC 3503/04', desc: '硬碟啟動錯誤', solution: '1. 檢查硬碟電源線與排線\n2. 嘗試執行 SP 5-832 格式化硬碟\n3. 更換硬碟' }
+];
+
+// --- 5. [新增] 預設 SP 模式指令 ---
+export const INITIAL_SP_MODES = [
+  { id: 's1', cmd: '5-810-001', title: 'SC Reset (解除故障紅燈)', desc: '遇到定影類 SC 代碼 (如 542, 552) 時，修復後必須執行此指令，然後重開機才能消除紅燈。' },
+  { id: 's2', cmd: '2-111-001', title: 'Force Line Adjustment a (色彩校正)', desc: '當彩色套印不準、顏色跑掉時執行。包含粗調與細調。執行前請確保轉寫帶清潔。' },
+  { id: 's3', cmd: '7-807', title: 'SC/Jam Counter Reset', desc: '清除所有卡紙與故障計數器 (交機前或整新機時使用)。' },
+  { id: 's4', cmd: '5-803', title: 'Input Check (感應器測試)', desc: '進入後選擇對應的 Bit，用手遮擋 Sensor 查看螢幕 0/1 變化，測試感應器是否故障。' },
+  { id: 's5', cmd: '5-804', title: 'Output Check (馬達/風扇測試)', desc: '可以單獨驅動馬達、離合器或風扇，判斷是否有異音或不轉。' },
+  { id: 's6', cmd: '2-207', title: 'Force Toner Supply (強制補碳)', desc: '強制補充碳粉。更換顯像槽或更換新碳粉後若濃度不足可使用。' },
+  { id: 's7', cmd: '3-701', title: 'Manual Process Control', desc: '手動執行製程控制 (ID Sensor 校正)，解決濃度異常或底灰問題。' },
+  { id: 's8', cmd: '5-902', title: 'Test Pattern Print', desc: '列印測試頁。選擇 Pattern Number (如 5 為半色調)，按 Execute 列印。' }
+];
+
+// --- 6. [新增] 預設技術筆記 ---
+export const INITIAL_TECH_NOTES = [
+  { id: 'n1', title: 'Win10/11 掃描 SMB 無法連線解決', content: '1. 檢查電腦是否開啟 SMB 1.0 (控制台 > 開啟或關閉 Windows 功能)\n2. 若電腦較新，建議改用 FTP 掃描或安裝 Filezilla Server\n3. 檢查防毒軟體防火牆是否擋住 Port 445\n4. 使用者名稱建議用英文，密碼設為永不過期' },
+  { id: 'n2', title: 'MPC3503/04 掃描出現直線 (垂直線)', content: '1. 90% 是因為左側小玻璃 (ADF讀取區) 有立可白或髒污。\n2. 用指甲輕摳玻璃表面確認是否有乾掉的膠。\n3. 若是在影印時才出現，則檢查大玻璃下方反光鏡。' },
+  { id: 'n3', title: '更換定影單元後計數器歸零', content: '更換定影單元(Fusing Unit)後，需進入 SP 模式歸零壽命計數：\nSP 7-804-0xx (依機型不同，通常在 PM Counter 裡面找 Fusing Unit 或 Fusing Belt)' },
+  { id: 'n4', title: '廢碳粉滿 處理方式 (緊急)', content: '若廢粉瓶已滿但手邊無備料：\n1. 取出廢粉瓶，將廢粉小心倒出至垃圾袋 (戴口罩)。\n2. 務必清潔瓶口感應處 (透明視窗)，否則機器會誤判仍是滿的。\n3. 裝回後盡快訂購新品更換。' },
+  { id: 'n5', title: '機器跳 SC672 開機卡住', content: '通常是控制器板接觸不良。\n1. 關機拔插頭。\n2. 拆後蓋，將 Controller 鐵盒上的記憶體 (RAM) 拔起重插。\n3. 將硬碟排線重插。\n4. 若無效，可能為控制板故障。' }
+];
