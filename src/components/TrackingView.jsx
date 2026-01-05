@@ -26,12 +26,17 @@ const TrackingView = ({ records, customers, setCurrentView, startEditRecord, han
 
   const getFriendlyDateInfo = (dateStr) => {
     if (!dateStr) return { text: '未設定回訪', color: 'text-slate-400' };
-    const targetDate = new Date(dateStr);
+    
+    // [修正重點]：將 YYYY-MM-DD 的 "-" 替換為 "/"，瀏覽器會強制以「當地時間」解析
+    // 解決 UTC+8 時區導致的 "今天變明天" 誤差問題
+    const targetDate = new Date(dateStr.replace(/-/g, '/'));
+    
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const diffTime = targetDate - today;
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     
+    // 計算星期幾 (也同樣做替換以防萬一)
     const dateObj = new Date(dateStr.replace(/-/g, '/'));
     const weekDays = ['日', '一', '二', '三', '四', '五', '六'];
     const weekDayStr = weekDays[dateObj.getDay()];
@@ -74,7 +79,7 @@ const TrackingView = ({ records, customers, setCurrentView, startEditRecord, han
              const cust = customers.find(c => c.customerID === r.customerID);
              const visitDateInfo = getFriendlyDateInfo(r.nextVisitDate || r.return_date);
              
-             // [關鍵修復]：依然保留這個順序，確保讀取到最新的 symptom 資料
+             // 確保讀取到最新的 symptom 資料
              const faultContent = r.symptom || r.fault || r.description || '';
 
              let borderClass = 'border-l-4 border-l-amber-500'; 
@@ -112,7 +117,6 @@ const TrackingView = ({ records, customers, setCurrentView, startEditRecord, han
                   </div>
 
                   {/* 第 3 行：故障問題 */}
-                  {/* [恢復正常] 回歸標準 CSS 寫法，乾淨且穩定，與 RecordList 完全一致 */}
                   {faultContent && (
                       <div className="flex items-start mb-1 text-base text-slate-700 whitespace-pre-wrap">
                           <AlertCircle size={16} className="text-slate-400 mr-2 mt-1 shrink-0"/>
