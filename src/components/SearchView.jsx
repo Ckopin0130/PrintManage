@@ -13,9 +13,35 @@ const SearchView = ({ customers, records, onSelectCustomer, onBack }) => {
   const results = useMemo(() => {
     const q = debouncedQuery.toLowerCase().trim();
     if (q === '') return { customers: [], records: [] };
-    const matchCust = customers.filter(c => (c.name || '').toLowerCase().includes(q) || (c.address || '').toLowerCase().includes(q) || (c.L1_group || '').toLowerCase().includes(q) || (c.L2_district || '').toLowerCase().includes(q) || (c.phones || []).some(p => (p.number || '').includes(q)) || (c.assets || []).some(a => (a.model || '').toLowerCase().includes(q)));
+    
+    // 1. 篩選邏輯 (維持不變)
+    const filteredCust = customers.filter(c => 
+        (c.name || '').toLowerCase().includes(q) || 
+        (c.address || '').toLowerCase().includes(q) || 
+        (c.L1_group || '').toLowerCase().includes(q) || 
+        (c.L2_district || '').toLowerCase().includes(q) || 
+        (c.phones || []).some(p => (p.number || '').includes(q)) || 
+        (c.assets || []).some(a => (a.model || '').toLowerCase().includes(q))
+    );
+
+    // 2. [關鍵修正] 智慧排序邏輯
+    const sortedCust = filteredCust.sort((a, b) => {
+        // 判斷 A 和 B 的「名字」是否包含關鍵字
+        const aNameHas = (a.name || '').toLowerCase().includes(q);
+        const bNameHas = (b.name || '').toLowerCase().includes(q);
+
+        // 規則一：名字有對應到的，絕對排前面 (權重最高)
+        if (aNameHas && !bNameHas) return -1;
+        if (!aNameHas && bNameHas) return 1;
+
+        // 規則二：如果名字都有(或都沒有)，則依照中文筆劃排序
+        return (a.name || '').localeCompare(b.name || '', 'zh-TW');
+    });
+
+    // 維修紀錄篩選 (維持不變)
     const matchRec = records.filter(r => (r.fault || '').toLowerCase().includes(q) || (r.solution || '').toLowerCase().includes(q));
-    return { customers: matchCust, records: matchRec };
+    
+    return { customers: sortedCust, records: matchRec };
   }, [debouncedQuery, customers, records]);
 
   return (
