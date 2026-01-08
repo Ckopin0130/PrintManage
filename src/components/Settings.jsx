@@ -66,20 +66,31 @@ const Settings = ({
                             const dateLabel = backup.displayDate || (backup.time ? backup.time.split(' ')[0] : '未知日期');
                             const timeLabel = backup.displayTime || (backup.time ? backup.time.split(' ')[1] : '');
                             const stats = backup.stats || {};
+                            const displayName = backup.displayName || `還原點 ${idx + 1}`;
                             return (
-                                <div key={backup.id || idx} className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex justify-between items-center">
-                                    <div>
-                                        <div className="text-xs font-bold text-slate-700 flex items-center"><Clock size={12} className="mr-1.5 text-slate-400"/> {dateLabel}</div>
-                                        <div className="text-[10px] text-slate-400 pl-4 mt-0.5">{timeLabel}</div>
-                                        {(stats.customers || stats.records || stats.inventory) && (
-                                            <div className="text-[10px] text-slate-400 pl-4 mt-0.5">
-                                                {`客戶 ${stats.customers ?? '-'} · 維修 ${stats.records ?? '-'} · 庫存 ${stats.inventory ?? '-'}`}
+                                <div key={backup.id || idx} className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                                    <div className="flex justify-between items-start mb-2">
+                                        <div className="flex-1">
+                                            <div className="text-xs font-bold text-slate-700 flex items-center mb-1">
+                                                <Clock size={12} className="mr-1.5 text-slate-400"/> {displayName}
                                             </div>
-                                        )}
+                                            <div className="text-[10px] text-slate-400">{dateLabel} {timeLabel}</div>
+                                        </div>
                                     </div>
+                                    {(stats.customers || stats.records || stats.inventory) && (
+                                        <div className="text-[10px] text-slate-500 mb-2 pb-2 border-b border-slate-200">
+                                            客戶 <span className="font-bold text-slate-700">{stats.customers ?? 0}</span> · 
+                                            維修 <span className="font-bold text-slate-700">{stats.records ?? 0}</span> · 
+                                            庫存 <span className="font-bold text-slate-700">{stats.inventory ?? 0}</span>
+                                        </div>
+                                    )}
                                     <div className="flex gap-2">
-                                        <button onClick={() => onRestoreFromCloud(backup)} disabled={isProcessing} className="px-3 py-1.5 bg-white text-blue-600 border border-blue-100 rounded-lg text-[10px] font-bold hover:bg-blue-50 active:scale-95 transition-transform shadow-sm">還原</button>
-                                        <button onClick={() => onDeleteCloudBackup(backup)} disabled={isProcessing} className="p-1.5 bg-white text-rose-400 border border-rose-100 rounded-lg hover:text-rose-600 hover:bg-rose-50 active:scale-95 transition-transform shadow-sm"><Trash2 size={14}/></button>
+                                        <button onClick={() => onRestoreFromCloud(backup)} disabled={isProcessing} className="flex-1 py-2 bg-white text-blue-600 border border-blue-200 rounded-lg text-xs font-bold hover:bg-blue-50 active:scale-95 transition-transform shadow-sm">
+                                            還原此備份
+                                        </button>
+                                        <button onClick={() => onDeleteCloudBackup(backup)} disabled={isProcessing} className="px-3 py-2 bg-white text-rose-500 border border-rose-200 rounded-lg hover:bg-rose-50 active:scale-95 transition-transform shadow-sm">
+                                            <Trash2 size={14}/>
+                                        </button>
                                     </div>
                                 </div>
                             );

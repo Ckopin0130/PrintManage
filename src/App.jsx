@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
-  collection, onSnapshot, deleteDoc, doc, setDoc, writeBatch, query, orderBy, limit, addDoc, where, serverTimestamp
+  collection, onSnapshot, deleteDoc, doc, setDoc, writeBatch, query, orderBy, limit, addDoc, where, serverTimestamp, Timestamp
 } from 'firebase/firestore';
 import { signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { Loader2 } from 'lucide-react';
@@ -112,7 +112,16 @@ export default function App() {
   // --- 3. Firebase 連線與初始化邏輯 (含知識庫) ---
   useEffect(() => {
     setDbStatus('connecting');
+    
+    // 持久化匿名登入 UID（避免重啟後遺失）
+    const persistedUid = localStorage.getItem('firebase_anon_uid');
+    
     const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
+      // 若為匿名登入，儲存 UID
+      if (currentUser?.isAnonymous && currentUser.uid) {
+        localStorage.setItem('firebase_anon_uid', currentUser.uid);
+      }
+      
       setUser(currentUser);
       if (currentUser) {
         // 定義集合引用
@@ -229,38 +238,53 @@ export default function App() {
           }
         });
 
-        // 7. 監聽雲端備份
+        // 7. 監聽雲端備份（暫時移除 orderBy 避免索引問題，改用客戶端排序）
         const backupQuery = query(
           collection(db, 'cloud_backups'),
-          where('ownerId', '==', currentUser.uid),
-          orderBy('createdAt', 'desc')
+          where('ownerId', '==', currentUser.uid)
         );
         const unsubBackup = onSnapshot(backupQuery, (snapshot) => {
           const backups = snapshot.docs.map((docSnap) => {
             const data = docSnap.data();
             let createdAtSource = new Date();
+            let createdAtTimestamp = Date.now();
+            
+            // 優先使用 Firestore Timestamp
             if (data.createdAt?.toDate) {
               createdAtSource = data.createdAt.toDate();
+              createdAtTimestamp = createdAtSource.getTime();
+            } else if (data.createdAtText) {
+              // 備用：使用建立時的 ISO 字串
+              createdAtSource = new Date(data.createdAtText);
+              createdAtTimestamp = createdAtSource.getTime();
             } else if (data.createdAt) {
               createdAtSource = new Date(data.createdAt);
+              createdAtTimestamp = createdAtSource.getTime();
             } else if (typeof data.time === 'string') {
               createdAtSource = new Date(data.time.replace(' ', 'T'));
+              createdAtTimestamp = createdAtSource.getTime();
             }
+            
             const payload = data.data || data.payload || {};
             const stats = data.stats || {
               customers: Array.isArray(payload.customers) ? payload.customers.length : 0,
               records: Array.isArray(payload.records) ? payload.records.length : 0,
               inventory: Array.isArray(payload.inventory) ? payload.inventory.length : 0
             };
+            
             return {
               id: docSnap.id,
               ...data,
               data: payload,
               displayDate: createdAtSource.toLocaleDateString('zh-TW'),
               displayTime: createdAtSource.toLocaleTimeString('zh-TW', { hour12: false }),
-              stats
+              stats,
+              _sortTimestamp: createdAtTimestamp
             };
           });
+          
+          // 客戶端排序（新→舊）
+          backups.sort((a, b) => b._sortTimestamp - a._sortTimestamp);
           setCloudBackups(backups);
         }, (err) => {
           console.error('同步雲端備份失敗', err);
@@ -619,8 +643,9 @@ export default function App() {
           const now = new Date();
           const payload = {
               ownerId: user.uid,
-              createdAt: serverTimestamp(),
+              createdAt: Timestamp.fromDate(now), // 使用客戶端時間戳避免 serverTimestamp pending 問題
               createdAtText: now.toISOString(),
+              displayName: `備份點 ${now.toLocaleString('zh-TW')}`,
               stats: {
                   customers: customers.length,
                   records: records.length,
@@ -636,7 +661,7 @@ export default function App() {
           showToast('雲端備份建立成功');
       } catch (err) {
           console.error('Create cloud backup failed', err);
-          showToast('備份建立失敗', 'error');
+          showToast('備份建立失敗: ' + err.message, 'error');
       }
       setIsProcessing(false);
   };
