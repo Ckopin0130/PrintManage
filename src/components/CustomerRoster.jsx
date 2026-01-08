@@ -1,8 +1,8 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   ArrowLeft, Plus, Search, ChevronRight, Edit3, 
-  Trash2, Box, Users, MapPin, Phone, MessageCircle,
-  GripVertical, Settings, User, FileText, CheckCircle, Navigation,
+  Trash2, Box, Users, MapPin,
+  GripVertical, Settings, User,
   Building2, School, Tent, AlertTriangle, X, ChevronDown,
   Smartphone, Printer, Info
 } from 'lucide-react';
@@ -542,9 +542,6 @@ const GroupManagerModal = ({ isOpen, onClose, groups, onRenameGroup, onDeleteGro
         setLocalGroups(localGroups.map(g => g.originalName === originalName ? { ...g, name: newName } : g));
     };
     const handleDelete = (groupName) => {
-        const groupData = localGroups.find(g => g.originalName === groupName);
-        if (!groupData) return;
-        
         const confirmMsg = `⚠️ 危險操作 ⚠️\n\n確定要刪除群組「${groupName}」嗎？\n\n此操作將會：\n✗ 刪除該群組下的所有客戶\n✗ 刪除所有相關的維修紀錄\n✗ 此動作無法復原\n\n請輸入「刪除」確認操作。`;
         
         const userInput = prompt(confirmMsg);
@@ -662,31 +659,7 @@ const SortableCustomerRow = ({ item, onClick, index }) => {
                     </div>
                     <div className="flex items-center text-sm text-slate-500">
                         {item.addressNote && <AlertTriangle size={14} className="text-rose-500 mr-1 flex-shrink-0"/>}
-                        <span 
-                            className={`no-address-decoration ${item.addressNote ? 'text-rose-500 font-bold' : ''}`}
-                            style={{ 
-                                textDecoration: 'none',
-                                textDecorationLine: 'none',
-                                textDecorationStyle: 'none',
-                                textDecorationColor: 'transparent',
-                                border: 'none',
-                                borderBottom: 'none',
-                                borderTop: 'none',
-                                borderLeft: 'none',
-                                borderRight: 'none',
-                                outline: 'none',
-                                WebkitTapHighlightColor: 'transparent',
-                                WebkitTouchCallout: 'none',
-                                WebkitUserSelect: 'none',
-                                userSelect: 'none',
-                                WebkitTextDecoration: 'none',
-                                MozTextDecoration: 'none',
-                                MsTextDecoration: 'none',
-                                WebkitAppearance: 'none',
-                                MozAppearance: 'none',
-                                appearance: 'none'
-                            }}
-                        >
+                        <span className={`${item.addressNote ? 'text-rose-500 font-bold' : ''}`}>
                             {item.address || '無地址'}
                         </span>
                     </div>
@@ -743,17 +716,8 @@ const CustomerRoster = ({ customers, onAddCustomer, onUpdateCustomer, onDeleteCu
     else sessionStorage.removeItem('roster_group');
   }, [activeGroup]);
 
-  // 自動遷移
-  useEffect(() => {
-      let hasChanges = false;
-      const newCustomers = customers.map(item => {
-          if (!item.categoryId) {
-              hasChanges = true;
-              return { ...item, categoryId: migrateCategory(item) };
-          }
-          return item;
-      });
-  }, [customers]);
+  // 自動遷移：客戶端即時轉換，不需要 useEffect
+  // migrateCategory 函數會在需要時自動調用
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -781,43 +745,39 @@ const CustomerRoster = ({ customers, onAddCustomer, onUpdateCustomer, onDeleteCu
       });
   }, [itemsInCurrentCat, groupOrder]);
 
+  // 提取搜尋匹配函數避免重複
+  const matchesSearch = useCallback((item, term) => {
+      if (!term) return true;
+      const searchLower = term.toLowerCase();
+      const name = (item.name || '').toLowerCase();
+      const phone = (item.phones?.[0]?.number || '').toLowerCase();
+      const address = (item.address || '').toLowerCase();
+      return name.includes(searchLower) || phone.includes(searchLower) || address.includes(searchLower);
+  }, []);
+
   const currentItems = useMemo(() => {
       let list = itemsInCurrentCat;
-      if (activeGroup) {
-          list = list.filter(i => (i.L2_district || '未分區') === activeGroup);
-          // 第三層搜尋功能
-          if (searchTerm) {
-              const searchLower = searchTerm.toLowerCase();
-              list = list.filter(i => {
-                  const name = (i.name || '').toLowerCase();
-                  const phone = (i.phones?.[0]?.number || '').toLowerCase();
-                  const address = (i.address || '').toLowerCase();
-                  return name.includes(searchLower) || phone.includes(searchLower) || address.includes(searchLower);
-              });
-          }
-      } else if (selectedCatId && !activeGroup) {
-          // 第二層搜尋功能
-          if (searchTerm) {
-              const searchLower = searchTerm.toLowerCase();
-              list = list.filter(i => {
-                  const name = (i.name || '').toLowerCase();
-                  const phone = (i.phones?.[0]?.number || '').toLowerCase();
-                  const address = (i.address || '').toLowerCase();
-                  return name.includes(searchLower) || phone.includes(searchLower) || address.includes(searchLower);
-              });
-          } else {
-              return [];
-          }
-      } else if (searchTerm) {
-          list = customers.filter(i => {
-              const searchLower = searchTerm.toLowerCase();
-              const name = (i.name || '').toLowerCase();
-              const phone = (i.phones?.[0]?.number || '').toLowerCase();
-              const address = (i.address || '').toLowerCase();
-              return name.includes(searchLower) || phone.includes(searchLower) || address.includes(searchLower);
-          });
-      } else return [];
       
+      if (activeGroup) {
+          // 第三層：顯示指定群組的客戶
+          list = list.filter(i => (i.L2_district || '未分區') === activeGroup);
+      } else if (selectedCatId && !activeGroup) {
+          // 第二層：只有搜尋時才顯示結果
+          if (!searchTerm) return [];
+          list = itemsInCurrentCat;
+      } else if (searchTerm) {
+          // 第一層：搜尋所有客戶
+          list = customers;
+      } else {
+          return [];
+      }
+      
+      // 統一應用搜尋過濾
+      if (searchTerm) {
+          list = list.filter(i => matchesSearch(i, searchTerm));
+      }
+      
+      // 統一應用排序
       const strOrder = customerOrder.map(String);
       return list.sort((a, b) => {
           const idxA = strOrder.indexOf(String(a.customerID));
@@ -825,7 +785,7 @@ const CustomerRoster = ({ customers, onAddCustomer, onUpdateCustomer, onDeleteCu
           if (idxA !== -1 && idxB !== -1) return idxA - idxB;
           return a.name.localeCompare(b.name);
       });
-  }, [itemsInCurrentCat, activeGroup, searchTerm, customers, customerOrder, selectedCatId]);
+  }, [itemsInCurrentCat, activeGroup, searchTerm, customers, customerOrder, selectedCatId, matchesSearch]);
 
   const catCounts = useMemo(() => {
       const counts = {};

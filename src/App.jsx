@@ -743,15 +743,7 @@ export default function App() {
       <ConfirmDialog {...confirmDialog} onCancel={() => setConfirmDialog({...confirmDialog, isOpen: false})} isProcessing={isProcessing} />
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       
-      {!isLoading && (!currentView || currentView === '') && (
-        <Dashboard 
-          today={today} dbStatus={dbStatus} pendingTasks={pendingTasks} 
-          todayCompletedCount={todayCompletedCount} totalCustomers={customers.length} 
-          setCurrentView={setCurrentView} setActiveTab={setActiveTab}
-          onQuickAction={() => setCurrentView('quick_action')}
-        />
-      )}
-      {currentView === 'dashboard' && (
+      {(!isLoading && (currentView === 'dashboard' || !currentView || currentView === '')) && (
         <Dashboard 
           today={today} dbStatus={dbStatus} pendingTasks={pendingTasks} 
           todayCompletedCount={todayCompletedCount} totalCustomers={customers.length} 
