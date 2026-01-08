@@ -115,41 +115,58 @@ const CustomerForm = ({ mode, initialData, onSubmit, onCancel, onDelete, custome
     });
   };
 
-  // 自動補全建議列表
+  // 自動補全建議列表（只顯示同群組）
   const nameSuggestions = useMemo(() => {
-    if (!customers) return [];
+    if (!customers || !formData.L2_district) return [];
     const inputVal = (formData.name || '').toLowerCase();
-    const allNames = new Set(customers.map(c => c.name).filter(n => n && n.trim() !== ''));
+    const allNames = new Set(
+      customers
+        .filter(c => c.L1_group === formData.L1_group && c.L2_district === formData.L2_district)
+        .map(c => c.name)
+        .filter(n => n && n.trim() !== '')
+    );
     return [...allNames].filter(n => n.toLowerCase().includes(inputVal)).sort().slice(0, 10);
-  }, [customers, formData.name]);
+  }, [customers, formData.name, formData.L1_group, formData.L2_district]);
 
   const contactSuggestions = useMemo(() => {
-    if (!customers) return [];
+    if (!customers || !formData.L2_district) return [];
     const inputVal = (formData.contactPerson || '').toLowerCase();
-    const allContacts = new Set(customers.map(c => c.contactPerson).filter(p => p && p.trim() !== ''));
+    const allContacts = new Set(
+      customers
+        .filter(c => c.L1_group === formData.L1_group && c.L2_district === formData.L2_district)
+        .map(c => c.contactPerson)
+        .filter(p => p && p.trim() !== '')
+    );
     return [...allContacts].filter(p => p.toLowerCase().includes(inputVal)).sort().slice(0, 10);
-  }, [customers, formData.contactPerson]);
+  }, [customers, formData.contactPerson, formData.L1_group, formData.L2_district]);
 
   const phoneSuggestions = useMemo(() => {
-    if (!customers) return [];
+    if (!customers || !formData.L2_district) return [];
     const inputVal = (formData.phoneNumber || '').toLowerCase();
     const allPhones = new Set();
-    customers.forEach(c => {
-      if (c.phones && c.phones.length > 0) {
-        c.phones.forEach(p => {
-          if (p.number && p.number.trim() !== '') allPhones.add(p.number);
-        });
-      }
-    });
+    customers
+      .filter(c => c.L1_group === formData.L1_group && c.L2_district === formData.L2_district)
+      .forEach(c => {
+        if (c.phones && c.phones.length > 0) {
+          c.phones.forEach(p => {
+            if (p.number && p.number.trim() !== '') allPhones.add(p.number);
+          });
+        }
+      });
     return [...allPhones].filter(p => p.toLowerCase().includes(inputVal)).sort().slice(0, 10);
-  }, [customers, formData.phoneNumber]);
+  }, [customers, formData.phoneNumber, formData.L1_group, formData.L2_district]);
 
   const addressSuggestions = useMemo(() => {
-    if (!customers) return [];
+    if (!customers || !formData.L2_district) return [];
     const inputVal = (formData.address || '').toLowerCase();
-    const allAddresses = new Set(customers.map(c => c.address).filter(a => a && a.trim() !== ''));
+    const allAddresses = new Set(
+      customers
+        .filter(c => c.L1_group === formData.L1_group && c.L2_district === formData.L2_district)
+        .map(c => c.address)
+        .filter(a => a && a.trim() !== '')
+    );
     return [...allAddresses].filter(a => a.toLowerCase().includes(inputVal)).sort().slice(0, 10);
-  }, [customers, formData.address]);
+  }, [customers, formData.address, formData.L1_group, formData.L2_district]);
 
   return (
     <div className="bg-slate-50 min-h-screen pb-24 flex flex-col font-sans">

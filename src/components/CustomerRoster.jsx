@@ -61,44 +61,73 @@ const EditCustomerModal = ({ isOpen, onClose, onSave, onDelete, initialItem, cat
       return [...allGroups].filter(g => g.includes(inputVal)).sort();
   }, [customers, formData.categoryId, formData.L2_district]);
 
-  // 客戶名稱建議
+  // 客戶名稱建議（只顯示同群組）
   const nameSuggestions = useMemo(() => {
-      if (!customers) return [];
+      if (!customers || !formData.categoryId) return [];
       const inputVal = (formData.name || '').toLowerCase();
-      const allNames = new Set(customers.map(c => c.name).filter(n => n && n.trim() !== ''));
+      const allNames = new Set(
+          customers
+            .filter(c => 
+              (c.categoryId || migrateCategory(c)) === formData.categoryId && 
+              c.L2_district === formData.L2_district
+            )
+            .map(c => c.name)
+            .filter(n => n && n.trim() !== '')
+      );
       return [...allNames].filter(n => n.toLowerCase().includes(inputVal)).sort().slice(0, 10);
-  }, [customers, formData.name]);
+  }, [customers, formData.name, formData.categoryId, formData.L2_district]);
 
-  // 聯絡人建議
+  // 聯絡人建議（只顯示同群組）
   const contactSuggestions = useMemo(() => {
-      if (!customers) return [];
+      if (!customers || !formData.categoryId) return [];
       const inputVal = (formData.contactPerson || '').toLowerCase();
-      const allContacts = new Set(customers.map(c => c.contactPerson).filter(p => p && p.trim() !== ''));
+      const allContacts = new Set(
+          customers
+            .filter(c => 
+              (c.categoryId || migrateCategory(c)) === formData.categoryId && 
+              c.L2_district === formData.L2_district
+            )
+            .map(c => c.contactPerson)
+            .filter(p => p && p.trim() !== '')
+      );
       return [...allContacts].filter(p => p.toLowerCase().includes(inputVal)).sort().slice(0, 10);
-  }, [customers, formData.contactPerson]);
+  }, [customers, formData.contactPerson, formData.categoryId, formData.L2_district]);
 
-  // 電話建議
+  // 電話建議（只顯示同群組）
   const phoneSuggestions = useMemo(() => {
-      if (!customers) return [];
+      if (!customers || !formData.categoryId) return [];
       const inputVal = (formData.phone || '').toLowerCase();
       const allPhones = new Set();
-      customers.forEach(c => {
+      customers
+        .filter(c => 
+          (c.categoryId || migrateCategory(c)) === formData.categoryId && 
+          c.L2_district === formData.L2_district
+        )
+        .forEach(c => {
           if (c.phones && c.phones.length > 0) {
               c.phones.forEach(p => {
                   if (p.number && p.number.trim() !== '') allPhones.add(p.number);
               });
           }
-      });
+        });
       return [...allPhones].filter(p => p.toLowerCase().includes(inputVal)).sort().slice(0, 10);
-  }, [customers, formData.phone]);
+  }, [customers, formData.phone, formData.categoryId, formData.L2_district]);
 
-  // 地址建議
+  // 地址建議（只顯示同群組）
   const addressSuggestions = useMemo(() => {
-      if (!customers) return [];
+      if (!customers || !formData.categoryId) return [];
       const inputVal = (formData.address || '').toLowerCase();
-      const allAddresses = new Set(customers.map(c => c.address).filter(a => a && a.trim() !== ''));
+      const allAddresses = new Set(
+          customers
+            .filter(c => 
+              (c.categoryId || migrateCategory(c)) === formData.categoryId && 
+              c.L2_district === formData.L2_district
+            )
+            .map(c => c.address)
+            .filter(a => a && a.trim() !== '')
+      );
       return [...allAddresses].filter(a => a.toLowerCase().includes(inputVal)).sort().slice(0, 10);
-  }, [customers, formData.address]);
+  }, [customers, formData.address, formData.categoryId, formData.L2_district]);
 
   useEffect(() => {
     if (isOpen) {
@@ -889,9 +918,7 @@ const CustomerRoster = ({ customers, onAddCustomer, onUpdateCustomer, onDeleteCu
                 {selectedCatId && !activeGroup && (
                     <button onClick={() => setIsGroupManagerOpen(true)} className="p-2 bg-slate-100 text-slate-600 rounded-xl hover:bg-blue-50 hover:text-blue-600"><Settings size={20}/></button>
                 )}
-                {activeGroup && (
-                    <button onClick={() => setIsGroupManagerOpen(true)} className="p-2 bg-slate-100 text-slate-600 rounded-xl hover:bg-blue-50 hover:text-blue-600"><Settings size={20}/></button>
-                )}
+                {/* 第三層（activeGroup）不顯示管理按鈕 */}
                 <button onClick={() => setIsAddMode(true)} className="flex items-center text-sm font-bold bg-blue-600 text-white px-3 py-2 rounded-xl shadow-lg shadow-blue-200 hover:bg-blue-700 active:scale-95 transition-all"><Plus size={20} className="mr-1"/>新增</button>
             </div>
          </div>

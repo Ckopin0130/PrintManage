@@ -122,7 +122,7 @@ const CustomerDetail = ({
         <h2 className="text-lg font-extrabold flex-1 text-center text-slate-800 tracking-wide">客戶詳情</h2>
         <div className="flex gap-1 -mr-2">
           <button onClick={startEdit} className="p-2 text-blue-600 hover:bg-blue-50 rounded-full transition-colors"><Edit size={20} /></button>
-          <button onClick={handleDeleteCustomer} className="p-2 text-red-500 hover:bg-red-50 rounded-full transition-colors"><Trash2 size={20} /></button>
+          <button onClick={(e) => handleDeleteCustomer(e, selectedCustomer)} className="p-2 text-red-500 hover:bg-red-50 rounded-full transition-colors"><Trash2 size={20} /></button>
         </div>
       </div>
 
