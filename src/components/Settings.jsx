@@ -62,18 +62,28 @@ const Settings = ({
                     <div className="text-center py-4 text-slate-400 text-xs bg-slate-50 rounded-xl font-bold">尚無雲端備份</div>
                 ) : (
                     <div className="max-h-52 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
-                        {cloudBackups.map((backup, idx) => (
-                            <div key={idx} className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex justify-between items-center">
-                                <div>
-                                    <div className="text-xs font-bold text-slate-700 flex items-center"><Clock size={12} className="mr-1.5 text-slate-400"/> {backup.time.split(' ')[0]}</div>
-                                    <div className="text-[10px] text-slate-400 pl-4 mt-0.5">{backup.time.split(' ')[1]}</div>
+                        {cloudBackups.map((backup, idx) => {
+                            const dateLabel = backup.displayDate || (backup.time ? backup.time.split(' ')[0] : '未知日期');
+                            const timeLabel = backup.displayTime || (backup.time ? backup.time.split(' ')[1] : '');
+                            const stats = backup.stats || {};
+                            return (
+                                <div key={backup.id || idx} className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex justify-between items-center">
+                                    <div>
+                                        <div className="text-xs font-bold text-slate-700 flex items-center"><Clock size={12} className="mr-1.5 text-slate-400"/> {dateLabel}</div>
+                                        <div className="text-[10px] text-slate-400 pl-4 mt-0.5">{timeLabel}</div>
+                                        {(stats.customers || stats.records || stats.inventory) && (
+                                            <div className="text-[10px] text-slate-400 pl-4 mt-0.5">
+                                                {`客戶 ${stats.customers ?? '-'} · 維修 ${stats.records ?? '-'} · 庫存 ${stats.inventory ?? '-'}`}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button onClick={() => onRestoreFromCloud(backup)} disabled={isProcessing} className="px-3 py-1.5 bg-white text-blue-600 border border-blue-100 rounded-lg text-[10px] font-bold hover:bg-blue-50 active:scale-95 transition-transform shadow-sm">還原</button>
+                                        <button onClick={() => onDeleteCloudBackup(backup)} disabled={isProcessing} className="p-1.5 bg-white text-rose-400 border border-rose-100 rounded-lg hover:text-rose-600 hover:bg-rose-50 active:scale-95 transition-transform shadow-sm"><Trash2 size={14}/></button>
+                                    </div>
                                 </div>
-                                <div className="flex gap-2">
-                                    <button onClick={() => onRestoreFromCloud(backup)} disabled={isProcessing} className="px-3 py-1.5 bg-white text-blue-600 border border-blue-100 rounded-lg text-[10px] font-bold hover:bg-blue-50 active:scale-95 transition-transform shadow-sm">還原</button>
-                                    <button onClick={() => onDeleteCloudBackup(backup)} disabled={isProcessing} className="p-1.5 bg-white text-rose-400 border border-rose-100 rounded-lg hover:text-rose-600 hover:bg-rose-50 active:scale-95 transition-transform shadow-sm"><Trash2 size={14}/></button>
-                                </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 )}
               </div>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
-  collection, onSnapshot, deleteDoc, doc, setDoc, writeBatch, query, orderBy, limit, addDoc
+  collection, onSnapshot, deleteDoc, doc, setDoc, writeBatch, query, orderBy, limit, addDoc, where, serverTimestamp
 } from 'firebase/firestore';
 import { signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { Loader2 } from 'lucide-react';
@@ -61,27 +61,7 @@ export default function App() {
   const [showAddressAlert, setShowAddressAlert] = useState(false);
   
   // 雲端備份列表
-  const CLOUD_BACKUP_STORAGE_KEY = 'cloud_backups_v1';
-  const [cloudBackups, setCloudBackups] = useState(() => {
-    if (typeof window === 'undefined') return [];
-    try {
-      const raw = localStorage.getItem(CLOUD_BACKUP_STORAGE_KEY);
-      return raw ? JSON.parse(raw) : [];
-    } catch (err) {
-      console.error('Failed to read cloud backups from storage', err);
-      return [];
-    }
-  });
-
-  // 將備份列表同步至 localStorage，確保重啟後仍存在
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      localStorage.setItem(CLOUD_BACKUP_STORAGE_KEY, JSON.stringify(cloudBackups));
-    } catch (err) {
-      console.error('Failed to persist cloud backups', err);
-    }
-  }, [cloudBackups]);
+  const [cloudBackups, setCloudBackups] = useState([]);
 
   // 資料篩選與暫存狀態
   const [selectedCustomer, setSelectedCustomer] = useState(null);
@@ -249,9 +229,48 @@ export default function App() {
           }
         });
 
+        // 7. 監聽雲端備份
+        const backupQuery = query(
+          collection(db, 'cloud_backups'),
+          where('ownerId', '==', currentUser.uid),
+          orderBy('createdAt', 'desc')
+        );
+        const unsubBackup = onSnapshot(backupQuery, (snapshot) => {
+          const backups = snapshot.docs.map((docSnap) => {
+            const data = docSnap.data();
+            let createdAtSource = new Date();
+            if (data.createdAt?.toDate) {
+              createdAtSource = data.createdAt.toDate();
+            } else if (data.createdAt) {
+              createdAtSource = new Date(data.createdAt);
+            } else if (typeof data.time === 'string') {
+              createdAtSource = new Date(data.time.replace(' ', 'T'));
+            }
+            const payload = data.data || data.payload || {};
+            const stats = data.stats || {
+              customers: Array.isArray(payload.customers) ? payload.customers.length : 0,
+              records: Array.isArray(payload.records) ? payload.records.length : 0,
+              inventory: Array.isArray(payload.inventory) ? payload.inventory.length : 0
+            };
+            return {
+              id: docSnap.id,
+              ...data,
+              data: payload,
+              displayDate: createdAtSource.toLocaleDateString('zh-TW'),
+              displayTime: createdAtSource.toLocaleTimeString('zh-TW', { hour12: false }),
+              stats
+            };
+          });
+          setCloudBackups(backups);
+        }, (err) => {
+          console.error('同步雲端備份失敗', err);
+          showToast('無法載入雲端還原點', 'error');
+        });
+
         return () => { 
             unsubCust(); unsubRec(); unsubInv(); 
             unsubError(); unsubSp(); unsubNote(); 
+            unsubBackup();
         };
 
       } else { 
@@ -594,18 +613,76 @@ export default function App() {
       });
   };
   const handleCreateCloudBackup = async () => {
+      if (!user) return showToast('請先登入', 'error');
       setIsProcessing(true);
-      setTimeout(() => {
-          const newBackup = { id: Date.now(), time: new Date().toLocaleString() };
-          setCloudBackups(prev => [newBackup, ...prev]);
+      try {
+          const now = new Date();
+          const payload = {
+              ownerId: user.uid,
+              createdAt: serverTimestamp(),
+              createdAtText: now.toISOString(),
+              stats: {
+                  customers: customers.length,
+                  records: records.length,
+                  inventory: inventory.length
+              },
+              data: {
+                  customers,
+                  records,
+                  inventory
+              }
+          };
+          await addDoc(collection(db, 'cloud_backups'), payload);
           showToast('雲端備份建立成功');
-          setIsProcessing(false);
-      }, 1500);
+      } catch (err) {
+          console.error('Create cloud backup failed', err);
+          showToast('備份建立失敗', 'error');
+      }
+      setIsProcessing(false);
   };
-  const handleRestoreFromCloud = (backup) => { showToast(`還原功能開發中 (${backup.time})`, 'error'); };
-  const handleDeleteCloudBackup = (backup) => {
-      setCloudBackups(prev => prev.filter(b => b.id !== backup.id));
-      showToast('備份已刪除');
+  const handleRestoreFromCloud = async (backup) => {
+      if (!user) return showToast('請先登入', 'error');
+      const payload = backup?.data || backup?.payload;
+      if (!payload) {
+          showToast('備份內容缺失，無法還原', 'error');
+          return;
+      }
+      setIsProcessing(true);
+      try {
+          const batch = writeBatch(db);
+          const backupCustomers = Array.isArray(payload.customers) ? payload.customers : [];
+          const backupRecords = Array.isArray(payload.records) ? payload.records : [];
+          const backupInventory = Array.isArray(payload.inventory) ? payload.inventory : [];
+
+          backupCustomers.forEach(c => {
+              if (c?.customerID) batch.set(doc(db, 'customers', c.customerID), c);
+          });
+          backupRecords.forEach(r => {
+              if (r?.id) batch.set(doc(db, 'records', r.id), r);
+          });
+          backupInventory.forEach(i => {
+              if (i?.id) batch.set(doc(db, 'inventory', i.id), i);
+          });
+          await batch.commit();
+          showToast('資料已從雲端還原');
+      } catch (err) {
+          console.error('Restore cloud backup failed', err);
+          showToast('還原失敗: ' + err.message, 'error');
+      }
+      setIsProcessing(false);
+  };
+  const handleDeleteCloudBackup = async (backup) => {
+      if (!user) return showToast('請先登入', 'error');
+      if (!backup?.id) return;
+      setIsProcessing(true);
+      try {
+          await deleteDoc(doc(db, 'cloud_backups', backup.id));
+          showToast('備份已刪除');
+      } catch (err) {
+          console.error('Delete cloud backup failed', err);
+          showToast('刪除失敗', 'error');
+      }
+      setIsProcessing(false);
   };
   const renameCustomerGroup = async (oldName, newName) => {
       if (!user) return;
