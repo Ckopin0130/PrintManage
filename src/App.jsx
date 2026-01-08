@@ -61,7 +61,27 @@ export default function App() {
   const [showAddressAlert, setShowAddressAlert] = useState(false);
   
   // 雲端備份列表
-  const [cloudBackups, setCloudBackups] = useState([]);
+  const CLOUD_BACKUP_STORAGE_KEY = 'cloud_backups_v1';
+  const [cloudBackups, setCloudBackups] = useState(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const raw = localStorage.getItem(CLOUD_BACKUP_STORAGE_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch (err) {
+      console.error('Failed to read cloud backups from storage', err);
+      return [];
+    }
+  });
+
+  // 將備份列表同步至 localStorage，確保重啟後仍存在
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.setItem(CLOUD_BACKUP_STORAGE_KEY, JSON.stringify(cloudBackups));
+    } catch (err) {
+      console.error('Failed to persist cloud backups', err);
+    }
+  }, [cloudBackups]);
 
   // 資料篩選與暫存狀態
   const [selectedCustomer, setSelectedCustomer] = useState(null);
@@ -228,10 +248,6 @@ export default function App() {
              setTechNotes(INITIAL_TECH_NOTES || []);
           }
         });
-
-        // 讀取備份列表 (模擬)
-        const checkBackups = async () => { setCloudBackups([]); };
-        checkBackups();
 
         return () => { 
             unsubCust(); unsubRec(); unsubInv(); 
