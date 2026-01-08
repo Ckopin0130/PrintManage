@@ -513,9 +513,17 @@ const GroupManagerModal = ({ isOpen, onClose, groups, onRenameGroup, onDeleteGro
         setLocalGroups(localGroups.map(g => g.originalName === originalName ? { ...g, name: newName } : g));
     };
     const handleDelete = (groupName) => {
-        if(window.confirm(`確定刪除群組「${groupName}」？此操作將刪除該群組下的所有客戶。`)) {
+        const groupData = localGroups.find(g => g.originalName === groupName);
+        if (!groupData) return;
+        
+        const confirmMsg = `⚠️ 危險操作 ⚠️\n\n確定要刪除群組「${groupName}」嗎？\n\n此操作將會：\n✗ 刪除該群組下的所有客戶\n✗ 刪除所有相關的維修紀錄\n✗ 此動作無法復原\n\n請輸入「刪除」確認操作。`;
+        
+        const userInput = prompt(confirmMsg);
+        if (userInput === '刪除') {
             onDeleteGroup(groupName);
             onClose();
+        } else if (userInput !== null) {
+            alert('操作已取消（輸入不符）');
         }
     };
     const handleSave = () => {

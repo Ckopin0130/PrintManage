@@ -800,7 +800,8 @@ export default function App() {
           initialData={currentView === 'add' ? {} : selectedCustomer}
           onSubmit={currentView === 'add' ? handleAddSubmit : handleEditSubmit}
           onDelete={handleDeleteCustomer}
-          onCancel={() => setCurrentView('detail')} 
+          onCancel={() => setCurrentView('detail')}
+          customers={customers}
         />
       )}
       {(currentView === 'add_record' || currentView === 'edit_record') && (
