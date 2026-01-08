@@ -43,6 +43,10 @@ const EditCustomerModal = ({ isOpen, onClose, onSave, onDelete, initialItem, cat
   
   // 自訂下拉選單狀態
   const [showGroupSuggestions, setShowGroupSuggestions] = useState(false);
+  const [showNameSuggestions, setShowNameSuggestions] = useState(false);
+  const [showContactSuggestions, setShowContactSuggestions] = useState(false);
+  const [showPhoneSuggestions, setShowPhoneSuggestions] = useState(false);
+  const [showAddressSuggestions, setShowAddressSuggestions] = useState(false);
   
   // 計算現有的群組建議清單 (並過濾)
   const groupSuggestions = useMemo(() => {
@@ -56,6 +60,45 @@ const EditCustomerModal = ({ isOpen, onClose, onSave, onDelete, initialItem, cat
       );
       return [...allGroups].filter(g => g.includes(inputVal)).sort();
   }, [customers, formData.categoryId, formData.L2_district]);
+
+  // 客戶名稱建議
+  const nameSuggestions = useMemo(() => {
+      if (!customers) return [];
+      const inputVal = (formData.name || '').toLowerCase();
+      const allNames = new Set(customers.map(c => c.name).filter(n => n && n.trim() !== ''));
+      return [...allNames].filter(n => n.toLowerCase().includes(inputVal)).sort().slice(0, 10);
+  }, [customers, formData.name]);
+
+  // 聯絡人建議
+  const contactSuggestions = useMemo(() => {
+      if (!customers) return [];
+      const inputVal = (formData.contactPerson || '').toLowerCase();
+      const allContacts = new Set(customers.map(c => c.contactPerson).filter(p => p && p.trim() !== ''));
+      return [...allContacts].filter(p => p.toLowerCase().includes(inputVal)).sort().slice(0, 10);
+  }, [customers, formData.contactPerson]);
+
+  // 電話建議
+  const phoneSuggestions = useMemo(() => {
+      if (!customers) return [];
+      const inputVal = (formData.phone || '').toLowerCase();
+      const allPhones = new Set();
+      customers.forEach(c => {
+          if (c.phones && c.phones.length > 0) {
+              c.phones.forEach(p => {
+                  if (p.number && p.number.trim() !== '') allPhones.add(p.number);
+              });
+          }
+      });
+      return [...allPhones].filter(p => p.toLowerCase().includes(inputVal)).sort().slice(0, 10);
+  }, [customers, formData.phone]);
+
+  // 地址建議
+  const addressSuggestions = useMemo(() => {
+      if (!customers) return [];
+      const inputVal = (formData.address || '').toLowerCase();
+      const allAddresses = new Set(customers.map(c => c.address).filter(a => a && a.trim() !== ''));
+      return [...allAddresses].filter(a => a.toLowerCase().includes(inputVal)).sort().slice(0, 10);
+  }, [customers, formData.address]);
 
   useEffect(() => {
     if (isOpen) {
@@ -81,6 +124,10 @@ const EditCustomerModal = ({ isOpen, onClose, onSave, onDelete, initialItem, cat
         });
       }
       setShowGroupSuggestions(false);
+      setShowNameSuggestions(false);
+      setShowContactSuggestions(false);
+      setShowPhoneSuggestions(false);
+      setShowAddressSuggestions(false);
     }
   }, [isOpen, initialItem, categories, defaultCategoryId, defaultGroup]);
 
@@ -108,12 +155,19 @@ const EditCustomerModal = ({ isOpen, onClose, onSave, onDelete, initialItem, cat
   return (
     <div className="fixed inset-0 bg-black/60 z-[80] flex items-center justify-center p-4 animate-in fade-in" onClick={onClose}>
       <div 
-        className="bg-white w-full max-w-sm rounded-2xl shadow-2xl flex flex-col max-h-[85vh]"
-        onClick={e => { e.stopPropagation(); setShowGroupSuggestions(false); }} // 點擊背景關閉選單
+        className="bg-white w-full max-w-sm rounded-2xl shadow-2xl flex flex-col max-h-[90vh] mt-0"
+        onClick={e => { 
+          e.stopPropagation(); 
+          setShowGroupSuggestions(false); 
+          setShowNameSuggestions(false);
+          setShowContactSuggestions(false);
+          setShowPhoneSuggestions(false);
+          setShowAddressSuggestions(false);
+        }} // 點擊背景關閉選單
       >
         <div className="flex justify-between items-center p-5 border-b border-gray-100 flex-shrink-0">
            <h3 className="text-xl font-bold text-slate-800">{initialItem ? '編輯客戶' : '新增客戶'}</h3>
-           {initialItem && <button onClick={() => { if(window.confirm(`刪除 ${formData.name}？`)) onDelete(initialItem); }} className="p-2 bg-rose-50 text-rose-500 rounded-xl hover:bg-rose-100"><Trash2 size={20}/></button>}
+           {initialItem && <button onClick={() => { if(window.confirm(`刪除 ${formData.name}？`)) { onDelete(initialItem); onClose(); } }} className="p-2 bg-rose-50 text-rose-500 rounded-xl hover:bg-rose-100"><Trash2 size={20}/></button>}
         </div>
         
         <div className="p-6 overflow-y-auto space-y-4 flex-1">
@@ -178,55 +232,171 @@ const EditCustomerModal = ({ isOpen, onClose, onSave, onDelete, initialItem, cat
               </div>
 
               {/* 第三行：客戶名稱 */}
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 relative">
                 <div className="bg-blue-50 p-2.5 rounded-xl text-blue-600 shrink-0 flex items-center justify-center">
                   <Building2 size={18} strokeWidth={2.5} />
                 </div>
-                <input 
-                  placeholder="輸入客戶名稱" 
-                  className="flex-1 text-base font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300" 
-                  value={formData.name} 
-                  onChange={e => setFormData({...formData, name: e.target.value})} 
-                />
+                <div className="flex-1 min-w-0 relative">
+                  <input 
+                    placeholder="輸入客戶名稱" 
+                    className="w-full text-base font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 pr-8 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300" 
+                    value={formData.name} 
+                    onChange={e => {
+                      setFormData({...formData, name: e.target.value});
+                      setShowNameSuggestions(true);
+                    }}
+                    onFocus={() => setShowNameSuggestions(true)}
+                    onClick={(e) => { e.stopPropagation(); setShowNameSuggestions(true); }}
+                  />
+                  {nameSuggestions.length > 0 && (
+                    <div className="absolute right-3 top-2.5 text-slate-400 pointer-events-none">
+                      <ChevronDown size={16}/>
+                    </div>
+                  )}
+                  {showNameSuggestions && nameSuggestions.length > 0 && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-40 overflow-y-auto animate-in fade-in slide-in-from-top-1">
+                      {nameSuggestions.map(name => (
+                        <div 
+                          key={name}
+                          className="p-3 hover:bg-blue-50 cursor-pointer text-slate-700 font-bold border-b border-slate-50 last:border-0"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setFormData({...formData, name: name});
+                            setShowNameSuggestions(false);
+                          }}
+                        >
+                          {name}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* 第四行：聯絡人（獨立一行） */}
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 relative">
                 <div className="bg-emerald-50 p-2.5 rounded-xl text-emerald-600 shrink-0 flex items-center justify-center">
                   <User size={18} strokeWidth={2.5} />
                 </div>
-                <input 
-                  placeholder="聯絡人" 
-                  className="flex-1 text-base font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-emerald-100 focus:border-emerald-300" 
-                  value={formData.contactPerson} 
-                  onChange={e => setFormData({...formData, contactPerson: e.target.value})} 
-                />
+                <div className="flex-1 min-w-0 relative">
+                  <input 
+                    placeholder="聯絡人" 
+                    className="w-full text-base font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 pr-8 outline-none focus:ring-2 focus:ring-emerald-100 focus:border-emerald-300" 
+                    value={formData.contactPerson} 
+                    onChange={e => {
+                      setFormData({...formData, contactPerson: e.target.value});
+                      setShowContactSuggestions(true);
+                    }}
+                    onFocus={() => setShowContactSuggestions(true)}
+                    onClick={(e) => { e.stopPropagation(); setShowContactSuggestions(true); }}
+                  />
+                  {contactSuggestions.length > 0 && (
+                    <div className="absolute right-3 top-2.5 text-slate-400 pointer-events-none">
+                      <ChevronDown size={16}/>
+                    </div>
+                  )}
+                  {showContactSuggestions && contactSuggestions.length > 0 && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-40 overflow-y-auto animate-in fade-in slide-in-from-top-1">
+                      {contactSuggestions.map(contact => (
+                        <div 
+                          key={contact}
+                          className="p-3 hover:bg-emerald-50 cursor-pointer text-slate-700 font-bold border-b border-slate-50 last:border-0"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setFormData({...formData, contactPerson: contact});
+                            setShowContactSuggestions(false);
+                          }}
+                        >
+                          {contact}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* 第五行：電話（獨立一行） */}
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 relative">
                 <div className="bg-green-50 p-2.5 rounded-xl text-green-600 shrink-0 flex items-center justify-center">
                   <Smartphone size={18} strokeWidth={2.5} />
                 </div>
-                <input 
-                  placeholder="電話號碼" 
-                  className="flex-1 text-base font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 outline-none font-mono focus:ring-2 focus:ring-green-100 focus:border-green-300" 
-                  value={formData.phone} 
-                  onChange={e => setFormData({...formData, phone: e.target.value})} 
-                />
+                <div className="flex-1 min-w-0 relative">
+                  <input 
+                    placeholder="電話號碼" 
+                    className="w-full text-base font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 pr-8 outline-none font-mono focus:ring-2 focus:ring-green-100 focus:border-green-300" 
+                    value={formData.phone} 
+                    onChange={e => {
+                      setFormData({...formData, phone: e.target.value});
+                      setShowPhoneSuggestions(true);
+                    }}
+                    onFocus={() => setShowPhoneSuggestions(true)}
+                    onClick={(e) => { e.stopPropagation(); setShowPhoneSuggestions(true); }}
+                  />
+                  {phoneSuggestions.length > 0 && (
+                    <div className="absolute right-3 top-2.5 text-slate-400 pointer-events-none">
+                      <ChevronDown size={16}/>
+                    </div>
+                  )}
+                  {showPhoneSuggestions && phoneSuggestions.length > 0 && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-40 overflow-y-auto animate-in fade-in slide-in-from-top-1">
+                      {phoneSuggestions.map(phone => (
+                        <div 
+                          key={phone}
+                          className="p-3 hover:bg-green-50 cursor-pointer text-slate-700 font-bold font-mono border-b border-slate-50 last:border-0"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setFormData({...formData, phone: phone});
+                            setShowPhoneSuggestions(false);
+                          }}
+                        >
+                          {phone}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* 第六行：地址 */}
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 relative">
                 <div className="bg-blue-50 p-2.5 rounded-xl text-blue-600 shrink-0 flex items-center justify-center">
                   <MapPin size={18} strokeWidth={2.5} />
                 </div>
-                <input 
-                  placeholder="輸入完整地址" 
-                  className="flex-1 text-base text-slate-700 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300" 
-                  value={formData.address} 
-                  onChange={e => setFormData({...formData, address: e.target.value})} 
-                />
+                <div className="flex-1 min-w-0 relative">
+                  <input 
+                    placeholder="輸入完整地址" 
+                    className="w-full text-base text-slate-700 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 pr-8 outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300" 
+                    value={formData.address} 
+                    onChange={e => {
+                      setFormData({...formData, address: e.target.value});
+                      setShowAddressSuggestions(true);
+                    }}
+                    onFocus={() => setShowAddressSuggestions(true)}
+                    onClick={(e) => { e.stopPropagation(); setShowAddressSuggestions(true); }}
+                  />
+                  {addressSuggestions.length > 0 && (
+                    <div className="absolute right-3 top-2.5 text-slate-400 pointer-events-none">
+                      <ChevronDown size={16}/>
+                    </div>
+                  )}
+                  {showAddressSuggestions && addressSuggestions.length > 0 && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-40 overflow-y-auto animate-in fade-in slide-in-from-top-1">
+                      {addressSuggestions.map(address => (
+                        <div 
+                          key={address}
+                          className="p-3 hover:bg-blue-50 cursor-pointer text-slate-700 border-b border-slate-50 last:border-0 text-sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setFormData({...formData, address: address});
+                            setShowAddressSuggestions(false);
+                          }}
+                        >
+                          {address}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* 第七行：備註 */}

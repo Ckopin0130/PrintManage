@@ -58,6 +58,7 @@ const CustomerDetail = ({
   startEditRecord, handleDeleteRecord, setViewingImage 
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedModel, setSelectedModel] = useState('all'); // 機型篩選器
 
   if (!selectedCustomer) return null;
   
@@ -70,9 +71,13 @@ const CustomerDetail = ({
                             (r.fault || '').toLowerCase().includes(term) || 
                             (r.solution || '').toLowerCase().includes(term) ||
                             (r.parts && r.parts.some(p => p.name.toLowerCase().includes(term)));
-        return matchId && matchSearch;
+        // 機型篩選邏輯
+        const matchModel = selectedModel === 'all' || 
+                          (r.machineModel && r.machineModel === selectedModel) ||
+                          (!r.machineModel && selectedModel === 'unspecified');
+        return matchId && matchSearch && matchModel;
     }).sort((a,b) => new Date(b.date) - new Date(a.date));
-  }, [records, selectedCustomer.customerID, searchTerm]);
+  }, [records, selectedCustomer.customerID, searchTerm, selectedModel]);
 
   // 優化：使用 useMemo 快取計算結果
   const serviceCount = useMemo(() => 
@@ -160,22 +165,24 @@ const CustomerDetail = ({
           <InfoRow
             icon={User}
             color="emerald"
-            text={selectedCustomer.contactPerson}
+            text={selectedCustomer.contactPerson || '暫無資料'}
             textClassName={selectedCustomer.contactPerson ? 'text-slate-800' : 'text-slate-400'}
           />
 
           {/* 第三行：電話 */}
-          {selectedCustomer.phones && selectedCustomer.phones.length > 0 && selectedCustomer.phones[0].number && (
-            <InfoRow
-              icon={Smartphone}
-              color="green"
-              text={
+          <InfoRow
+            icon={Smartphone}
+            color="green"
+            text={
+              selectedCustomer.phones && selectedCustomer.phones.length > 0 && selectedCustomer.phones[0].number ? (
                 <div className="text-base font-bold text-slate-800 truncate min-w-0 no-phone-decoration">
                   {selectedCustomer.phones[0].number}
                 </div>
-              }
-            />
-          )}
+              ) : (
+                <div className="text-base font-bold text-slate-400">暫無資料</div>
+              )
+            }
+          />
 
           {/* 第四行：地址 */}
           {selectedCustomer.address && (
@@ -209,14 +216,22 @@ const CustomerDetail = ({
             </div>
             <div className="flex-1 flex items-center gap-2 min-w-0 flex-wrap">
               {selectedCustomer.assets && selectedCustomer.assets.length > 0 ? (
-                selectedCustomer.assets.map((asset, idx) => (
-                  <span 
-                    key={asset.id || `asset-${idx}-${asset.model || 'unknown'}`} 
-                    className="text-base font-bold text-slate-800 bg-slate-50 px-2 py-1 rounded border border-slate-200"
-                  >
-                    {asset.model || '無機型'}
-                  </span>
-                ))
+                selectedCustomer.assets.map((asset, idx) => {
+                  const isSelected = selectedModel === asset.model;
+                  return (
+                    <button
+                      key={asset.id || `asset-${idx}-${asset.model || 'unknown'}`}
+                      onClick={() => setSelectedModel(isSelected ? 'all' : asset.model)}
+                      className={`text-base font-bold px-2 py-1 rounded border transition-all ${
+                        isSelected 
+                          ? 'bg-amber-100 text-amber-800 border-amber-300 ring-2 ring-amber-200' 
+                          : 'bg-slate-50 text-slate-800 border-slate-200 hover:bg-amber-50 hover:border-amber-200'
+                      }`}
+                    >
+                      {asset.model || '無機型'}
+                    </button>
+                  );
+                })
               ) : (
                 <span className="text-base font-bold text-slate-800">無機型</span>
               )}
@@ -287,9 +302,15 @@ const CustomerDetail = ({
                        <div key={record.id} className="relative group animate-in fade-in slide-in-from-bottom">
                           <div className={`absolute -left-[31px] top-0 w-4 h-4 rounded-full border-4 border-white shadow-sm ring-1 ring-gray-100 bg-gray-200`}></div>
                           <div className="text-xs font-bold text-slate-400 mb-1 flex justify-between items-center">
-                              <div className="flex items-center">
+                              <div className="flex items-center gap-2 flex-wrap">
                                 <span>{record.date}</span>
-                                <span className={`ml-2 px-1.5 py-0.5 rounded text-[10px] ${statusColor}`}>{statusLabel}</span>
+                                <span className={`px-1.5 py-0.5 rounded text-[10px] ${statusColor}`}>{statusLabel}</span>
+                                {record.machineModel && (
+                                  <span className="px-1.5 py-0.5 rounded text-[10px] bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1">
+                                    <Printer size={10} />
+                                    {record.machineModel}
+                                  </span>
+                                )}
                               </div>
                               <div className="flex space-x-2"><button onClick={(e) => startEditRecord(e, record)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors"><Edit size={14}/></button><button onClick={(e) => handleDeleteRecord(e, record.id)} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"><Trash2 size={14}/></button></div>
                           </div>

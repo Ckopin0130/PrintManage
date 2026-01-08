@@ -374,7 +374,11 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
         setIsSubmitting(true);
         try {
             const uploadTasks = [];
-            let dataToSubmit = { ...finalData };
+            let dataToSubmit = { 
+                ...finalData,
+                // 添加機型資訊（如果客戶有多台機器，使用第一台或讓用戶選擇）
+                machineModel: finalData.machineModel || customer?.assets?.[0]?.model || ''
+            };
 
             if (dataToSubmit.photosBefore && Array.isArray(dataToSubmit.photosBefore) && dataToSubmit.photosBefore.length > 0) {
                 for (let i = 0; i < dataToSubmit.photosBefore.length; i++) {
@@ -472,11 +476,23 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
             <button onClick={onCancel} className="p-2 -ml-2 text-slate-500 hover:bg-slate-100 rounded-full transition-colors"><ArrowLeft strokeWidth={2.5}/></button>
             <h2 className="text-lg font-bold flex-1 text-center pr-8 text-slate-800">{pageTitle}</h2>
             <div className="flex items-center gap-2">
-                {customerMachineModel && (
+                {customer?.assets && customer.assets.length > 1 ? (
+                    <select
+                        className="text-xs font-bold text-amber-700 bg-amber-50 px-2 py-1 rounded-lg border border-amber-200 outline-none focus:ring-2 focus:ring-amber-100 cursor-pointer"
+                        value={form.machineModel || customer.assets[0]?.model || ''}
+                        onChange={(e) => setForm(prev => ({ ...prev, machineModel: e.target.value }))}
+                    >
+                        {customer.assets.map((asset, idx) => (
+                            <option key={idx} value={asset.model}>
+                                {asset.model || `機型 ${idx + 1}`}
+                            </option>
+                        ))}
+                    </select>
+                ) : customerMachineModel ? (
                     <div className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-lg border border-blue-100">
                         {customerMachineModel}
                     </div>
-                )}
+                ) : null}
                 <input 
                     type="date"
                     required
