@@ -14,7 +14,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
-const ICON_MAP = { MapPin, Users, Building2, School, Tent, Box, User, Settings, CheckCircle };
+const ICON_MAP = { MapPin, Users, Building2, School, Tent, Box, User, Settings };
 
 const DEFAULT_CATEGORIES = [
   { id: 'cat_pingtung', name: '屏東區', icon: 'MapPin', color: 'text-blue-600', bg: 'bg-blue-100', border: 'border-blue-200' },
