@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { 
   ArrowLeft, Edit, Trash2, MapPin, Navigation, Info, User, Smartphone, 
   Printer, History, Plus, FileText, Search, X, Building2, PhoneForwarded, Wrench
@@ -59,6 +59,19 @@ const CustomerDetail = ({
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedModel, setSelectedModel] = useState('all'); // 機型篩選器
+
+  // 當切換到客戶詳情時，重置滾動位置到頂部
+  useEffect(() => {
+    if (selectedCustomer) {
+      // 重置視窗滾動位置
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      // 重置主容器的滾動位置（如果有）
+      const mainContainer = document.querySelector('.bg-slate-50');
+      if (mainContainer) {
+        mainContainer.scrollTop = 0;
+      }
+    }
+  }, [selectedCustomer?.customerID]); // 當客戶 ID 改變時重置
 
   if (!selectedCustomer) return null;
   
