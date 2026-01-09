@@ -321,6 +321,12 @@ export default function App() {
 
   // 分頁切換處理
   const handleTabChange = (tabId) => {
+    // 如果從其他 tab 切換到客戶名冊，設置標記並清除 sessionStorage 狀態（回到第一層）
+    if (tabId === 'roster' && activeTab !== 'roster') {
+      sessionStorage.setItem('roster_from_tab_switch', 'true');
+      sessionStorage.removeItem('roster_catId');
+      sessionStorage.removeItem('roster_group');
+    }
     setActiveTab(tabId);
     setCurrentView(tabId);
   };

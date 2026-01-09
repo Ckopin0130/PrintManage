@@ -675,12 +675,20 @@ const SortableCustomerRow = ({ item, onClick, index }) => {
 // --- Main ---
 const CustomerRoster = ({ customers, onAddCustomer, onUpdateCustomer, onDeleteCustomer, onBack, setTargetCustomer, setShowAddressAlert, setShowPhoneSheet, showToast, setCurrentView, setSelectedCustomer, onRenameGroup, onDeleteGroup }) => {
   const [categories, setCategories] = useState(() => { try { return JSON.parse(localStorage.getItem('customerCategories')) || DEFAULT_CATEGORIES; } catch { return DEFAULT_CATEGORIES; } });
-  // 修正：使用 sessionStorage 臨時保存，從首頁進入時清除
+  // 修正：使用 sessionStorage 臨時保存，從首頁進入或從其他 tab 切換時清除
   const [selectedCatId, setSelectedCatId] = useState(() => {
-    // 檢查是否是從首頁進入（通過檢查 sessionStorage 標記）
+    // 檢查是否是從首頁進入
     const fromHome = sessionStorage.getItem('roster_from_home');
     if (fromHome === 'true') {
       sessionStorage.removeItem('roster_from_home');
+      sessionStorage.removeItem('roster_catId');
+      sessionStorage.removeItem('roster_group');
+      return null;
+    }
+    // 檢查是否是從其他 tab 切換過來（應該回到第一層）
+    const fromTabSwitch = sessionStorage.getItem('roster_from_tab_switch');
+    if (fromTabSwitch === 'true') {
+      sessionStorage.removeItem('roster_from_tab_switch');
       sessionStorage.removeItem('roster_catId');
       sessionStorage.removeItem('roster_group');
       return null;
@@ -690,7 +698,10 @@ const CustomerRoster = ({ customers, onAddCustomer, onUpdateCustomer, onDeleteCu
   }); 
   const [activeGroup, setActiveGroup] = useState(() => {
     const fromHome = sessionStorage.getItem('roster_from_home');
-    if (fromHome === 'true') return null;
+    const fromTabSwitch = sessionStorage.getItem('roster_from_tab_switch');
+    if (fromHome === 'true' || fromTabSwitch === 'true') {
+      return null;
+    }
     return sessionStorage.getItem('roster_group') || null;
   }); 
   const [editingItem, setEditingItem] = useState(null);

@@ -185,27 +185,19 @@ const CustomerDetail = ({
           />
 
           {/* 第四行：地址 */}
-          {selectedCustomer.address && (
-            <InfoRow
-              icon={MapPin}
-              color="blue"
-              text={
-                <div className="text-base text-slate-500 leading-relaxed min-w-0 no-address-decoration">
-                  {selectedCustomer.address}
-                </div>
-              }
-            />
-          )}
+          <InfoRow
+            icon={MapPin}
+            color="blue"
+            text={selectedCustomer.address || '暫無資料'}
+            textClassName={selectedCustomer.address ? 'text-slate-500' : 'text-slate-400'}
+          />
 
           {/* 第五行：備註 */}
           <InfoRow
             icon={Info}
             color="violet"
-            text={
-              <div className={`text-base ${selectedCustomer.notes ? 'text-slate-700' : 'text-slate-400 bg-slate-50 px-2 py-1 rounded'} leading-relaxed`}>
-                {selectedCustomer.notes || '無備註'}
-              </div>
-            }
+            text={selectedCustomer.notes || '暫無資料'}
+            textClassName={selectedCustomer.notes ? 'text-slate-700' : 'text-slate-400'}
             align="start"
           />
 
@@ -228,12 +220,12 @@ const CustomerDetail = ({
                           : 'bg-slate-50 text-slate-800 border-slate-200 hover:bg-amber-50 hover:border-amber-200'
                       }`}
                     >
-                      {asset.model || '無機型'}
+                      {asset.model || '暫無資料'}
                     </button>
                   );
                 })
               ) : (
-                <span className="text-base font-bold text-slate-800">無機型</span>
+                <span className="text-base font-bold text-slate-400">暫無資料</span>
               )}
             </div>
             <div className="bg-slate-50 p-2.5 rounded-xl text-slate-600 shrink-0 flex items-center justify-center">
