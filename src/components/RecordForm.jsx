@@ -3,7 +3,7 @@ import {
   ArrowLeft, FileText, Trash2, Camera, Loader2, Save,
   CheckCircle, Clock, Eye, ClipboardList, PhoneIncoming, Briefcase, 
   Package, Search, Wrench, AlertTriangle, Image as ImageIcon, X, Plus, 
-  Minus, Settings, Edit3, ChevronRight, ChevronDown, RefreshCw, Pencil, Calendar,
+  Minus, Settings, ChevronRight, ChevronDown, RefreshCw, Pencil, Calendar,
   Droplet, Archive, Layers, Zap
 } from 'lucide-react';
 import { ref, uploadString, getDownloadURL } from 'firebase/storage';
@@ -94,9 +94,24 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
     const dateInputRef = useRef(null);
     
     // UI 控制 State
-    const [isSourceSelected, setIsSourceSelected] = useState(!!initialData.id); 
     const [hasFaultFound, setHasFaultFound] = useState(initialData.serviceSource !== 'invoice_check');
-    const [activeFaultTab, setActiveFaultTab] = useState(initialData.errorCode ? 'sc' : 'jam');
+    // 根據初始資料判斷故障分類（修正：不再只根據 errorCode）
+    const [activeFaultTab, setActiveFaultTab] = useState(() => {
+        if (initialData?.errorCode) return 'sc';
+        // 如果有 symptom，嘗試從標籤判斷
+        if (initialData?.symptom) {
+            const symptomText = initialData.symptom.toLowerCase();
+            // 檢查是否包含品質相關關鍵字
+            if (['黑線', '黑帶', '白點', '白線', '列印太淡', '底灰', '全黑', '全白', '色彩偏移', '定影不良', '碳粉噴濺'].some(keyword => symptomText.includes(keyword.toLowerCase()))) {
+                return 'quality';
+            }
+            // 檢查是否包含其他故障關鍵字
+            if (['異音', '齒輪', '風扇', '漏碳粉', '廢碳粉', '觸控', '無法開機', '網路', '驅動', 'adf磨損'].some(keyword => symptomText.includes(keyword.toLowerCase()))) {
+                return 'other';
+            }
+        }
+        return 'jam'; // 預設卡紙
+    });
     
     // --- 標籤系統 State ---
     const [allTags, setAllTags] = useState(() => {
@@ -166,6 +181,23 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
                 parts: initialData.parts || [],
                 status: initialData.status === 'pending' ? 'tracking' : (initialData.status || 'completed')
             });
+            // 更新故障分類標籤
+            if (initialData.errorCode) {
+                setActiveFaultTab('sc');
+            } else if (initialData.symptom) {
+                const symptomText = initialData.symptom.toLowerCase();
+                if (['黑線', '黑帶', '白點', '白線', '列印太淡', '底灰', '全黑', '全白', '色彩偏移', '定影不良', '碳粉噴濺'].some(keyword => symptomText.includes(keyword.toLowerCase()))) {
+                    setActiveFaultTab('quality');
+                } else if (['異音', '齒輪', '風扇', '漏碳粉', '廢碳粉', '觸控', '無法開機', '網路', '驅動', 'adf磨損'].some(keyword => symptomText.includes(keyword.toLowerCase()))) {
+                    setActiveFaultTab('other');
+                } else {
+                    setActiveFaultTab('jam');
+                }
+            } else {
+                setActiveFaultTab('jam');
+            }
+            // 更新是否有故障
+            setHasFaultFound(initialData.serviceSource !== 'invoice_check');
             if (initialData.nextVisitDate) {
                 setNextVisitDate(initialData.nextVisitDate);
             } else if (initialData.return_date) {
@@ -222,7 +254,6 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
 
         setForm(prev => ({ ...prev, serviceSource: sourceId, action: newAction }));
         setHasFaultFound(isFaulty);
-        setIsSourceSelected(true); 
     };
 
     const appendText = (field, text) => {
@@ -506,41 +537,28 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
         {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto p-3 space-y-3">
             
-            {/* 1. 任務來源 */}
-            <section className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden transition-all duration-300">
-                {!isSourceSelected ? (
-                    <div className="p-3 grid grid-cols-3 gap-2 animate-in fade-in slide-in-from-top-2">
-                        {SOURCE_OPTIONS.map((option) => {
-                            const Icon = option.icon;
-                            return (
-                                <button 
-                                    key={option.id} 
-                                    type="button" 
-                                    onClick={() => handleSourceChange(option.id)} 
-                                    className={`flex flex-col items-center justify-center py-3 rounded-xl border-2 transition-all active:scale-95 outline-none focus:outline-none focus:ring-2 focus:ring-blue-100 ${form.serviceSource === option.id ? `${option.bg} ${option.border} ${option.color}` : 'bg-white border-transparent text-slate-400 hover:bg-slate-50 shadow-sm'}`}
-                                    style={{ WebkitTapHighlightColor: 'transparent' }}
-                                >
-                                    <Icon className="w-6 h-6 mb-1" strokeWidth={2.5} />
-                                    <span className="text-xs font-bold">{option.label}</span>
-                                </button>
-                            );
-                        })}
-                    </div>
-                ) : (
-                    <div className="flex items-center justify-between p-3 bg-blue-50/50 cursor-pointer hover:bg-blue-100/50 transition-colors" onClick={() => setIsSourceSelected(false)}>
-                        <div className="flex items-center gap-2">
-                            {SOURCE_OPTIONS.find(o => o.id === form.serviceSource)?.icon && 
-                                React.createElement(SOURCE_OPTIONS.find(o => o.id === form.serviceSource).icon, { className: "w-5 h-5 text-blue-600", strokeWidth: 2.5 })
-                            }
-                            <span className="font-bold text-slate-700">{SOURCE_OPTIONS.find(o => o.id === form.serviceSource)?.label || '選擇任務'}</span>
-                        </div>
-                        <div className="flex items-center gap-1 text-xs text-blue-500 font-bold">
-                            變更 <Edit3 size={12}/>
-                        </div>
-                    </div>
-                )}
+            {/* 1. 任務來源（常駐顯示） */}
+            <section className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                <div className="p-2 grid grid-cols-3 gap-1.5">
+                    {SOURCE_OPTIONS.map((option) => {
+                        const Icon = option.icon;
+                        const isSelected = form.serviceSource === option.id;
+                        return (
+                            <button 
+                                key={option.id} 
+                                type="button" 
+                                onClick={() => handleSourceChange(option.id)} 
+                                className={`flex flex-col items-center justify-center py-2 rounded-lg border transition-all active:scale-95 outline-none focus:outline-none focus:ring-2 focus:ring-blue-100 ${isSelected ? `${option.bg} ${option.border} ${option.color}` : 'bg-white border-slate-200 text-slate-400 hover:bg-slate-50'}`}
+                                style={{ WebkitTapHighlightColor: 'transparent' }}
+                            >
+                                <Icon className="w-4 h-4 mb-0.5" strokeWidth={2.5} />
+                                <span className="text-[10px] font-bold leading-tight">{option.label}</span>
+                            </button>
+                        );
+                    })}
+                </div>
 
-                {form.serviceSource === 'invoice_check' && isSourceSelected && (
+                {form.serviceSource === 'invoice_check' && (
                     <div className="px-4 py-3 border-t border-slate-100">
                         <div onClick={() => setHasFaultFound(!hasFaultFound)} className={`flex items-center justify-between p-3 rounded-xl border-2 cursor-pointer transition-all ${hasFaultFound ? 'bg-amber-50 border-amber-300' : 'bg-slate-50 border-transparent'}`}>
                             <div className="flex items-center gap-3">
@@ -586,13 +604,19 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
                             </div>
                         ) : (
                             <div className="space-y-3">
-                                <textarea 
-                                    rows={4}
-                                    className="w-full text-lg font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-100 resize-none min-h-[120px]" 
-                                    placeholder="描述故障狀況..." 
-                                    value={form.symptom} 
-                                    onChange={(e) => setForm({...form, symptom: e.target.value})} 
-                                />
+                                <div>
+                                    <label className="text-sm font-bold text-slate-700 flex items-center mb-2">
+                                        <AlertTriangle size={16} strokeWidth={2.5} className="mr-1.5 text-rose-500"/> 
+                                        故障問題
+                                    </label>
+                                    <textarea 
+                                        rows={4}
+                                        className="w-full text-lg font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-100 resize-none min-h-[120px]" 
+                                        placeholder="描述故障狀況..." 
+                                        value={form.symptom} 
+                                        onChange={(e) => setForm({...form, symptom: e.target.value})} 
+                                    />
+                                </div>
                                 <div className="flex flex-wrap gap-2">
                                     {getCurrentTabTags().map(item => (
                                         <button key={item} onClick={() => appendText('symptom', item)} className="px-3 py-1.5 bg-white text-slate-600 rounded-full text-xs font-bold border border-slate-200 shadow-sm active:scale-95 active:bg-blue-50 active:text-blue-600 outline-none focus:outline-none" style={{ WebkitTapHighlightColor: 'transparent' }}>
