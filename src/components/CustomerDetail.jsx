@@ -1,7 +1,8 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { 
   ArrowLeft, Edit, Trash2, MapPin, Navigation, Info, User, Smartphone, 
-  Printer, History, Plus, FileText, Search, X, Building2, PhoneForwarded, Wrench
+  Printer, History, Plus, FileText, Search, X, Building2, PhoneForwarded, Wrench,
+  Calendar, AlertCircle, Package, Briefcase, Phone, CheckCircle, Eye
 } from 'lucide-react';
 import '../styles/customerDetail.css';
 
@@ -59,6 +60,23 @@ const CustomerDetail = ({
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedModel, setSelectedModel] = useState('all'); // 機型篩選器
+
+  const getSourceBadge = (source) => {
+    const baseClass = "text-xs px-2 py-0.5 rounded-md flex items-center gap-1 font-medium ml-2";
+    switch(source) {
+      case 'customer_call': return <span className={`${baseClass} bg-rose-50 text-rose-600`}><Phone size={12}/> 客戶叫修</span>;
+      case 'company_dispatch': return <span className={`${baseClass} bg-blue-50 text-blue-600`}><Briefcase size={12}/> 公司派工</span>;
+      case 'invoice_check': return <span className={`${baseClass} bg-emerald-50 text-emerald-600`}><Calendar size={12}/> 例行巡檢</span>;
+      default: return null;
+    }
+  };
+
+  const simplifyModelName = (model) => {
+    if (!model) return '';
+    let s = model.replace(/[()（）]/g, '');
+    s = s.replace(/^(MP|IM|SP|Aficio)\s*C?/i, '');
+    return s.trim();
+  };
 
   // 當切換到客戶詳情時，重置滾動位置到頂部
   useEffect(() => {
@@ -286,50 +304,81 @@ const CustomerDetail = ({
 
             <div className="p-5">
                {custRecords.length === 0 ? <div className="text-center py-6 text-gray-400 flex flex-col items-center"><FileText size={32} className="mb-2 opacity-20"/>{searchTerm ? '查無符合紀錄' : '尚無紀錄'}</div> : (
-                 <div className="relative border-l-2 border-slate-100 pl-6 space-y-6">
+                 <div className="space-y-3">
                     {custRecords.map(record => {
-                       // [修正] 狀態顏色與文字顯示邏輯
-                       let statusLabel = '結案';
-                       let statusColor = "text-emerald-600 bg-emerald-50";
+                      const faultContent = record.symptom || record.fault || record.description || '';
+                      const actionContent = record.action || record.solution || '';
+                      const rawModel = record.machineModel || selectedCustomer?.assets?.[0]?.model || '';
+                      const simpleModel = rawModel ? simplifyModelName(rawModel) : '';
 
-                       if (record.status === 'pending') {
-                           statusLabel = '待料';
-                           statusColor = "text-amber-600 bg-amber-50";
-                       } else if (record.status === 'tracking') {
-                           statusLabel = '追蹤';
-                           statusColor = "text-orange-600 bg-orange-50";
-                       } else if (record.status === 'monitor') {
-                           statusLabel = '觀察';
-                           statusColor = "text-blue-600 bg-blue-50";
-                       }
+                      let borderClass = 'border-l-4 border-l-slate-300';
+                      if(record.status === 'completed') borderClass = 'border-l-4 border-l-emerald-500';
+                      if(record.status === 'pending' || record.status === 'tracking') borderClass = 'border-l-4 border-l-amber-500';
+                      if(record.status === 'monitor') borderClass = 'border-l-4 border-l-blue-500';
 
-                       return (
-                       <div key={record.id} className="relative group animate-in fade-in slide-in-from-bottom">
-                          <div className={`absolute -left-[31px] top-0 w-4 h-4 rounded-full border-4 border-white shadow-sm ring-1 ring-gray-100 bg-gray-200`}></div>
-                          <div className="text-xs font-bold text-slate-400 mb-1 flex justify-between items-center">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span>{record.date}</span>
-                                <span className={`px-1.5 py-0.5 rounded text-[10px] ${statusColor}`}>{statusLabel}</span>
-                                {record.machineModel && (
-                                  <span className="px-1.5 py-0.5 rounded text-[10px] bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1">
-                                    <Printer size={10} />
-                                    {record.machineModel}
-                                  </span>
-                                )}
-                              </div>
-                              <div className="flex space-x-2"><button onClick={(e) => startEditRecord(e, record)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors"><Edit size={14}/></button><button onClick={(e) => handleDeleteRecord(e, record.id)} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"><Trash2 size={14}/></button></div>
+                      return (
+                        <div key={record.id} className={`bg-white p-4 shadow-sm border border-slate-100 rounded-r-xl ${borderClass} cursor-pointer hover:shadow-md transition-shadow`} onClick={(e) => startEditRecord(e, record)}>
+                          <div className="flex justify-between items-start mb-2">
+                            <div className="flex items-center flex-wrap">
+                              <User size={16} className="text-slate-400 mr-2 shrink-0"/>
+                              <span className="text-base font-bold text-slate-800 mr-2">{selectedCustomer?.name || '未知客戶'}</span>
+                              {simpleModel && <span className="text-sm text-slate-500 font-medium">({simpleModel})</span>}
+                            </div>
+                            <button onClick={(e) => { e.stopPropagation(); handleDeleteRecord(e, record.id); }} className="text-slate-300 hover:text-red-500 p-1 -mr-1"><Trash2 size={16}/></button>
                           </div>
-                          <div className="flex items-start mb-1"><span className="font-bold text-gray-800 text-sm">{record.fault || record.symptom}</span></div>
-                          <div className={`text-sm bg-slate-50 p-3 rounded-lg border border-slate-100 leading-relaxed`}>{record.solution || record.action}</div>
-                          {record.parts && record.parts.length > 0 && <div className="mt-2 flex flex-wrap gap-1">{record.parts.map(p => <span key={p.id} className="text-[10px] bg-blue-50 text-blue-600 px-2 py-1 rounded border border-blue-100">{p.name} x{p.qty}</span>)}</div>}
-                          {(record.photoBefore || record.photoAfter) && (
-                              <div className="mt-3 flex gap-2">
-                                  {record.photoBefore && (<div onClick={(e) => {e.stopPropagation(); setViewingImage(record.photoBefore)}} className="relative group cursor-pointer"><img src={record.photoBefore} className="h-20 w-20 object-cover rounded-lg border border-gray-200 shadow-sm" alt="Before" /></div>)}
-                                  {record.photoAfter && (<div onClick={(e) => {e.stopPropagation(); setViewingImage(record.photoAfter)}} className="relative group cursor-pointer"><img src={record.photoAfter} className="h-20 w-20 object-cover rounded-lg border border-gray-200 shadow-sm" alt="After" /></div>)}
-                              </div>
+
+                          <div className="flex items-center mb-2">
+                            <Calendar size={16} className="text-slate-400 mr-2 shrink-0"/>
+                            <span className="text-sm font-bold text-slate-500">{record.date}</span>
+                            {getSourceBadge(record.serviceSource)}
+                          </div>
+
+                          {faultContent && (
+                            <div className="flex items-start mb-1 text-base text-slate-700 whitespace-pre-wrap">
+                              <AlertCircle size={16} className="text-slate-400 mr-2 mt-1 shrink-0"/>
+                              <span>{faultContent}</span>
+                            </div>
                           )}
-                       </div>
-                    )})}
+
+                          {actionContent && (
+                            <div className="flex items-start mb-1 text-base text-slate-700 whitespace-pre-wrap">
+                              <Wrench size={16} className="text-slate-400 mr-2 mt-1 shrink-0"/>
+                              <span>{actionContent}</span>
+                            </div>
+                          )}
+
+                          {record.parts && record.parts.length > 0 && (
+                            <div className="flex items-start mb-1 text-base text-slate-700">
+                              <Package size={16} className="text-slate-400 mr-2 mt-1 shrink-0"/>
+                              <span>{record.parts.map(p => `${p.name} x${p.qty}`).join('、')}</span>
+                            </div>
+                          )}
+
+                          {(record.photoBefore || record.photoAfter) && (
+                            <div className="flex items-center mt-2 pl-6 mb-2">
+                              {record.photoBefore && <img src={record.photoBefore} alt="Before" className="w-16 h-16 object-cover rounded-md border border-slate-200 mr-2" onClick={(e) => { e.stopPropagation(); setViewingImage(record.photoBefore); }}/>}
+                              {record.photoAfter && <img src={record.photoAfter} alt="After" className="w-16 h-16 object-cover rounded-md border border-slate-200" onClick={(e) => { e.stopPropagation(); setViewingImage(record.photoAfter); }}/>}
+                            </div>
+                          )}
+
+                          <div className="flex items-center justify-end border-t border-slate-50 pt-2 mt-1">
+                            <div className={`flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-full ${
+                              record.status === 'completed' ? 'bg-emerald-50 text-emerald-600' :
+                              record.status === 'tracking' ? 'bg-orange-50 text-orange-600' : 
+                              record.status === 'monitor' ? 'bg-blue-50 text-blue-600' : 
+                              'bg-amber-50 text-amber-600'
+                            }`}>
+                              {record.status === 'completed' ? <CheckCircle size={12}/> : record.status === 'tracking' ? <CheckCircle size={12}/> : record.status === 'monitor' ? <Eye size={12}/> : <Wrench size={12}/>}
+                              <span>
+                                {record.status === 'completed' ? (record.completedDate ? `完修: ${record.completedDate}` : '已完修') : 
+                                  record.status === 'tracking' ? (record.nextVisitDate ? `回訪: ${record.nextVisitDate}` : '待追蹤') :
+                                  record.status === 'monitor' ? (record.nextVisitDate ? `觀察: ${record.nextVisitDate}` : '觀察中') : '待處理'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
                  </div>
                )}
             </div>

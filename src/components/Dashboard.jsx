@@ -7,6 +7,7 @@ import {
 
 const Dashboard = ({ 
   today, dbStatus, pendingTasks, todayCompletedCount, totalCustomers, 
+  todayNewCount, todayReturnCompletedCount,
   setCurrentView, setActiveTab, onQuickAction
 }) => {
 
@@ -81,8 +82,8 @@ const Dashboard = ({
       icon: FileText, 
       color: 'text-amber-500', 
       iconBg: 'bg-amber-50',
-      info: `今日 ${todayCompletedCount} 件`, 
-      infoColor: todayCompletedCount > 0 ? 'text-amber-600 font-extrabold' : 'text-slate-400 font-bold',
+      info: `新建 ${todayNewCount || 0} / 回訪完修 ${todayReturnCompletedCount || 0}`, 
+      infoColor: (todayNewCount > 0 || todayReturnCompletedCount > 0) ? 'text-amber-600 font-extrabold' : 'text-slate-400 font-bold',
       action: () => { setActiveTab('records'); setCurrentView('records'); } 
     },
     { 

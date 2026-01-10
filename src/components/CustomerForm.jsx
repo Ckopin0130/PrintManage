@@ -186,7 +186,7 @@ const CustomerForm = ({ mode, initialData, onSubmit, onCancel, onDelete, custome
         {!isEdit && <div className="w-10" />}
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 pt-4 space-y-4">
+      <div className="flex-1 overflow-y-auto px-4 pt-3 space-y-3">
         {/* 分類選擇區域 - 僅在新增時顯示 */}
         {!isEdit && (
           <div className="bg-white rounded-2xl shadow-[0_2px_8px_rgb(0,0,0,0.04)] border border-slate-100 p-5 space-y-4">
@@ -205,14 +205,17 @@ const CustomerForm = ({ mode, initialData, onSubmit, onCancel, onDelete, custome
                 </select>
               </div>
               <div>
-                <label className="text-sm font-bold block mb-2 text-slate-700">鄉鎮市區</label>
-                <input 
-                  required 
-                  placeholder="例：新園鄉" 
-                  className="w-full p-3 bg-slate-50 rounded-xl border border-slate-200 outline-none text-base font-bold" 
-                  value={formData.L2_district} 
-                  onChange={e => setFormData({...formData, L2_district: e.target.value})} 
-                />
+                <label className="text-sm font-bold block mb-2 text-slate-700">區域/辦公室</label>
+                <div className="relative">
+                  <Building2 size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input 
+                    required 
+                    placeholder="請輸入區域或辦公室名稱" 
+                    className="w-full p-3 pl-10 bg-slate-50 rounded-xl border border-slate-200 outline-none text-base font-bold" 
+                    value={formData.L2_district} 
+                    onChange={e => setFormData({...formData, L2_district: e.target.value})} 
+                  />
+                </div>
               </div>
             </div>
           </div>

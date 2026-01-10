@@ -99,15 +99,33 @@ export default function App() {
   // 待辦事項統計
   const pendingTasks = useMemo(() => records.filter(r => r.status === 'tracking' || r.status === 'monitor' || r.status === 'pending').length, [records]);
   
-  // 今日維修統計：計算「所有」日期為今天的單據，不論狀態
-  const todayCompletedCount = useMemo(() => {
-    const currentLocalTime = new Date().toLocaleDateString('en-CA');
+  // 今日維修統計
+  const todayStr = useMemo(() => new Date().toLocaleDateString('en-CA'), []);
+  
+  // 今日新建：createdDate 或 date 為今天的紀錄
+  const todayNewCount = useMemo(() => {
     return records.filter(r => {
-      // 判斷基準：如果是完修單看結案日，如果是未完修單看填單日
-      const recordDate = (r.status === 'completed' && r.completedDate) ? r.completedDate : r.date;
-      return recordDate === currentLocalTime;
+      const createDate = r.createdDate || r.date;
+      return createDate === todayStr;
     }).length;
-  }, [records]);
+  }, [records, todayStr]);
+  
+  // 今日回訪完修：completedDate 為今天，且有 nextVisitDate（表示是回訪案件）
+  const todayReturnCompletedCount = useMemo(() => {
+    return records.filter(r => {
+      return r.status === 'completed' && 
+             r.completedDate === todayStr && 
+             r.nextVisitDate;
+    }).length;
+  }, [records, todayStr]);
+  
+  // 今日維修總數（向下相容，供其他地方使用）
+  const todayCompletedCount = useMemo(() => {
+    return records.filter(r => {
+      const recordDate = (r.status === 'completed' && r.completedDate) ? r.completedDate : r.date;
+      return recordDate === todayStr;
+    }).length;
+  }, [records, todayStr]);
 
   // --- 3. Firebase 連線與初始化邏輯 (含知識庫) ---
   useEffect(() => {
@@ -459,6 +477,8 @@ export default function App() {
         } else {
             delete recordData.id; 
             recordData.timestamp = Date.now();
+            // 新建紀錄時設定建立日期
+            recordData.createdDate = recordData.date || new Date().toLocaleDateString('en-CA');
             await addDoc(collection(db, 'records'), recordData);
             showToast('維修紀錄已新增');
         }
@@ -753,6 +773,7 @@ export default function App() {
         <Dashboard 
           today={today} dbStatus={dbStatus} pendingTasks={pendingTasks} 
           todayCompletedCount={todayCompletedCount} totalCustomers={customers.length} 
+          todayNewCount={todayNewCount} todayReturnCompletedCount={todayReturnCompletedCount}
           setCurrentView={setCurrentView} setActiveTab={setActiveTab}
           onQuickAction={() => setCurrentView('quick_action')}
         />

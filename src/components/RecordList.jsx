@@ -397,13 +397,37 @@ const RecordList = ({
                             </div>
                         )}
 
-                        {/* 6. 【照片】 (若無則隱藏) */}
-                        {(r.photoBefore || r.photoAfter) && (
-                            <div className="flex items-center mt-2 pl-6 mb-2">
-                                {r.photoBefore && <img src={r.photoBefore} alt="Before" className="w-16 h-16 object-cover rounded-md border border-slate-200 mr-2" onClick={(e) => { e.stopPropagation(); setViewingImage(r.photoBefore); }}/>}
-                                {r.photoAfter && <img src={r.photoAfter} alt="After" className="w-16 h-16 object-cover rounded-md border border-slate-200" onClick={(e) => { e.stopPropagation(); setViewingImage(r.photoAfter); }}/>}
-                            </div>
-                        )}
+                        {/* 6. 【照片】 支援多張前/後照片，橫向捲軸 */}
+                        {(() => {
+                            const beforePhotos = r.photosBefore || (r.photoBefore ? [r.photoBefore] : []);
+                            const afterPhotos = r.photosAfter || (r.photoAfter ? [r.photoAfter] : []);
+                            const hasPhotos = beforePhotos.length > 0 || afterPhotos.length > 0;
+                            if (!hasPhotos) return null;
+                            return (
+                                <div className="mt-2 space-y-2">
+                                    {beforePhotos.length > 0 && (
+                                        <div>
+                                            <div className="text-[10px] font-bold text-rose-500 mb-1 pl-1">維修前 ({beforePhotos.length})</div>
+                                            <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+                                                {beforePhotos.map((photo, idx) => (
+                                                    <img key={idx} src={photo} alt={`Before ${idx + 1}`} className="w-14 h-14 object-cover rounded-lg border-2 border-rose-200 shrink-0 cursor-pointer hover:border-rose-400 transition-colors" onClick={(e) => { e.stopPropagation(); setViewingImage(photo); }}/>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                    {afterPhotos.length > 0 && (
+                                        <div>
+                                            <div className="text-[10px] font-bold text-emerald-500 mb-1 pl-1">維修後 ({afterPhotos.length})</div>
+                                            <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+                                                {afterPhotos.map((photo, idx) => (
+                                                    <img key={idx} src={photo} alt={`After ${idx + 1}`} className="w-14 h-14 object-cover rounded-lg border-2 border-emerald-200 shrink-0 cursor-pointer hover:border-emerald-400 transition-colors" onClick={(e) => { e.stopPropagation(); setViewingImage(photo); }}/>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })()}
 
                         {/* 7. 【底部】 完修日/回訪日 + 狀態標籤 (靠右) */}
                         <div className="flex items-center justify-end border-t border-slate-50 pt-2 mt-1">
@@ -415,9 +439,12 @@ const RecordList = ({
                              }`}>
                                  {r.status === 'completed' ? <CheckCircle size={12}/> : r.status === 'tracking' ? <CheckCircle size={12}/> : r.status === 'monitor' ? <Eye size={12}/> : <Wrench size={12}/>}
                                  <span>
-                                    {r.status === 'completed' ? (r.completedDate ? `完修: ${r.completedDate}` : '已完修') : 
-                                     r.status === 'tracking' ? (r.nextVisitDate ? `回訪: ${r.nextVisitDate}` : '待追蹤') :
-                                     r.status === 'monitor' ? (r.nextVisitDate ? `觀察: ${r.nextVisitDate}` : '觀察中') : '待處理'}
+                                    {r.status === 'completed' 
+                                      ? (r.nextVisitDate 
+                                          ? `回訪完修: ${r.completedDate || r.date}` 
+                                          : (r.completedDate ? `完修: ${r.completedDate}` : '已完修')) 
+                                      : r.status === 'tracking' ? (r.nextVisitDate ? `回訪: ${r.nextVisitDate}` : '待追蹤') :
+                                        r.status === 'monitor' ? (r.nextVisitDate ? `觀察: ${r.nextVisitDate}` : '觀察中') : '待處理'}
                                  </span>
                              </div>
                         </div>

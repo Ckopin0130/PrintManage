@@ -1,10 +1,11 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { 
-  ArrowLeft, Plus, Search, ChevronRight, ChevronDown, Edit3, 
+  ArrowLeft, Plus, Minus, Search, ChevronRight, ChevronDown, Edit3, 
   RotateCcw, CheckCircle, Trash2, AlertTriangle, Box, Tag, 
   Printer, Palette, Archive, MoreHorizontal, Droplets,
   GripVertical, FileText, Copy, RefreshCw, X, Settings, FolderPlus
 } from 'lucide-react';
+
 import {
   DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, TouchSensor
 } from '@dnd-kit/core';
@@ -261,15 +262,25 @@ const EditInventoryModal = ({ isOpen, onClose, onSave, onDelete, initialItem, ca
            <div className="grid grid-cols-3 gap-3">
               <div className="col-span-1">
                 <label className="text-xs font-bold text-slate-400 block mb-1.5 text-center">數量</label>
-                <input 
-                  type="number"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none text-center font-mono font-bold text-xl text-blue-600" 
-                  value={formData.qty} 
-                  onChange={e => setFormData({...formData, qty: Number(e.target.value)})}
-                  onFocus={e => e.target.select()}
-                />
+                <div className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => setFormData(prev => ({ ...prev, qty: Math.max(0, (Number(prev.qty) || 0) - 1) }))}
+                    className="p-2 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-white active:scale-90 transition"
+                  >
+                    <Minus size={18} />
+                  </button>
+                  <div className="text-center font-mono font-bold text-xl text-blue-600 w-10">
+                    {Number(formData.qty) || 0}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setFormData(prev => ({ ...prev, qty: (Number(prev.qty) || 0) + 1 }))}
+                    className="p-2 rounded-lg text-slate-400 hover:text-blue-500 hover:bg-white active:scale-90 transition"
+                  >
+                    <Plus size={18} />
+                  </button>
+                </div>
               </div>
               <div className="col-span-1">
                 <label className="text-xs font-bold text-slate-400 block mb-1.5 text-center">應備</label>
@@ -283,7 +294,18 @@ const EditInventoryModal = ({ isOpen, onClose, onSave, onDelete, initialItem, ca
                   onFocus={e => e.target.select()}
                 />
               </div>
-              <div className="col-span-1"><label className="text-xs font-bold text-slate-400 block mb-1.5 text-center">單位</label><input placeholder="個" className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none text-center font-bold text-base" value={formData.unit} onChange={e => setFormData({...formData, unit: e.target.value})} /></div>
+              <div className="col-span-1">
+                <label className="text-xs font-bold text-slate-400 block mb-1.5 text-center">單位</label>
+                <select
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 outline-none text-center font-bold text-base"
+                  value={formData.unit}
+                  onChange={e => setFormData({ ...formData, unit: e.target.value })}
+                >
+                  {['支', '條', '個', '組', '張', '包'].map(u => (
+                    <option key={u} value={u}>{u}</option>
+                  ))}
+                </select>
+              </div>
            </div>
         </div>
 
@@ -369,7 +391,7 @@ const SortableModelRow = ({ id, title, count, lowStock, onClick }) => {
     );
 };
 
-const SortableItemRow = ({ item, onEdit, onRestock, isLast }) => {
+const SortableItemRow = ({ item, onEdit, onRestock, onAdjustQty, isLast }) => {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
     const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1, zIndex: isDragging ? 50 : 'auto' };
     const isOut = item.qty <= 0;
@@ -386,6 +408,24 @@ const SortableItemRow = ({ item, onEdit, onRestock, isLast }) => {
                 {isOut && <span className="ml-3 px-2 py-0.5 bg-rose-200 text-rose-700 text-[10px] font-black rounded shrink-0 self-center">缺貨</span>}
             </div>
             <div className="flex items-center gap-3 shrink-0">
+                <div className="flex items-center gap-1 bg-slate-50 border border-slate-100 rounded-lg p-1">
+                    <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); onAdjustQty?.(item.id, -1); }}
+                        className="p-1.5 rounded-md text-slate-400 hover:text-rose-500 hover:bg-white active:scale-90 transition"
+                        title="減少數量"
+                    >
+                        <Minus size={16} />
+                    </button>
+                    <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); onAdjustQty?.(item.id, 1); }}
+                        className="p-1.5 rounded-md text-slate-400 hover:text-blue-500 hover:bg-white active:scale-90 transition"
+                        title="增加數量"
+                    >
+                        <Plus size={16} />
+                    </button>
+                </div>
                 <div className={`font-mono font-bold text-lg ${isOut ? 'text-rose-600' : 'text-blue-600'}`}>
                     {item.qty} <span className="text-slate-300 text-xs font-bold">/ {item.max}</span>
                 </div>
@@ -501,6 +541,13 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
       }
   };
 
+  const handleAdjustQty = (id, delta) => {
+      const item = inventory.find(i => String(i.id) === String(id));
+      if (!item) return;
+      const nextQty = Math.max(0, (Number(item.qty) || 0) + (Number(delta) || 0));
+      onUpdateInventory({ ...item, qty: nextQty });
+  };
+
   const handleBack = () => {
       if (activeModel) setActiveModel(null);
       else if (selectedCatId) setSelectedCatId(null);
@@ -559,7 +606,7 @@ const InventoryView = ({ inventory, onUpdateInventory, onAddInventory, onDeleteI
                        {currentItems.length === 0 ? <div className="p-8 text-center text-slate-400">沒有找到項目</div> : (
                            <SortableContext items={currentItems.map(i => i.id)} strategy={verticalListSortingStrategy}>
                                 {currentItems.map((item, idx) => (
-                                    <SortableItemRow key={item.id} item={item} isLast={idx === currentItems.length - 1} onEdit={setEditingItem} onRestock={(id, max) => {const i = inventory.find(x=>x.id===id); if(i) onUpdateInventory({...i, qty: max})}} />
+                                    <SortableItemRow key={item.id} item={item} isLast={idx === currentItems.length - 1} onEdit={setEditingItem} onRestock={(id, max) => {const i = inventory.find(x=>x.id===id); if(i) onUpdateInventory({...i, qty: max})}} onAdjustQty={handleAdjustQty} />
                                 ))}
                            </SortableContext>
                        )}
