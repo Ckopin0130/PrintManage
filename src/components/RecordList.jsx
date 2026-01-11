@@ -180,7 +180,9 @@ const RecordList = ({
   const [statusFilter, setStatusFilter] = useState('all'); 
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
-  const [activeDateTab, setActiveDateTab] = useState('today'); // 預設改為 "今日" 比較符合新順序邏輯
+  const [activeDateTab, setActiveDateTab] = useState(() => {
+    return sessionStorage.getItem('recordList_activeDateTab') || 'today';
+  }); // 預設改為 "今日" 比較符合新順序邏輯
   const [showReportModal, setShowReportModal] = useState(false);
 
   useEffect(() => {
@@ -240,6 +242,7 @@ const RecordList = ({
 
   const handleDateTabClick = (type) => {
     setActiveDateTab(type);
+    sessionStorage.setItem('recordList_activeDateTab', type);
     const today = new Date();
     const formatDate = (date) => date.toLocaleDateString('en-CA');
 
@@ -272,8 +275,9 @@ const RecordList = ({
   // 第一次 render 時，如果預設是 today，自動觸發一次篩選 (或是改 useEffect 處理，這裡直接在 initial state 處理較佳)
   // 為了確保一致性，建議在元件掛載時設定一次 "今日" 的範圍
   useEffect(() => {
-      // 這裡簡單模擬點擊 "today" 的效果，讓一進來就是顯示今日資料
-      handleDateTabClick('today');
+      // 依照 sessionStorage 中保存的 tab 初始化篩選（避免返回後被重置成今日）
+      const savedTab = sessionStorage.getItem('recordList_activeDateTab') || 'today';
+      handleDateTabClick(savedTab);
       // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
