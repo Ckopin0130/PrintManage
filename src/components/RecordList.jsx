@@ -35,18 +35,15 @@ const WorkLogReportModal = ({ isOpen, onClose, records = [], customers = [], dat
         }
     };
 
-    // 4. 日期轉短格式 1/2(五)
+    // 4. 日期轉短格式 MM/DD
     const formatDateShort = (dateStr) => {
         if (!dateStr) return '';
         const date = new Date(dateStr);
         if (isNaN(date.getTime())) return dateStr; 
 
-        const month = date.getMonth() + 1;
-        const day = date.getDate();
-        const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
-        const weekday = weekdays[date.getDay()];
-
-        return `${month}/${day}(${weekday})`;
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${month}/${day}`;
     };
 
     // === 維修行程列表生成 ===
@@ -94,7 +91,7 @@ const WorkLogReportModal = ({ isOpen, onClose, records = [], customers = [], dat
             });
         }
 
-        // 第六行：完修或續修/複查 (使用短日期格式)
+        // 第六行：結案或續修/複查 (使用短日期格式)
         if (r.status === 'completed') {
             const finishDate = r.completedDate || r.date; 
             lines.push(`🔹 結案：${formatDateShort(finishDate)}`);
@@ -209,6 +206,15 @@ const RecordList = ({
       return s.trim();
   };
 
+  const formatMMDD = (dateStr) => {
+      if (!dateStr) return '';
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) return dateStr;
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${month}/${day}`;
+  };
+
   const filteredRecords = useMemo(() => {
     return records.filter(r => {
       const cust = customers.find(c => c.customerID === r.customerID);
@@ -227,7 +233,7 @@ const RecordList = ({
 
       let matchesDate = true;
       if (dateRange.start || dateRange.end) {
-        // [修正] 篩選邏輯：完修看結案日，未完修看填單日 (保持與首頁統計邏輯一致)
+        // [修正] 篩選邏輯：結案看結案日，未結案看填單日 (保持與首頁統計邏輯一致)
         const recordDate = (r.status === 'completed' && r.completedDate) ? r.completedDate : r.date;
         if (dateRange.start) matchesDate = matchesDate && (recordDate >= dateRange.start);
         if (dateRange.end) matchesDate = matchesDate && (recordDate <= dateRange.end);
@@ -339,7 +345,7 @@ const RecordList = ({
          {/* 狀態篩選按鈕列 (維持滿版樣式) */}
          <div className="px-4 pb-3 flex gap-2">
              {['all', 'pending', 'monitor', 'completed'].map(id => (
-                 <button key={id} onClick={() => setStatusFilter(id)} className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all border text-center ${statusFilter === id ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-200' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}>{id === 'all' ? '全部' : id === 'pending' ? '待處理' : id === 'monitor' ? '觀察' : '完修'}</button>
+                 <button key={id} onClick={() => setStatusFilter(id)} className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all border text-center ${statusFilter === id ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-200' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}>{id === 'all' ? '全部' : id === 'pending' ? '待處理' : id === 'monitor' ? '觀察' : '結案'}</button>
              ))}
          </div>
       </div>
@@ -375,9 +381,9 @@ const RecordList = ({
                         <div className="flex items-center mb-2">
                              <Calendar size={16} className="text-slate-400 mr-2 shrink-0"/>
                              <span className="text-sm font-bold text-slate-500">
-                                {r.status === 'completed' && r.createdDate && r.completedDate && r.createdDate !== r.completedDate
-                                  ? `${r.createdDate} ~ ${r.completedDate}`
-                                  : r.date}
+                                {r.status === 'completed'
+                                  ? `${formatMMDD(r.date)} 接案 | ${formatMMDD(r.completedDate || r.date)} 結案`
+                                  : `${formatMMDD(r.date)} 接案`}
                              </span>
                              {getSourceBadge(r.serviceSource)}
                         </div>
@@ -438,7 +444,7 @@ const RecordList = ({
                             );
                         })()}
 
-                        {/* 7. 【底部】 完修日/回訪日 + 狀態標籤 (靠右) */}
+                        {/* 7. 【底部】 結案/續修/複查 + 狀態標籤 (靠右) */}
                         <div className="flex items-center justify-end border-t border-slate-50 pt-2 mt-1">
                              <div className={`flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-full ${
                                  r.status === 'completed' ? 'bg-emerald-50 text-emerald-600' :
@@ -449,9 +455,9 @@ const RecordList = ({
                                  {r.status === 'completed' ? <CheckCircle size={12}/> : r.status === 'tracking' ? <CheckCircle size={12}/> : r.status === 'monitor' ? <Eye size={12}/> : <Wrench size={12}/>}
                                  <span>
                                     {r.status === 'completed' 
-                                      ? (r.completedDate ? `結案: ${r.completedDate}` : '已結案') 
-                                      : r.status === 'tracking' ? (r.nextVisitDate ? `預定續修: ${r.nextVisitDate}` : '待續修') :
-                                        r.status === 'monitor' ? (r.nextVisitDate ? `技術複查: ${r.nextVisitDate}` : '待複查') : '待處理'}
+                                      ? (r.completedDate ? `結案: ${formatMMDD(r.completedDate)}` : '已結案') 
+                                      : r.status === 'tracking' ? (r.nextVisitDate ? `預定續修: ${formatMMDD(r.nextVisitDate)}` : '待續修') :
+                                        r.status === 'monitor' ? (r.nextVisitDate ? `技術複查: ${formatMMDD(r.nextVisitDate)}` : '待複查') : '待處理'}
                                  </span>
                              </div>
                         </div>

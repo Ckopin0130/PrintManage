@@ -27,7 +27,7 @@ const FAULT_TABS = [
 ];
 
 const STATUS_OPTIONS = [
-  { id: 'completed', label: '完修', color: 'text-emerald-600', activeBg: 'bg-emerald-600 text-white', icon: CheckCircle },
+  { id: 'completed', label: '結案', color: 'text-emerald-600', activeBg: 'bg-emerald-600 text-white', icon: CheckCircle },
   { id: 'tracking', label: '追蹤', color: 'text-orange-600', activeBg: 'bg-orange-500 text-white', icon: Clock },
   { id: 'monitor', label: '觀察', color: 'text-blue-600', activeBg: 'bg-blue-500 text-white', icon: Eye },
 ];
@@ -92,6 +92,18 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
     
     // 日期輸入框的 ref
     const dateInputRef = useRef(null);
+
+    useEffect(() => {
+        if (form.status === 'completed') {
+            setForm(prev => ({
+                ...prev,
+                completedDate: prev.completedDate || new Date().toLocaleDateString('en-CA')
+            }));
+        } else if (form.completedDate) {
+            setForm(prev => ({ ...prev, completedDate: null }));
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [form.status]);
     
     // UI 控制 State
     const [hasFaultFound, setHasFaultFound] = useState(initialData.serviceSource !== 'invoice_check');
@@ -473,7 +485,11 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
             return;
         }
 
-        executeSubmit({...form, status: 'completed'}); 
+        executeSubmit({
+            ...form,
+            status: 'completed',
+            completedDate: form.completedDate || new Date().toLocaleDateString('en-CA')
+        }); 
     };
 
     const handleConfirmVisitDate = () => {
@@ -524,13 +540,28 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
                         {customerMachineModel}
                     </div>
                 ) : null}
-                <input 
-                    type="date"
-                    required
-                    className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-lg border border-slate-200 outline-none focus:border-blue-500 transition-colors cursor-pointer"
-                    value={form.date}
-                    onChange={(e) => setForm(prev => ({ ...prev, date: e.target.value }))}
-                />
+                <div className="flex items-center gap-1">
+                    <span className="text-[10px] font-bold text-slate-400">接案</span>
+                    <input 
+                        type="date"
+                        required
+                        className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-lg border border-slate-200 outline-none focus:border-blue-500 transition-colors cursor-pointer"
+                        value={form.date}
+                        onChange={(e) => setForm(prev => ({ ...prev, date: e.target.value }))}
+                    />
+                </div>
+                {form.status === 'completed' && (
+                    <div className="flex items-center gap-1">
+                        <span className="text-[10px] font-bold text-slate-400">結案</span>
+                        <input 
+                            type="date"
+                            required
+                            className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-lg border border-slate-200 outline-none focus:border-blue-500 transition-colors cursor-pointer"
+                            value={form.completedDate || new Date().toLocaleDateString('en-CA')}
+                            onChange={(e) => setForm(prev => ({ ...prev, completedDate: e.target.value }))}
+                        />
+                    </div>
+                )}
             </div>
         </div>
 
@@ -699,7 +730,7 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
                     {['before', 'after'].map(type => (
                         <div key={type} className="space-y-2">
                             <div className="text-xs font-bold text-slate-500 flex items-center">
-                                {type === 'before' ? '維修前照片' : '完修後照片'}
+                                {type === 'before' ? '維修前照片' : '結案後照片'}
                                 <span className="ml-2 text-slate-400 font-normal">({previews[type].length} 張)</span>
                             </div>
                             {previews[type].length === 0 ? (
@@ -709,7 +740,7 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
                                     style={{ WebkitTapHighlightColor: 'transparent' }}
                                 >
                                     <Camera size={24} className="mb-2 opacity-50"/>
-                                    <span className="text-xs">點擊上傳多張{type === 'before' ? '維修前' : '完修後'}照片</span>
+                                    <span className="text-xs">點擊上傳多張{type === 'before' ? '維修前' : '結案後'}照片</span>
                                 </button>
                             ) : (
                                 <div className="grid grid-cols-3 gap-2">

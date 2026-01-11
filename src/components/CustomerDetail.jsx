@@ -61,6 +61,15 @@ const CustomerDetail = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedModel, setSelectedModel] = useState('all'); // 機型篩選器
 
+  const formatMMDD = (dateStr) => {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return dateStr;
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${month}/${day}`;
+  };
+
   const getSourceBadge = (source) => {
     const baseClass = "text-xs px-2 py-0.5 rounded-md flex items-center gap-1 font-medium ml-2";
     switch(source) {
@@ -330,9 +339,9 @@ const CustomerDetail = ({
                           <div className="flex items-center mb-2">
                             <Calendar size={16} className="text-slate-400 mr-2 shrink-0"/>
                             <span className="text-sm font-bold text-slate-500">
-                              {record.status === 'completed' && record.createdDate && record.completedDate && record.createdDate !== record.completedDate
-                                ? `${record.createdDate} ~ ${record.completedDate}`
-                                : record.date}
+                              {record.status === 'completed'
+                                ? `${formatMMDD(record.date)} 接案 | ${formatMMDD(record.completedDate || record.date)} 結案`
+                                : `${formatMMDD(record.date)} 接案`}
                             </span>
                             {getSourceBadge(record.serviceSource)}
                           </div>
@@ -375,9 +384,9 @@ const CustomerDetail = ({
                               {record.status === 'completed' ? <CheckCircle size={12}/> : record.status === 'tracking' ? <CheckCircle size={12}/> : record.status === 'monitor' ? <Eye size={12}/> : <Wrench size={12}/>}
                               <span>
                                 {record.status === 'completed' 
-                                  ? (record.completedDate ? `結案: ${record.completedDate}` : '已結案') 
-                                  : record.status === 'tracking' ? (record.nextVisitDate ? `預定續修: ${record.nextVisitDate}` : '待續修') :
-                                    record.status === 'monitor' ? (record.nextVisitDate ? `技術複查: ${record.nextVisitDate}` : '待複查') : '待處理'}
+                                  ? (record.completedDate ? `結案: ${formatMMDD(record.completedDate)}` : '已結案') 
+                                  : record.status === 'tracking' ? (record.nextVisitDate ? `預定續修: ${formatMMDD(record.nextVisitDate)}` : '待續修') :
+                                    record.status === 'monitor' ? (record.nextVisitDate ? `技術複查: ${formatMMDD(record.nextVisitDate)}` : '待複查') : '待處理'}
                               </span>
                             </div>
                           </div>

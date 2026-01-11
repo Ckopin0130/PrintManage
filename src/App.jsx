@@ -459,11 +459,11 @@ export default function App() {
             recordData.date = new Date().toLocaleDateString('en-CA');
         }
 
-        // 強制讓 結案日 (completedDate) = 維修日 (date)
+        // 結案日 (completedDate)：結案時優先使用表單指定日期，未指定才 fallback 到接案日 (date)
         if (recordData.status === 'completed') {
-            recordData.completedDate = recordData.date; 
+            recordData.completedDate = recordData.completedDate || recordData.date;
         } else {
-            // 如果狀態不是完修，清空結案日
+            // 如果狀態不是結案，清空結案日
             recordData.completedDate = null;
         }
 

@@ -19,6 +19,15 @@ const WorkLogReportModal = ({ isOpen, onClose, records = [], customers = [], dat
         return str.replace(/^([\d０-９]+[.、\s)）\uff0e]+|[(（][\d０-９]+[)）]|[\u2460-\u2473])\s*/, '');
     };
 
+    const formatMMDD = (dateStr) => {
+        if (!dateStr) return '';
+        const date = new Date(dateStr);
+        if (isNaN(date.getTime())) return dateStr;
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${month}/${day}`;
+    };
+
     // === A. 維修行程列表 (Job List) ===
     const listText = records.map((r) => {
         const cust = Array.isArray(customers) ? customers.find(c => c.customerID === r.customerID) : null;
@@ -53,6 +62,12 @@ const WorkLogReportModal = ({ isOpen, onClose, records = [], customers = [], dat
         if (Array.isArray(r.parts) && r.parts.length > 0) {
             const partsStr = r.parts.map(p => `${p.name} x${p.qty}`).join('、');
             text += `\n🔹 更換: ${partsStr}`;
+        }
+
+        // 🔹 結案日期 (結案才顯示)
+        if (r.status === 'completed') {
+            const finishDate = r.completedDate || r.date;
+            text += `\n🔹 結案：${formatMMDD(finishDate)}`;
         }
 
         return text;
@@ -230,6 +245,15 @@ const WorkLog = ({
       return '全部紀錄';
   };
 
+  const formatMMDD = (dateStr) => {
+        if (!dateStr) return '';
+        const date = new Date(dateStr);
+        if (isNaN(date.getTime())) return dateStr;
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${month}/${day}`;
+    };
+
   return (
     <div className="bg-slate-50 min-h-screen pb-24 font-sans flex flex-col">
       <div className="bg-white/95 backdrop-blur shadow-sm sticky top-0 z-30 border-b border-slate-100/50">
@@ -320,7 +344,7 @@ const WorkLog = ({
 
                 if(r.status === 'completed') {
                     borderClass = 'border-l-4 border-l-emerald-500';
-                    statusLabel = '完修';
+                    statusLabel = '結案';
                     statusBg = 'bg-emerald-50 text-emerald-600';
                 } else if(r.status === 'pending' || r.status === 'tracking') {
                     borderClass = 'border-l-4 border-l-amber-500';
@@ -366,7 +390,7 @@ const WorkLog = ({
                         )}
 
                         <div className="text-xs text-slate-400 mt-2 text-right border-t border-slate-50 pt-2 flex items-center justify-end gap-1">
-                           <Clock size={12}/> {r.date}
+                           <Clock size={12}/> {r.status === 'completed' ? `${formatMMDD(r.date)} 接案 | ${formatMMDD(r.completedDate || r.date)} 結案` : `${formatMMDD(r.date)} 接案`}
                         </div>
                     </div>
                 )
