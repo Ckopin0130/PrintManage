@@ -24,8 +24,9 @@ const TrackingView = ({ records, customers, setCurrentView, startEditRecord, han
     }
   };
 
-  const getFriendlyDateInfo = (dateStr) => {
-    if (!dateStr) return { text: '未設定回訪', color: 'text-slate-400' };
+  const getFriendlyDateInfo = (dateStr, status) => {
+    const prefix_label = status === 'monitor' ? '技術複查' : '預定續修';
+    if (!dateStr) return { text: `${prefix_label}：未設定`, color: 'text-slate-400' };
     
     // [修正重點]：將 YYYY-MM-DD 的 "-" 替換為 "/"，瀏覽器會強制以「當地時間」解析
     // 解決 UTC+8 時區導致的 "今天變明天" 誤差問題
@@ -47,7 +48,8 @@ const TrackingView = ({ records, customers, setCurrentView, startEditRecord, han
     else if (diffDays === 2) prefix = '後天';
     else if (diffDays === -1) prefix = '昨日';
 
-    const text = `${prefix ? prefix + ' ' : ''}(${weekDayStr}) ${dateStr}`;
+    const shortDate = `${dateObj.getMonth() + 1}/${dateObj.getDate()}`;
+    const text = `${prefix_label}：${prefix ? prefix + ' ' : ''}${shortDate}(${weekDayStr})`;
 
     let color = 'text-slate-600';
     if (diffDays < 0) color = 'text-red-600 font-extrabold';
@@ -77,7 +79,7 @@ const TrackingView = ({ records, customers, setCurrentView, startEditRecord, han
           </div> : 
           trackingRecords.map(r => {
              const cust = customers.find(c => c.customerID === r.customerID);
-             const visitDateInfo = getFriendlyDateInfo(r.nextVisitDate || r.return_date);
+             const visitDateInfo = getFriendlyDateInfo(r.nextVisitDate || r.return_date, r.status);
              
              // 確保讀取到最新的 symptom 資料
              const faultContent = r.symptom || r.fault || r.description || '';
@@ -141,7 +143,7 @@ const TrackingView = ({ records, customers, setCurrentView, startEditRecord, han
                       }`}>
                           {r.status === 'tracking' ? <CheckCircle size={12}/> : r.status === 'monitor' ? <Eye size={12}/> : <Wrench size={12}/>}
                           <span>
-                             {r.status === 'tracking' ? '待追蹤' : r.status === 'monitor' ? '觀察中' : '待料'}
+                             {r.status === 'tracking' ? '續修' : r.status === 'monitor' ? '複查' : '待料'}
                           </span>
                       </div>
                   </div>

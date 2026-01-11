@@ -854,13 +854,13 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
           customerModel={customerMachineModel}
         />
 
-        {/* 回訪日期選擇 Modal (🌟 已修正手機自訂點擊問題) */}
+        {/* 日期設定 Modal */}
         {showVisitDateModal && (
             <div className="fixed inset-0 bg-black/60 z-[70] flex items-center justify-center p-4 animate-in fade-in">
                 <div className="bg-white w-full max-w-sm rounded-2xl p-6 shadow-xl space-y-4">
                     <h3 className="text-lg font-bold text-slate-800 flex items-center">
                         <Calendar className="mr-2 text-blue-600" size={20}/> 
-                        設定回訪日期
+                        {form.status === 'tracking' ? '設定預定續修' : '設定技術複查'}
                     </h3>
                     
                     <div className="flex gap-2">
@@ -874,7 +874,7 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
                                 {days}天
                             </button>
                         ))}
-                        {/* 🌟 修正：點擊自訂會觸發 input 顯示日期選擇器 */}
+                        {/* 修正：點擊自訂會觸發 input 顯示日期選擇器 */}
                         <button 
                             onClick={handleCustomDateClick}
                             className="flex-1 py-2 bg-white border border-slate-200 rounded-lg text-sm font-bold text-slate-600 shadow-sm outline-none focus:outline-none focus:ring-2 focus:ring-blue-100"
@@ -886,17 +886,16 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
 
                     <input 
                         type="date" 
-                        ref={dateInputRef} // 🌟 綁定 ref
+                        ref={dateInputRef} // 綁定 ref
                         value={nextVisitDate}
                         onChange={e => setNextVisitDate(e.target.value)}
                         className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-700 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
                     />
                     
-                    {form.status === 'tracking' && (
-                        <p className="text-xs text-orange-600 font-bold flex items-center">
-                            <AlertTriangle size={12} className="mr-1"/> 案件將進入「待辦追蹤」列表
-                        </p>
-                    )}
+                    <p className={`text-xs font-bold flex items-center ${form.status === 'tracking' ? 'text-orange-600' : 'text-blue-600'}`}>
+                        <AlertTriangle size={12} className="mr-1"/> 
+                        {form.status === 'tracking' ? '案件將進入「待辦追蹤」列表' : '案件將進入「觀察」列表'}
+                    </p>
 
                     <div className="flex gap-3 pt-2">
                         <button 
@@ -915,7 +914,7 @@ const RecordForm = ({ initialData, onSubmit, onCancel, inventory, customers }) =
                             }`}
                             style={{ WebkitTapHighlightColor: 'transparent' }}
                         >
-                            建立{form.status === 'tracking' ? '追蹤' : '觀察'}
+                            {form.status === 'tracking' ? '建立續修' : '建立複查'}
                         </button>
                     </div>
                 </div>

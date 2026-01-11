@@ -94,16 +94,17 @@ const WorkLogReportModal = ({ isOpen, onClose, records = [], customers = [], dat
             });
         }
 
-        // 第六行：完修或回訪 (使用短日期格式)
+        // 第六行：完修或續修/複查 (使用短日期格式)
         if (r.status === 'completed') {
             const finishDate = r.completedDate || r.date; 
-            lines.push(`🔹 完修：${formatDateShort(finishDate)}`);
+            lines.push(`🔹 結案：${formatDateShort(finishDate)}`);
         } else {
             const visitDate = r.nextVisitDate || r.return_date;
+            const statusLabel = r.status === 'monitor' ? '技術複查' : '預定續修';
             if (visitDate) {
-                lines.push(`⚠️ 回訪日期：${formatDateShort(visitDate)}`);
+                lines.push(`⚠️ ${statusLabel}：${formatDateShort(visitDate)}`);
             } else {
-                lines.push(`⚠️ 回訪日期：未定`);
+                lines.push(`⚠️ ${statusLabel}：未定`);
             }
         }
 
@@ -366,10 +367,14 @@ const RecordList = ({
                             <button onClick={(e) => { e.stopPropagation(); handleDeleteRecord(e, r.id); }} className="text-slate-300 hover:text-red-500 p-1 -mr-1"><Trash2 size={16}/></button>
                         </div>
 
-                        {/* 2. 【資訊】 叫修日期(小字體) + 來源標籤 */}
+                        {/* 2. 【資訊】 日期顯示 + 來源標籤 */}
                         <div className="flex items-center mb-2">
                              <Calendar size={16} className="text-slate-400 mr-2 shrink-0"/>
-                             <span className="text-sm font-bold text-slate-500">{r.date}</span>
+                             <span className="text-sm font-bold text-slate-500">
+                                {r.status === 'completed' && r.createdDate && r.completedDate && r.createdDate !== r.completedDate
+                                  ? `${r.createdDate} ~ ${r.completedDate}`
+                                  : r.date}
+                             </span>
                              {getSourceBadge(r.serviceSource)}
                         </div>
 
@@ -440,11 +445,9 @@ const RecordList = ({
                                  {r.status === 'completed' ? <CheckCircle size={12}/> : r.status === 'tracking' ? <CheckCircle size={12}/> : r.status === 'monitor' ? <Eye size={12}/> : <Wrench size={12}/>}
                                  <span>
                                     {r.status === 'completed' 
-                                      ? (r.nextVisitDate 
-                                          ? `回訪完修: ${r.completedDate || r.date}` 
-                                          : (r.completedDate ? `完修: ${r.completedDate}` : '已完修')) 
-                                      : r.status === 'tracking' ? (r.nextVisitDate ? `回訪: ${r.nextVisitDate}` : '待追蹤') :
-                                        r.status === 'monitor' ? (r.nextVisitDate ? `觀察: ${r.nextVisitDate}` : '觀察中') : '待處理'}
+                                      ? (r.completedDate ? `結案: ${r.completedDate}` : '已結案') 
+                                      : r.status === 'tracking' ? (r.nextVisitDate ? `預定續修: ${r.nextVisitDate}` : '待續修') :
+                                        r.status === 'monitor' ? (r.nextVisitDate ? `技術複查: ${r.nextVisitDate}` : '待複查') : '待處理'}
                                  </span>
                              </div>
                         </div>

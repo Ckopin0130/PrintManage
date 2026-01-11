@@ -90,7 +90,8 @@ export default function App() {
     photoBefore: record.photoBefore || null,
     photoAfter: record.photoAfter || null,
     nextVisitDate: record.nextVisitDate || record.return_date || '',
-    completedDate: record.completedDate || null
+    completedDate: record.completedDate || null,
+    createdDate: record.createdDate || record.date || null
   }), []);
 
   const showToast = useCallback((message, type = 'success') => setToast({ message, type }), []);
@@ -102,20 +103,17 @@ export default function App() {
   // 今日維修統計
   const todayStr = useMemo(() => new Date().toLocaleDateString('en-CA'), []);
   
-  // 今日新建：createdDate 或 date 為今天的紀錄
+  // 今日接件：createdDate === 今天 的紀錄總數
   const todayNewCount = useMemo(() => {
     return records.filter(r => {
-      const createDate = r.createdDate || r.date;
-      return createDate === todayStr;
+      return r.createdDate === todayStr;
     }).length;
   }, [records, todayStr]);
   
-  // 今日回訪完修：completedDate 為今天，且有 nextVisitDate（表示是回訪案件）
-  const todayReturnCompletedCount = useMemo(() => {
+  // 今日結案：status === 'completed' 且 completedDate === 今天 的紀錄總數
+  const todayClosedCount = useMemo(() => {
     return records.filter(r => {
-      return r.status === 'completed' && 
-             r.completedDate === todayStr && 
-             r.nextVisitDate;
+      return r.status === 'completed' && r.completedDate === todayStr;
     }).length;
   }, [records, todayStr]);
   
@@ -471,13 +469,15 @@ export default function App() {
 
         // 存檔動作
         if (recordData.id) {
-            const { id, ...updates } = recordData;
+            // 編輯舊紀錄：保護 createdDate 不被覆蓋
+            const { id, createdDate, ...updates } = recordData;
+            delete updates.createdDate; // 確保不會覆蓋原始接件日期
             await setDoc(doc(db, 'records', id), updates, { merge: true });
             showToast('維修紀錄已更新');
         } else {
+            // 新建紀錄：設定接件日期 (createdDate)
             delete recordData.id; 
             recordData.timestamp = Date.now();
-            // 新建紀錄時設定建立日期
             recordData.createdDate = recordData.date || new Date().toLocaleDateString('en-CA');
             await addDoc(collection(db, 'records'), recordData);
             showToast('維修紀錄已新增');
@@ -773,7 +773,7 @@ export default function App() {
         <Dashboard 
           today={today} dbStatus={dbStatus} pendingTasks={pendingTasks} 
           todayCompletedCount={todayCompletedCount} totalCustomers={customers.length} 
-          todayNewCount={todayNewCount} todayReturnCompletedCount={todayReturnCompletedCount}
+          todayNewCount={todayNewCount} todayClosedCount={todayClosedCount}
           setCurrentView={setCurrentView} setActiveTab={setActiveTab}
           onQuickAction={() => setCurrentView('quick_action')}
         />
